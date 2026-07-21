@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+<!--Global configurations-->
+<EcdisSdk>
+    <SCRN_SIZE_INCH value="27" />
+    <Scrn_Width_Pix value="1920" />
+    <Scrn_Height_Pix value="1080" />
+    <Pick_Debug_Info value="0" />
+    <Enable_Text_Overlap_Check value="0" />
+    <Max_Chart_Cache_Size value="30" />
+    <Fixed_Downscale_Threshold value="2" />
+    <Font_Size_Scale_Factor_Ch value="0" />
+    <Font_Size_Scale_Factor_En value="0" />
+    <Enable_Render_Cache value="0" />
+    <Enable_Dynamic_Area_Center value="0" />
+    <Precise_Area_Center value="1" />
+    <Smooth_Mode_State value="1" />
+    <Performance_Pixes value="0" />
+    <Show_No_Background_Charts value="0" />
+    <Performance_Memfile value="1" />
+    <Enable_Auto_Scamin value="0" />
+    <Enable_Sym_Overlap_Check value="0" />
+    <Enable_Partial_Update_Panning value="0" />
+    <Disable_Antialias value="0" />
+    <Share_Map_Data_Dir value="1" />
+    <No_Scalebar value="0" />
+    <No_Northup value="0" />
+</EcdisSdk>

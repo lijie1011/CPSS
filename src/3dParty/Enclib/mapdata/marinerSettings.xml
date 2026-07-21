@@ -1,0 +1,48 @@
+<?xml version="1.0" ?>
+<MarinerSettings>
+    <ViewDateAuto value="1" />
+    <ViewDateRange ViewDateStart="0" ViewDateEnd="2147483647" />
+    <DisplayFullLenghtSectorLeg value="1" />
+    <HighlightDateDependentObjs value="1" />
+    <HighlightAdditionalChartInfo value="1" />
+    <HighlightAdditionalChartInfoDoc value="1" />
+    <ColorScheme value="DAY" />
+    <DisplayChineseLanguage value="1" />
+    <DisplayNationalLanguage value="1" />
+    <DisplayStyle value="0" />
+    <PointSymbolType value="1" />
+    <UseSCAMIN value="1" />
+    <ShowShallowPattern value="1" />
+    <TwoDepthShades value="0" />
+    <SafetyDepth value="30" />
+    <ShallowContour value="10" />
+    <SafetyContour value="30" />
+    <DeepContour value="50" />
+    <ShowOverScale value="1" />
+    <ShowText value="0" />
+    <ShowFullText value="1" />
+    <TextGroupLayer value="1,21,22,23," />
+    <TextGroup value="0,1,2,3,4,5,6,7,8,9,10,11,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49," />
+    <ShowDateCheck value="1" />
+    <ShowGrid value="0" />
+    <ShowChartBoudary value="0" />
+    <MonoView value="0" />
+    <ViewClass value="67" />
+    <ViewGroupLayer value="-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0," />
+    <ViewGroups>
+        <BaseViewGroup>
+            <Groups value="11000,11010,11030,11040,11050,11060,12000,12010,12200,12210,12400,12410,12420,13000,13010,13030,14000,14050," />
+            <ConfigState value="2" />
+        </BaseViewGroup>
+        <StdViewGroup>
+            <Groups value="" />
+            <ConfigState value="2" />
+        </StdViewGroup>
+        <OtherViewGroup>
+            <Groups value="" />
+            <ConfigState value="2" />
+        </OtherViewGroup>
+    </ViewGroups>
+    <ShowShallowWaterIsoDanger value="0" />
+    <SymbolizedAreaBoundaries value="0" />
+</MarinerSettings>

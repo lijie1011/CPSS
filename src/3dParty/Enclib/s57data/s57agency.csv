@@ -1,0 +1,342 @@
+"Cname","Ccode","Aname","Acode1","Acode2","Type"
+"Algeria",DZ,"Service Hydrographique des Forces Navales",610,DZ,0
+"Argentina",AR,"Servicio de Hidrograf¨ªa Naval(SHN)",1,AR,0
+"Australia",AU,"Australian Hydrographic Service(AHS)",10,AU,0
+"Bahrain",BH,"Hydrographic Survey Office",20,BH,0
+"Bangladesh",BD,"Hydrographic Department",660,BD,0
+"Belgium",BE,"MDK ¨C Afdeling Kust ¨C Division Coast",30,BE,0
+"Brazil",BR,"Directorate of Hydrography and Navigation(DHN)",40,BR,0
+"Cameroon",CM,"Port Autonome de Douala(PAD)",740,CM,0
+"Canada",CA,"Canadian Hydrographic Service(CHS)",50,CA,0
+"Canada",CA,"Canadian Forces",51,C4,0
+"Chile",CL,"Servicio Hidrogr¨¢fico y Oceanogr¨¢fico dela Armada(SHOA)",60,CL,0
+"China",CN,"Maritime Safety Administration(MSA)",70,CN,0
+"China",CN,"The Navigation Guarantee Department of The Chinese Navy Headquarters",71,C1,0
+"China",CN,"Hong Kong Special Administrative Region",72,C2,0
+"China",CN,"Macau Special Administrative Region",73,C3,0
+"Colombia",CO,"Ministerio de Defensa Nacional 760 COCongo(Dem.Rep. of) CD Minist¨¨re des Transports et Communications",590,CD,0
+"Croatia",HR,"Hrvatski Hidrografski Institut",80,HR,0
+"Cuba",CU,"Oficina Nacional de Hidrografia y Geodesia",90,CU,0
+"Cyprus",CY,"Hydrographic Unit of the Department of Lands and Surveys",100,CY,0
+"Denmark",DK,"Kort-Og Matrikelstyrelsen(KMS) 110 DK Dominican Rep. DO Instituto Cartografico Militar 120 DO Ecuador ECInstituto Oceanogr¨¢fico de la Armada(INOCAR)",130,EC,0
+"Egypt",EG,"Shobat al Misaha al Baharia",140,EG,0
+"Estonia",EE,"Estonian Maritime Administration(EMA)",870,EE,0
+"Fiji",FJ,"Fiji Islands Maritime Safety Administration(FIMSA)",150,FJ,0
+"Finland",FI,"Finnish Maritime Administration(FMA)",160,FI,0
+"France",FR,"Service Hydrographique et Oc¨¦anographique de la Marine(SHOM)",170,FR,0
+"Germany",DE,"Bundesamt f¨¹r Seeschiffahrt undHydrographie(BSH)",180,DE,0
+"Greece",GR,"Hellenic Navy Hydrographic Service(HNHS)",190,GR,0
+"Guatemala",GT,"Ministerio de la Defensa Nacional",200,GT,0
+"Guatemala",GT,"Comisi¨®n Portuaria Nacional",201,G1,0
+"Iceland",IS,"Icelandic Coast Guard",210,IS,0
+"India",IN,"National Hydrographic Office(NHO)",220,IN,0
+"Indonesia",ID,"Jawatan Hidro-Oseanografi(JANHIDROS)",230,ID,0
+"Ireland",IE,"Maritime Safety Directorate",990,IE,0
+"Islamic Rep. of Iran",IR,"Ports and Shipping Organization(PSO)",240,IR,0
+"Italy",IT,"Istituto Idrografico della Marina(IIM)",250,IT,0
+"Jamaica",JM,"Surveys and Mapping Division",1010,JM,0
+"Japan",JP,"Japan Hydrographic and Oceanographic Department(JHOD)",260,JP,0
+"Korea(DPR of)",KP,"Hydrographic Department",270,KP,0
+"Korea(Rep.of)",KR,"National Oceanographic Research Institute(NORI)",280,KR,0
+"Kuwait",KW,"Ministry of Communications",1050,KW,0
+"Latvia",LV,"Maritime Administration of Latvia",1060,LV,0
+"Malaysia",MY,"National Hydrographic Centre",290,MY,0
+"Mauritius",MU,"Ministry of Housing and Land,Hydrographic Unit",1170,MU,0
+"Mexico",MX,"Secretaria de Marina ¨C Armada de Mexico,Direccion General Adjunta de Oceanografia,Hidrografia y Meteorologia",1180,MX,0
+"Monaco",MC,"Direction des Affaires Maritimes",300,MC,0
+"Morocco",MA,"Division Hydrographie et Cartographie(DHC) de la Marine Royale",1200,MA,0
+"Mozambique",MZ,"Instituto Nacional de Hidrografia eNavega??o(INAHINA)",1210,MZ,0
+"Myanmar",MM,"Central Naval Hydrographic Depot(CNHD)",1220,MM,0
+"Netherlands",NL,"Koninklijke Marine Dienst der Hydrografie/CZSK",310,NL,0
+"New Zealand",NZ,"Land Information New Zealand(LINZ)",320,NZ,0
+"New Zealand",NZ,"New Zealand Defence force(NZDF) Geospatial Intelligence Organisation(GIO)",321,N3,0
+"Nigeria",NG,"Nigerian Navy Hydrographic Office",330,NG,0
+"Norway",NO,"Norwegian Hydrographic Service",340,NO,0
+"Norway",NO,"Electronic Chart Centre",341,N1,0
+"Norway",NO,"Norwegian Defence",342,N2,0
+"Oman",OM,"National Hydrographic Office",350,OM,0
+"Pakistan",PK,"Pakistan Hydrographic Department	",360,PK,0
+"Papua New Guinea",PG,"Hydrographic Division,National Maritime Safety Division(NMSA)",370,PG,0
+"Peru",PE,"Direcci¨®n de Hidrograf¨ªa y Navegaci¨®n(DHN)",380,PE,0
+"Philippines",PH,"National Mapping and Resource Information Authority,Coast & Geodetic Survey Department",390,PH,0
+"Poland",PL,"Biuro Hydrograficzne",400,PL,0
+"Portugal",PT,"Instituto Hidrografico,Portugal(IHP)",410,PT,0
+"Qatar",QA,"Urban Planning & Development Authority,Hydrographic Section",1290,QA,0
+"Romania",RO,"Directia Hidrografica Maritima",1300,RO,0
+"Russian Federation",RU,"Head Department of Navigation & Oceanography(DNO)",420,RU,0
+"Russian Federation",RU,"Federal State Unitary Hydrographc Department",425,R1,0
+"Saudi Arabia",SA,"General Directorate of Military Survey(GDMS)",1360,SA,0
+"Saudi Arabia",SA,"General Commission for Survey(GCS)",1365,S1,0
+"Serbia",RS,"Direkcija Za Unutra?nje Plovne Puteve",580,RS,0
+"Singapore",SG,"Hydrographic Department,Maritime and Port Authority(MPA)",430,SG,0
+"Slovenia",SI,"Ministry of Transport Maritime Office",1400,SI,0
+"South Africa(Rep. of)",ZA,"South African Navy Hydrographic Office(SANHO)",440,ZA,0
+"Spain",ES,"Instituto Hidrogr¨¢fico de la Marina(IHM)",450,ES,0
+"Sri Lanka",LK,"National Hydrographic Office,National Aquatic Resources Research and Development Agency(NARA)",460,LK,0
+"Suriname",SR,"Maritieme Autoriteit Suriname(MAS)",470,SR,0
+"Sweden",SE,"Sj?fartsverket,Swedish Maritime Administration",480,SE,0
+"Syrian ArabRepublic",SY,"General Directorate of Ports",490,SY,0
+"Thailand",TH,"Hydrographic Department,Royal Thai Navy",500,TH,0
+"Tonga",TO,"Tonga Defence Services",505,TO,0
+"Trinidad & Tobago",TT,"Trinidad & Tobago Hydrographic Unit",510,TT,0
+"Tunisia",TN,"Service Hydrographique et Oc¨¦anographique(SHO),Arm¨¦e de Mer",1470,TN,0
+"Turkey",TR,"Seyir,Hidrografi ve Osinografi Dairesi Baskanligi,Office of Navigation,Hydrography and Oceanography",520,TR,0
+"UK",GB,"United Kingdom Hydrographic Office",540,GB,0
+"Ukraine",UA,"State Hydrographic Service of Ukraine",1490,UA,0
+"United Arab Emirates",AE,"Ministry of Communications",530,AE,0
+"Uruguay",UY,"Servicio de Oceanograf¨ªa,Hidrograf¨ªa y Meteorolog¨ªa de la Armada(SOHMA)",560,UY,0
+"USA",US,"Office of Coast Survey,National Ocean Service,National Oceanic and Atmospheric Administration(NOS)",550,US,0
+"USA",US,"National Geospatial-Intelligence Agency Department of Defense(NGA)",551,U1,0
+"USA",US,"Commander,Naval Meteorology and Oceanography Command(CNMOC)",552,U2,0
+"USA",US,"U.S. Army Corps of Engineers(USACE)",553,U3,0
+"Venezuela",VE,"Commandancia General de la Armada,Direcci¨®n de Hidrograf¨ªa y Navegaci¨®n(DHN)",570,VE,0 
+"International Hydrographic Organization",AA,"International Hydrographic Organization(IHO)",1810,AA,1
+"Co-operating Hydrographic Offices",MS,"Co-operating Hydrographic Offices in the Malacca and Singapore Straits(Indonesia,Japan,Malaysia and Singapore)",2010,MS,1
+"xx",xx,"East Asia Hydrographic Commission(EAHC)",2040,EA,1
+"Albania",AL,"Albanian Hydrographic Service",600,AL,1
+"Angola",AO,"Not known",620,AO,1
+"Anguilla",AI,"Ministry of Infrastructure,Communications & Utilities",625,AI,1
+"Antigua and Barbuda",AG,"Antigua and Barbuda Port Authority",630,AG,1
+"Aruba",AW,"Netherlands ENC charting responsibility",640,AW,1
+"Azerbaijan",AZ,"Azerbaijan Navy",645,AZ,1
+"Bahamas",BS,"Port Department,Ministry of Transport and Aviation",650,BS,1
+"Barbados",BB,"Barbados Port Inc",670,BB,1
+"Belize",BZ,"Belize Port Authority",680,BZ,1
+"Benin",BJ,"Direction G¨¦n¨¦rale du Port Autonome de Cotonou",690,BJ,1
+"Bermuda",BM,"Ministry of Works,Engineering and Housing",695,BM,1
+"Bolivia",BO,"Servicio Nacional de Hidrografia Naval de Bolivia",700,BO,1
+"British Virgin Islands",VG,"Chief Minister¡¯s Office",705,VG,1
+"Brunei Darussalam",BN,"Department of Marine",710,BN,1
+"Brunei Darussalam",BN,"Survey Department",715,B2,1
+"Bulgaria",BG,"Hidrografska Sluzhba Pri Ministerstvo Na Otbranata",720,BG,1
+"Cambodia",KH,"Service de l¡¯Hydrologie et des grands barrages",730,KH,1
+"Cape Verde",CV,"Instituto Marityimo e Portu¨¢rio(IMP)",750,CV,1
+"Comoros",KM,"Not Known",770,KM,1
+"Congo(Rep.of)",CG,"Port Autonome de Pointe Noire",780,CG,1
+"Cook Islands",CK,"Maritime Division,Ministry of Tourism and Transport",790,CK,1
+"Costa-Rica",CR,"Instituto Geografico Nacional(IGN)",800,CR,1
+"C?te d¡¯Ivoire",CI,"Direction G¨¦n¨¦rale du Port Autonome d¡¯Abidjan",810,CI,1
+"Djibouti",DJ,"Minist¨¨re de l¡¯Equipement et des Transports,Direction des Affaires Maritimes",820,DJ,1
+"Dominica",DM,"Not known",830,DM,1
+"El Salvador",SV,"Gerente de Geodesia,Centro Nacional de Registros,Instituto Geografico y del Catastro Nacional",840,SV,1
+"Equatorial Guinea",GQ,"Ministry of Transportation and Civil Aviation",850,GQ,1
+"Eritrea",ER,"Department of Marine Transport",860,ER,1
+"Ethiopia",ET,"Ministry of Transport and Communications Marine Transport Authority",880,ET,1
+"Gabon",GA,"Direction G¨¦n¨¦rale de la Marine Marchande",890,GA,1
+"Gambia",GM,"Gambia Ports Authority",900,GM,1
+"Georgia",GE,"State Hydrographic Service of Georgia",905,GE,1
+"Ghana",GH,"Ghana Ports and Harbours Authority",910,GH,1
+"Grenada",GD,"Grenada Ports Authority",920,GD,1
+"Guinea",GN,"Port Autonome de Conakry",930,GN,1
+"Guinea-Bissau",GW,"Administra??o dos Portos da Guin¨¦-Bissau",940,GW,1
+"Guyana",GY,"Maritime Administration Department Hydrographic Office",950,GY,1
+"Haiti",HT,"Service Maritime et de Navigation d¡¯Ha?ti",960,HT,1
+"Honduras",HN,"Empresa Nacional Portuaria",970,HN,1
+"Iraq",IQ,"Marine Department,General Company for Iraki Ports",980,IQ,1
+"Israel",IL,"Administration of Shipping and Ports",1000,IL,1
+"Israel",IL,"Survey of Israel",1001,I1,1
+"Israel",IL,"Israel Navy",1002,I2,1
+"Jordan",JO,"The Ports Corporation,Jordan",1020,JO,1
+"Kenya",KE,"Survey of Kenya,Kenya Ports Authority",1030,KE,1
+"Kiribati",KI,"Ministry of Transport and Communications",1040,KI,1
+"Lebanon",LB,"Ministry of Public Works & Transport",1070,LB,1
+"Liberia",LR,"Ministry of Lands,Mines and Energy",1080,LR,1
+"Libyan Arab Jamahiriya",LY,"Not known",1090,LY,1
+"Lithuania",LT,"Lithuanian Maritime Safety Administration",1100,LT,1
+"Madagascar",MG,"Institut G¨¦ographique et Hydrographique National",1110,MG,1
+"Malawi",MW,"Hydrographic Survey Unit",1120,MW,1
+"Malawi",MW,"Marine Department",1121,M2,1
+"Maldives",MV,"Department of Information and Broadcasting",1130,MV,1
+"Malta",MT,"Malta Maritime Authority Ports Directorate,Hydrographic Unit",1140,MT,1
+"Marshall Islands",MH,"Ministry of Resources and Development",1150,MH,1
+"Mauritania",MR,"Minist¨¨re de la D¨¦fense Nationale",1160,MR,1
+"Micronesia(Federated States of)",FM,"Not known",1190,FM,1
+"Montenegro",ME,"Ministry of Defence,Navy Headquarters",1225,ME,1
+"Montserrat",MS,"Montserrat Port Authority",1197,M3,1
+"Namibia",NA,"Ministry of Works,Transports and Communications",1230,NA,1
+"Nauru",NR,"Nauru Phosphate Corporation",1240,NR,1
+"Nicaragua",NI,"Ministero de la Presidencia,Instituto Nicarag¨¹ense de Estudios Territoriales,Direcci¨®n de Recursos H¨ªdricos,",1250,NI,1
+"Niue",NU,"Lands and Survey Division",1255,NU,1
+"Palau",PW,"Bureau of Domestic Affairs",1260,PW,1
+"Panama",PA,"Autoridad Maritima de Panama",1270,PA,1
+"Paraguay",PY,"Fuerzas Armadas de la Nacion,Armada Paraguaya,Comando de apoyo de combate",1280,PY,1
+"Saint Kitts and Nevis",KN,"St. Christopher Air and Sea Ports Authority,Maritime Division",1310,KN,1
+"Saint Lucia",LC,"Saint Lucia Air and Sea Ports Authority,Division of Maritime Affairs",1320,LC,1
+"Saint Vincent and the Grenadines",VC,"Ministry of Communications and Works",1330,VC,1
+"Samoa",WS,"Ministry of Transport,Marine and Shipping Division",1340,WS,1
+"Sao Tome and Principe",ST,"Not known",1350,ST,1
+"Senegal",SN,"Service de s¨¦curit¨¦ maritime du S¨¦n¨¦gal,Port autonome de Dakar",1370,SN,1
+"Seychelles",SC,"Hydrographic and Topographic Brigade of the Seychelles",1380,SC,1
+"Sierra Leone",SL,"Sierra Leone Maritime Administration,Sierra Leone Ports Authority",1390,SL,1
+"Solomon Islands",SB,"Solomon Islands Hydrographic Office(SIHO)",1410,SB,1
+"Somalia",SO,"Somali Hydrographic Office",1420,SO,1
+"Sudan",SD,"Survey Department",1430,SD,1
+"Tanzania",TZ,"Hydrographic Surveys Section,Surveys and Mapping Division,Ministry of Lands,Housing and Human Settlements Development",1440,TZ,1
+"Tanzania",TZ,"Tanzania Ports Authority(TPA)",1441,T1,1
+"The Cayman Islands",KY,"Governor¡¯s Office",755,KY,1
+"Togo",TG,"University of Benin,Research Department",1450,TG,1
+"Tokelau",TK,"Not known",1460,TK,1
+"Turks & Caicos Islands",TC,"Governor¡¯s Office",1475,TC,1
+"Tuvalu",TV,"Ministry of Labour,Works and Communications",1480,TV,1
+"Uganda",UG,"Commissioner for Transport Regulation",1485,UG,1
+"Vanuatu",VU,"Vanuatu Hydrographic Unit",1500,VU,1
+"Viet Nam",VN,"Viet Nam Maritime Safety Agency(VMSA-1)",1510,VN,1
+"Viet Nam",VN,"Viet Nam Maritime Safety Agency(VMSA-2)",1511,V1,1
+"Yemen",YE,"Ministry of Transport,Yemen Ports Authority,Maritime Affairs Authority",1520,YE,1
+"","","A.F.D.J. R.A. Galati",16203,3R,2
+"","","Abris, Llc",36363,8T,2
+"","","ADVETO Advanced Technology AB",20316,4S,2
+"","","AEMDR, Rousse, Bulgaria",15163,3B,2
+"","","Aero Karta Complex Ltd",16038,3Z,2
+"","","AMEC",27242,6A,2
+"","","American Commercial Lines(ACL), Inc.",23130,5A,2
+"","","Amt fuer Geoinformationswesen der Bundeswehr",7453,1D,2 
+"","","Antarctic Treaty Consultative Committee",1600,QM,2 
+"","","ARAMCO",6682,1A,2 
+"","","Arctic and Antarctic Research Institute(AARI) of the Russian Federal Service for Hydrometeorology and Environmental Monitoring(Roshydromet)",19018,4A,2
+"","","Austrian Supreme Shipping Authority",7980,1S,2 
+"","","Azerbaijan Navy, Service of Navigation and Oceanography",31354,7A,2
+"","","Azienda Regionale Navigazione Interna(ARNI)",10794,2A,2
+"","","Azovo-Donskoe State Basin Waterway and Shipping Authority",14906,3A,2
+"","","BaikalChart, Russia",19275,4B,2
+"","","BMT ARGOSS Ltd",3817,0M,2 
+"","","Bundesanstalt f¨¹r Wasserbau, Karlsruhe",11051,2B,2
+"","","C-Map Russia",20323,4Z,2
+"","","C-Tech SRL, Romania",27499,6B,2
+"","","Canadian Coast Guard",7968,1G,2 
+"","","Canadian Ice Service",20306,4I,2
+"","","CARIS",7196,1C,2 
+"","","Center for Coastal & Ocean Mapping/Joint Hydrographic Center, University of New Hampshire",20318,4U,2
+"","","Centre Sevzapgeoinform(SZGI)",32652,7S,2
+"","","Channel of Moscow",7974,1M,2 
+"","","Chart Pilot Ltd.",11973,2G,2
+"","","ChartCo Limited",32298,7J,2
+"","","Chartworld Gmbh",40092,9C,2
+"","","CherSoft Ltd",39578,9A,2
+"","","Comite International Radio-Maritime",1620,QO,2 
+"","","Command & Control Technologies GmbH",15420,3C,2
+"","","CRUP d.o.o., Croatia",23644,5C,2
+"","","Development Centre for Ship Technology and Transport Systems, Germany",15934,3E,2
+"","","Digital Geographic Information Working Group",1640,QQ,2 
+"","","DMER, Zagreb",12055,2H,2
+"","","e-MLX, Korea",12097,2X,2
+"","","ENC Center, National Taiwan Ocean University",7982,1U,2 
+"","","Environmental Systems Research Institute(ESRI)",20046,4E,2
+"","","Euronav Ltd UK",11822,2E,2
+"","","European Communities Commission",1650,QR,2 
+"","","European Harbour Masters Association",1660,QS,2 
+"","","European Inland ECDIS Expert Group",24418,5I,2
+"","","Fachstelle fuer Geoinformationen Sued beim WSA Regensburg",20320,4W,2
+"","","Federation Internationale des Geometres",1680,QU,2 
+"","","Finnish Navy",16191,3F,2
+"","","Food and Agriculture Organization",1670,QT,2 
+"","","Force Technology, Danish Maritime Institute",7967,1F,2 
+"","","FPAEMDR DRIIREST",16038,3D,2
+"","","Guoy Consultancy Sdn Bhd",27756,6C,2
+"","","Hamburg Port Authority",40865,9H,2
+"","","Hochschule Bremen(Nautik)",12061,2N,2
+"","","HSA Systems Pty Ltd",35466,8A,2
+"","","Hydrographic Office of the Sarawak Marine Department",24422,5M,2
+"","","HYPACK, Inc.",16193,3H,2
+"","","ICAN",16194,3I,2
+"","","IHO Data Centre for Digital Bathymetry",1630,QP,2 
+"","","IIC Technologies",11308,2C,2
+"","","Innovative Navigation GmbH",12056,2I,2
+"","","Intergovernmental Oceanographic Commission",1850,XK,2 
+"","","International Association of Geodesy",1700,QW,2 
+"","","International Association of Institutes of Navigation",1710,QX,2 
+"","","International Association of Lighthouse Authorities",1720,QY,2 
+"","","International Association of Ports and Harbours",1730,QZ,2 
+"","","International Atomic Energy Agency",1690,QV,2 
+"","","International Cable Protection Committee",1750,XB,2 
+"","","International Cartographic Association",1740,XA,2 
+"","","International Centre for ENC(IC-ENC)",2030,IC,2 
+"","","International Chamber of Shipping",1760,XC,2 
+"","","International Commission for the Scientific Exploration of the Mediterranean",1770,XD,2 
+"","","International Council of Scientific Unions",1780,XE,2 
+"","","International Electrotechnical Commission",1790,XF,2 
+"","","International Geographical Union",1800,XG,2 
+"","","International Maritime Academy",1820,XH,2 
+"","","International Maritime Organization",1830,XI,2 
+"","","International Maritime Satellite Organization",1840,XJ,2 
+"","","International Organization for Standardization",1860,XL,2 
+"","","International Radio Consultative Committee",1610,QN,2 
+"","","International Society for Photogrammetry and Remote Sensing",1870,XM,2 
+"","","International Telecommunication Union",1880,XN,2 
+"","","International Union of Geodesy and Geophysics",1890,XO,2 
+"","","International Union of Surveying and Mapping",1900,XP,2 
+"","","Jeppesen Marine",12083,2J,2
+"","","JS Co Geocentre-Consulting, Moscow",7987,1Z,2 
+"","","Kamvodput",12084,2K,2
+"","","Kingway Technology Co",7972,1K,2 
+"","","Land Information New Zealand Hydrographic Services",12099,2Z,2
+"","","Laser-Scan Ltd",7973,1L,2 
+"","","Latincomp",32264,7L,2
+"","","MARIN(Maritime Research Institute Netherlands)",12060,2M,2
+"","","MD Atlantic Technologies",20315,4R,2
+"","","MeteoConsult",20311,4N,2
+"","","National Navigation Authority of the Czech Republic",39624,9D,2
+"","","Nautical Data International, Inc.",7975,1N,2 
+"","","Navionics S.p.A.",7970,1I,2 
+"","","Navionics test and sample datasets",7971,1J,2 
+"","","Navtor AS",28233,6N,2
+"","","NAVTRON SRL",24423,5N,2
+"","","Nobeltec, Inc",40883,9Z,2
+"","","Noorderzon Software",7985,1X,2 
+"","","nv De Scheepvaart",32655,7V,2
+"","","Ocean Surveys Inc.",16200,3O,2
+"","","Offshore Systems Ltd.",7976,1O,2 
+"","","Oil Companies International Marine Forum",1910,XQ,2 
+"","","OOO Tekhpromcomplect",20317,4T,2
+"","","Pan American Institute of Geography and History",1920,XR,2 
+"","","Panama Canal Authority",28243,6P,2
+"","","Pechora Waterways and Navigation Board",16201,3P,2
+"","","Petroslav Hydroservice, Russia",32641,7H,2
+"","","PLOVPUT Beograd",12063,2P,2
+"","","Port Of London Authority",7977,1P,2 
+"","","Port of Rotterdam",12065,2R,2
+"","","PRIMAR - European ENC Coordinating Centre",2020,PM,2 
+"","","Public Works and Government Services Canada - Pacific Region",16012,4P,2
+"","","Quality Positioning Services",7978,1Q,2 
+"","","Radio Technical Commission for Maritime Services",1930,XS,2 
+"","","Rheinschifffahrtsdirektion(RSD) Basel",19532,4C,2
+"","","Rijkswaterstaat",7979,1R,2 
+"","","River Transport Authority(RTA), Egypt",24158,5E,2
+"","","Safe Trip SA, Argentina",24425,5P,2
+"","","Science Applications International Corp",16204,3S,2
+"","","Scientific Commission on Antarctic Research",1940,XT,2 
+"","","SeaZone Solutions",24168,5Z,2
+"","","Seebyte Ltd.",35980,8C,2
+"","","SevenCs AG & Co KG",31868,7C,2
+"","","Solutions from Silicon, Sydney",40876,9S,2
+"","","Ssangyong Information & Communications Corp.",12079,2S,2
+"","","State Federal Unitary Enterprise NW Regional Production Centre of Geoinformation and Mine Surveying Centre, Sevzapgeoinform(Russia)",24427,5R,2
+"","","SVP, s.p., OZ Bratislava",11565,2D,2
+"","","TEC Asociados",24455,5T,2
+"","","T¨¦r-Team Ltd., Budapest",7986,1Y,2 
+"","","Terra Corp",32653,7T,2
+"","","TerraNautical Data",7710,1E,2 
+"","","The Federal Service of Geodesy and Cartography of Russia",32651,7R,2
+"","","The Hydrographic Society",1950,XU,2 
+"","","The Volga State Territorial Department for Waterways",12095,2V,2
+"","","The Volga-Baltic State Territorial Department for Waterways",7983,1V,2 
+"","","The Volga-Don Waterways And Navigation Board",16207,3V,2
+"","","Transas Marine",12093,2T,2
+"","","Tresco Engineering bvba",40877,9T,2
+"","","Tresco Navigation Systems",16205,3T,2
+"","","Tridentnav Systems",16199,3N,2
+"","","U.S. Geological Survey(USGS) - Coastal and Marine Geology",28542,6U,2
+"","","UKHO - private production",7981,1T,2 
+"","","UKHO test and sample datasets",0,1B,2 
+"","","ULTRANS TM srl",12094,2U,2
+"","","United Kingdom Royal Navy",24430,5U,2
+"","","United Nations, Office for Ocean Affairs and Law of the Sea",1970,XW,2 
+"","","US Army Corps of Engineers - Channel Condition Data",16206,3U,2
+"","","via donau - ?sterreichische Wasserstrassen-Gesellschaft mbH",12096,2W,2
+"","","Vituki Water Resources Research Centre Hungary",7969,1H,2 
+"","","Voies Navigables de France(VNF)",20319,4V,2
+"","","Wasser- und Schiffahrtsdirektion Nord",24432,5W,2
+"","","Wasser- und Schiffahrtsverwaltung des Bundes - Direktion SW",7984,1W,2 
+"","","Wasserschutzpolizei-Schule",16208,3W,2
+"","","Waterwegen en Zeekanaal",32656,7W,2
+"","","World Meteorological Organization",1960,XV,2 

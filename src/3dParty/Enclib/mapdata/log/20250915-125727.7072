@@ -1,0 +1,4 @@
+Log file created at: 2025/09/15 12:57:27
+Running on machine: DESKTOP-TIQO9S5
+Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
+E0915 12:57:27.004470  9044 LicenseMgr.cpp:571] License EXPIRED!

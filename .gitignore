@@ -1,0 +1,16 @@
+build/
+*.log
+*.dll
+*.lib
+*.exp
+*.pdb
+*.obj
+*.o
+*.out
+.vscode/
+.vs/
+*.user
+*.suo
+.DS_Store
+__pycache__/
+*.pyc

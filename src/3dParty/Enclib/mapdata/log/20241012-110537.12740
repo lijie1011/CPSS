@@ -1,0 +1,7 @@
+Log file created at: 2024/10/12 11:05:37
+Running on machine: DESKTOP-TIQO9S5
+Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
+E1012 11:05:37.249296  8428 LicenseMgr.cpp:571] License EXPIRED!
+E1012 11:05:48.968621  8428 ViewPort.cpp:265] SetCLon(): lon error: -194.571
+E1012 11:05:48.998853  8428 ViewPort.cpp:265] SetCLon(): lon error: -187.445
+E1012 11:05:49.019289  8428 ViewPort.cpp:265] SetCLon(): lon error: -183.222

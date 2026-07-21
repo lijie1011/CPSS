@@ -1,0 +1,56 @@
+<ChartAlert>
+    <ChartAlertItems>
+        <AlertItem type="0" name="BCNCAR" geometry="0" />
+        <AlertItem type="0" name="BCNISD" geometry="0" />
+        <AlertItem type="0" name="BCNLAT" geometry="0" />
+        <AlertItem type="0" name="BCNSAW" geometry="0" />
+        <AlertItem type="0" name="BCNSPP" geometry="0" />
+        <AlertItem type="0" name="BOYCAR" geometry="0" />
+        <AlertItem type="0" name="BOYINB" geometry="0" />
+        <AlertItem type="0" name="BOYISD" geometry="0" />
+        <AlertItem type="0" name="BOYLAT" geometry="0" />
+        <AlertItem type="0" name="BOYSAW" geometry="0" />
+        <AlertItem type="0" name="BOYSPP" geometry="0" />
+        <AlertItem type="0" name="BRIDGE" geometry="0,1,2" />
+        <AlertItem type="0" name="CBLOHD" geometry="1" />
+        <AlertItem type="0" name="DAYMAR" geometry="0" />
+        <AlertItem type="0" name="PIPOHD" geometry="1" />
+        <AlertItem type="0" name="CONVYR" geometry="1,2" />
+        <AlertItem type="0" name="MORFAC" geometry="0,1,2" />
+        <AlertItem type="0" name="NEWOBJ" geometry="0" />
+        <AlertItem type="0" name="FSHFAC" geometry="0,1,2" />
+        <AlertItem type="0" name="ICEARE" geometry="2" />
+        <AlertItem type="0" name="LITFLT" geometry="0" />
+        <AlertItem type="0" name="LITVES" geometry="0" />
+        <AlertItem type="0" name="LOGPON" geometry="0,2" />
+        <AlertItem type="0" name="OFSPLF" geometry="0,2" />
+        <AlertItem type="0" name="OILBAR" geometry="1" />
+        <AlertItem type="0" name="PILPNT" geometry="0" />
+        <AlertItem type="0" name="PYLONS" geometry="0,2" />
+        <AlertItem type="0" name="OBSTRN" geometry="0,1,2" />
+        <AlertItem type="0" name="UWTROC" geometry="0" />
+        <AlertItem type="0" name="WRECKS" geometry="0,2" />
+        <AlertItem type="0" name="SOUNDG" geometry="0" />
+        <AlertItem type="1" name="DEPARE" geometry="2" />
+        <AlertItem type="1" name="DRGARE" geometry="2" />
+        <AlertItem type="1" name="FLODOC" geometry="1,2" />
+        <AlertItem type="1" name="HULKES" geometry="0,2" />
+        <AlertItem type="1" name="LNDARE" geometry="0,1,2" />
+        <AlertItem type="1" name="PONTON" geometry="1,2" />
+        <AlertItem type="1" name="UNSARE" geometry="2" />
+        <AlertItem type="1" name="SLCONS" geometry="0,1,2" />
+        <AlertItem type="2" name="TSEZNE" geometry="2" />
+        <AlertItem type="3" name="ISTZNE" geometry="2" />
+        <AlertItem type="4" name="RESARE" geometry="2" />
+        <AlertItem type="5" name="CTNARE" geometry="0,2" />
+        <AlertItem type="6" name="OSPARE" geometry="2" />
+        <AlertItem type="7" name="RESARE" geometry="2" />
+        <AlertItem type="8" name="MIPARE" geometry="0,2" />
+        <AlertItem type="9" name="SPLARE" geometry="0,2" />
+        <AlertItem type="10" name="SUBTLN" geometry="2" />
+        <AlertItem type="11" name="ACHARE" geometry="0,2" />
+        <AlertItem type="12" name="MARCUL" geometry="0,1,2" />
+        <AlertItem type="13" name="RESARE" geometry="2" />
+    </ChartAlertItems>
+    <AlertState>0,1,2,3,4,5,6,7,8,9,10,11,12,13</AlertState>
+</ChartAlert>

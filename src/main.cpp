@@ -1,0 +1,83 @@
+#include <QApplication>
+#include <QCoreApplication>
+#include <QCommandLineParser>
+#include <QDebug>
+#include <stdexcept>
+
+#include "mainwindow.h"
+#include "webserver.h"
+#include "common/logger.h"
+
+int main(int argc, char *argv[])
+{
+    try {
+        bool headlessMode = false;
+        for (int i = 1; i < argc; ++i) {
+            if (QString(argv[i]) == "--headless") {
+                headlessMode = true;
+                break;
+            }
+        }
+
+        QCoreApplication *app = nullptr;
+        if (headlessMode) {
+            app = new QCoreApplication(argc, argv);
+        } else {
+            app = new QApplication(argc, argv);
+        }
+
+        Logger::init("cpss.log");
+        Logger::info("CPSS v1.0 starting...");
+        Logger::info("Mode: %s", headlessMode ? "headless" : "GUI");
+
+        QCommandLineParser parser;
+        parser.setApplicationDescription("CPSS - Combat Process Simulation Software");
+        parser.addHelpOption();
+        parser.addOption({{"w", "web"}, "Enable web server"});
+        parser.addOption({{"p", "port"}, "Web server port", "port", "12345"});
+        parser.addOption({{"H", "headless"}, "Run without GUI (server mode)"});
+        parser.addOption({{"c", "chart-dir"}, "Chart data directory", "path"});
+        parser.process(*app);
+
+        MainWindow *mainwin = nullptr;
+        if (!headlessMode) {
+            mainwin = new MainWindow();
+            mainwin->setWindowTitle(QString::fromUtf8("CPSS - Combat Process Simulation"));
+            mainwin->show();
+            Logger::info("Main window created and shown");
+        }
+
+        WebServer *server = nullptr;
+        if (parser.isSet("web") || headlessMode) {
+            quint16 port = parser.value("port").toUShort();
+            server = new WebServer(port, app);
+            if (mainwin) {
+                server->setViewWidget(mainwin->getViewWidget());
+            }
+            Logger::info("Web server started on port %d", port);
+            qDebug() << "Web Server started on port" << port;
+        }
+
+        Logger::info("Entering main event loop");
+        int ret = app->exec();
+
+        delete server;
+        delete mainwin;
+        delete app;
+
+        Logger::info("CPSS exited with code %d", ret);
+        Logger::cleanup();
+
+        return ret;
+    } catch (const std::exception &e) {
+        fprintf(stderr, "[FATAL] Exception: %s\n", e.what());
+        Logger::error("Exception: %s", e.what());
+        Logger::cleanup();
+        return 1;
+    } catch (...) {
+        fprintf(stderr, "[FATAL] Unknown exception\n");
+        Logger::error("Unknown exception");
+        Logger::cleanup();
+        return 1;
+    }
+}
