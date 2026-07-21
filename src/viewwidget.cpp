@@ -1,4 +1,4 @@
-﻿#include "viewwidget.h"
+﻿﻿#include "viewwidget.h"
 #include <QPainter>
 #include <QMouseEvent>
 #include <QWheelEvent>
