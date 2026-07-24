@@ -392,7 +392,7 @@ src/
 
 ## 七、使用说明
 
-### 7.1 运行程序
+### 7.1 运行程序（Qt C++ 桌面端）
 
 ```bash
 cd build
@@ -418,3 +418,125 @@ make
 |--------|------|
 | F1 | 显示事件图例 |
 | Ctrl+R | 重置视图 |
+
+---
+
+## 八、Web 端项目（Vue + TypeScript）
+
+### 8.1 技术栈
+
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| Vue | 3.4+ | 前端框架 |
+| TypeScript | 5.4+ | 类型安全 |
+| Vite | 5.2+ | 构建工具 |
+| Pinia | 2.1+ | 状态管理 |
+
+### 8.2 项目结构
+
+```
+CPSS/
+├── index.html              # HTML入口
+├── package.json            # 依赖配置
+├── vite.config.ts          # Vite配置
+├── tsconfig.json           # TypeScript配置
+├── src/
+│   ├── main.ts             # 应用入口
+│   ├── App.vue             # 根组件
+│   ├── style.css           # 全局样式
+│   ├── types/
+│   │   └── index.ts        # TypeScript类型定义
+│   ├── stores/
+│   │   ├── dataStore.ts    # 数据状态管理
+│   │   └── viewStore.ts    # 视图状态管理
+│   ├── components/
+│   │   ├── MapCanvas.vue   # 地图画布组件
+│   │   ├── PropertyBox.vue # 属性框组件
+│   │   ├── ConnectingLine.vue # 连接虚线组件
+│   │   ├── Toolbar.vue     # 工具栏组件
+│   │   └── LegendDialog.vue # 图例对话框
+│   └── mock/
+│       └── data.ts         # 模拟数据
+```
+
+### 8.3 核心功能
+
+| 功能 | 说明 |
+|------|------|
+| 地图展示 | Canvas绑定经纬度网格背景 |
+| 平台渲染 | 根据阵营颜色区分，自有船显示船形，其他显示圆形 |
+| 事件标记 | 在平台旁显示事件图标（Alert/Attack/Defense等） |
+| 属性框 | 点击平台显示属性，支持拖动和双击关闭 |
+| 连接虚线 | 属性框与平台之间的连接虚线 |
+| 缩放平移 | 鼠标滚轮缩放，拖动平移 |
+| 图例说明 | Help按钮显示事件图例和操作说明 |
+
+### 8.4 运行方式
+
+```bash
+# 安装依赖
+npm install
+
+# 开发模式
+npm run dev
+
+# 构建生产版本
+npm run build
+
+# 预览构建结果
+npm run preview
+```
+
+### 8.5 API 代理配置
+
+```typescript
+// vite.config.ts
+server: {
+  proxy: {
+    '/api': {
+      target: 'http://localhost:8080',
+      changeOrigin: true
+    },
+    '/ws': {
+      target: 'ws://localhost:8080',
+      ws: true,
+      changeOrigin: true
+    }
+  }
+}
+```
+
+### 8.6 数据类型映射
+
+| C++ 枚举 | TypeScript 枚举 | 值 |
+|----------|-----------------|-----|
+| CampType::Friendly | CampType.Friendly | 'friendly' |
+| CampType::Enemy | CampType.Enemy | 'enemy' |
+| CampType::Neutral | CampType.Neutral | 'neutral' |
+| CampType::Unknown | CampType.Unknown | 'unknown' |
+
+| C++ 枚举 | TypeScript 枚举 | 值 |
+|----------|-----------------|-----|
+| SpecialEventType::Alert | SpecialEventType.Alert | 'alert' |
+| SpecialEventType::Attack | SpecialEventType.Attack | 'attack' |
+| SpecialEventType::Defense | SpecialEventType.Defense | 'defense' |
+| SpecialEventType::Contact | SpecialEventType.Contact | 'contact' |
+| SpecialEventType::Damage | SpecialEventType.Damage | 'damage' |
+| SpecialEventType::MissionStart | SpecialEventType.MissionStart | 'missionStart' |
+| SpecialEventType::MissionEnd | SpecialEventType.MissionEnd | 'missionEnd' |
+| SpecialEventType::Lost | SpecialEventType.Lost | 'lost' |
+| SpecialEventType::Repair | SpecialEventType.Repair | 'repair' |
+| SpecialEventType::Custom | SpecialEventType.Custom | 'custom' |
+
+### 8.7 对比桌面端差异
+
+| 特性 | 桌面端 (Qt) | Web端 (Vue) |
+|------|-------------|-------------|
+| 地图渲染 | Enclib 海图引擎 | Canvas 自定义绘制 |
+| 坐标转换 | EnclTransformGeoToScrn | 自定义投影计算 |
+| 属性框 | QLabel + eventFilter | Vue组件 + 事件监听 |
+| 虚线连接 | QPainter::drawLine | SVG line |
+| 数据管理 | QMap + QReadWriteLock | Pinia + ref |
+| 事件通知 | Qt Signal/Slot | Vue reactivity |
+| 部署方式 | 可执行文件 | Web浏览器 |
+| 跨平台 | 需要编译 | 直接运行 |
