@@ -2,15 +2,16 @@
 #define DATAMANAGER_H
 
 #include <QObject>
-#include <QReadWriteLock>
 #include <QList>
 #include <QTimer>
 #include <QMap>
 #include <QMutex>
+#include <functional>
 #include "dynamicdata.h"
 #include "protocoladapter.h"
+#include "datacache.h"
 
-class DataManager : public QObject
+class CPSS_DATA_API DataManager : public QObject
 {
     Q_OBJECT
 
@@ -28,55 +29,64 @@ public:
     void setDefaultValidDuration(qint64 ms);
     qint64 defaultValidDuration() const;
 
-    ShipData getOwnShip();
-    QList<AisTarget> getAisTargets();
-    QList<AisTarget> getValidAisTargets();
-    QList<WeaponData> getWeapons();
-    QList<WeaponData> getValidWeapons();
-    QList<SensorData> getSensors();
-    QList<SensorData> getValidSensors();
-    QList<UserMarker> getMarkers();
-    QList<UserMarker> getValidMarkers();
-    DynamicObjects getAllData();
+    // 数据查询直接委托给 DataCache
+    PlatformData getPlatform(const QString &id) {
+        return DataCache::instance()->getPlatform(id);
+    }
+    QList<PlatformData> getAllPlatforms() {
+        return DataCache::instance()->getAllPlatforms();
+    }
+    QList<PlatformData> getValidPlatforms() {
+        return DataCache::instance()->getValidPlatforms();
+    }
+    DynamicObjects getAllData() {
+        return DataCache::instance()->getAllData();
+    }
+
+    typedef std::function<void(const DynamicObjects &data)> DataPushCallback;
+
+    void registerDataPushCallback(DataPushCallback callback);
+    void unregisterDataPushCallback(DataPushCallback callback);
+
+    void startDataPush(int intervalMs = 1000);
+    void stopDataPush();
+
+    void startTestDataTimer(int intervalMs = 1000) {
+        DataCache::instance()->startTestDataTimer(intervalMs);
+    }
+    void stopTestDataTimer() {
+        DataCache::instance()->stopTestDataTimer();
+    }
 
 signals:
-    void ownShipUpdated(const ShipData &data);
-    void aisTargetsUpdated(const QList<AisTarget> &targets);
-    void weaponsUpdated(const QList<WeaponData> &weapons);
-    void sensorsUpdated(const QList<SensorData> &sensors);
-    void markersUpdated(const QList<UserMarker> &markers);
+    void platformUpdated(const PlatformData &data);
+    void platformsUpdated(const QList<PlatformData> &platforms);
     void dynamicDataChanged(const DynamicObjects &data);
     void dataExpired(const QString &id, ProtocolType source);
+    void dataPushed(const DynamicObjects &data);
 
 public slots:
     void onDataReceived(const QJsonObject &data, ProtocolType source);
-    void checkExpiredData();
+    void pushData();
 
 private:
-    DataManager(QObject *parent = nullptr);
+    explicit DataManager(QObject *parent = nullptr);
     ~DataManager();
 
     void parseAndUpdate(const QJsonObject &data, ProtocolType source);
-    void updateOwnShip(const QJsonObject &obj, ProtocolType source);
-    void updateAisTarget(const QJsonObject &obj, ProtocolType source);
-    void updateWeapon(const QJsonObject &obj, ProtocolType source);
-    void updateSensor(const QJsonObject &obj, ProtocolType source);
-    void updateMarker(const QJsonObject &obj, ProtocolType source);
-
-    qint64 calculateValidUntil(qint64 updateTime, const QJsonObject &obj);
+    void updatePlatform(const QJsonObject &obj, ProtocolType source);
+    void updateEvent(const QJsonObject &obj, ProtocolType source);
 
     static DataManager *s_instance;
     static QMutex s_mutex;
 
-    mutable QReadWriteLock m_dataLock;
-
-    DynamicObjects m_dynamicData;
-
     QList<IProtocolAdapter*> m_adapters;
-    QTimer m_expireTimer;
+    QTimer m_pushTimer;
 
     QMap<ProtocolType, int> m_priorityMap;
     qint64 m_defaultValidDuration;
+
+    std::vector<DataPushCallback> m_pushCallbacks;
 };
 
 #endif

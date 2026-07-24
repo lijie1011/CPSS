@@ -1,41 +1,39 @@
 set(DATALIB_SOURCES
     datamanager.cpp
-    udpadapter.cpp
-    tcpadapter.cpp
+    datacache.cpp
     httpadapter.cpp
-    websocketadapter.cpp
-    ddsadapter.cpp
-    redisadapter.cpp
 )
 
 set(DATALIB_HEADERS
     dynamicdata.h
     protocoladapter.h
     datamanager.h
-    udpadapter.h
-    tcpadapter.h
+    datacache.h
     httpadapter.h
-    websocketadapter.h
-    ddsadapter.h
-    redisadapter.h
 )
 
-add_library(cpss_data STATIC
+add_library(cpss_data SHARED
     ${DATALIB_SOURCES}
     ${DATALIB_HEADERS}
 )
 
+set_target_properties(cpss_data PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}
+)
+
+target_compile_definitions(cpss_data PRIVATE
+    CPSS_DATA_EXPORT
+)
+
 target_include_directories(cpss_data PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../common
+    ${PROJECT_SOURCE_DIR}/common
 )
 
 target_link_libraries(cpss_data PRIVATE
+    cpss_common
     Qt5::Core
     Qt5::Network
-    Qt5::WebSockets
 )
-
-
-
-add_subdirectory(tests)

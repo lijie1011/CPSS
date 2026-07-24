@@ -1,19 +1,17 @@
-﻿﻿#define _USE_MATH_DEFINES
-#include <cmath>
 #include <QMenuBar>
+#include <QMenu>
 #include <QToolBar>
 #include <QStatusBar>
 #include <QAction>
 #include <QIcon>
 #include <QLabel>
 #include <QMessageBox>
-#include <QDebug>
-#include <QTimer>
-#include <QDateTime>
-#include <cmath>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QCoreApplication>
+#include <QFile>
+#include <QTextStream>
+#include <QDateTime>
+#include <QDir>
+#include <QTimer>
 
 #include "mainwindow.h"
 #include "encl.h"
@@ -21,278 +19,159 @@
 #include <QApplication>
 #include "dynamicdata.h"
 #include "datamanager.h"
-#include "udpadapter.h"
-#include "tcpadapter.h"
 #include "common/logger.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
-      m_viewWidget(nullptr)
+      m_viewWidget(nullptr),
+      m_toolBar(nullptr)
 {
-    init();
+    Logger::info("MainWindow constructor: entering");
+    m_viewWidget = new ViewWidget(this);
+    Logger::info("MainWindow constructor: ViewWidget created");
+
     createActions();
+    Logger::info("MainWindow constructor: createActions done");
     createToolBar();
+    Logger::info("MainWindow constructor: createToolBar done");
+
+    QWidget *centralWidget = new QWidget(this);
+    QHBoxLayout *layout = new QHBoxLayout(centralWidget);
+    layout->addWidget(m_toolBar);
+    layout->addWidget(m_viewWidget);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    setCentralWidget(centralWidget);
+
+    Logger::info("MainWindow constructor: setCentralWidget done");
     createStatusBar();
+    Logger::info("MainWindow constructor: createStatusBar done");
+    Logger::info("MainWindow constructor: exiting");
+    init();
 }
 
 MainWindow::~MainWindow()
 {
-    EnclDeinitialize();
+    Logger::info("MainWindow destructor called");
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    QMainWindow::showEvent(event);
+    Logger::info("MainWindow showEvent called");
+}
+
+bool MainWindow::checkLicenseExpired(const QString &enclibPath)
+{
+    QString licPath = enclibPath + "/lic.dat";
+    QFile licFile(licPath);
+    
+    if (!licFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        Logger::warn("Cannot open license file: %s", licPath.toStdString().c_str());
+        return true;
+    }
+    
+    QTextStream in(&licFile);
+    QString content = in.readAll();
+    licFile.close();
+    
+    int pos = content.indexOf("Expires at:");
+    if (pos == -1) {
+        Logger::warn("Cannot find expiration date in license file");
+        return true;
+    }
+    
+    QString dateStr = content.mid(pos + 11).trimmed();
+    dateStr = dateStr.left(10);
+    
+    QDateTime expireDate = QDateTime::fromString(dateStr, "yyyy-MM-dd");
+    if (!expireDate.isValid()) {
+        Logger::warn("Invalid expiration date format: %s", dateStr.toStdString().c_str());
+        return true;
+    }
+    
+    QDateTime now = QDateTime::currentDateTime();
+    if (now > expireDate) {
+        Logger::warn("License expired at: %s, current time: %s", 
+                     dateStr.toStdString().c_str(), 
+                     now.toString("yyyy-MM-dd").toStdString().c_str());
+        return true;
+    }
+    
+    Logger::info("License valid, expires at: %s", dateStr.toStdString().c_str());
+    return false;
 }
 
 void MainWindow::init()
 {
-    QString enclibPath = QCoreApplication::applicationDirPath() + QString::fromUtf8(u8"/3dParty/Enclib");
+    Logger::info("MainWindow::init started");
+    
+    QString enclibPath = QCoreApplication::applicationDirPath() + "/3dParty/Enclib";
+    Logger::info("Enclib path: %s", enclibPath.toLocal8Bit().constData());
 
-    m_viewWidget = new ViewWidget(this);
-    setCentralWidget(m_viewWidget);
+    bool enclibUsable = false;
+    
+    Logger::info("Current dir before EnclSENCInit: %s", QDir::currentPath().toLocal8Bit().constData());
+    QDir::setCurrent(enclibPath);
+    Logger::info("Current dir after setCurrent: %s", QDir::currentPath().toLocal8Bit().constData());
 
-    bool ret = EnclInitialize(enclibPath.toStdString().c_str());
+    bool licenseExpired = checkLicenseExpired(enclibPath);
+    if (licenseExpired) {
+        Logger::warn("License expired, but still trying EnclSENCInit to display chart");
+    }
 
-    if (!ret) {
-        Logger::warn("EnclInitialize failed with path: %s", enclibPath.toStdString().c_str());
-        m_viewWidget->setEnclibReady(false);
-        QMessageBox msg(this);
-        msg.setWindowTitle(QString::fromUtf8(u8"警告"));
-        msg.setText(QString::fromUtf8(u8"EnclInitialize() 初始化失败！\n路径: %1\n\n程序将继续运行，但地图可能无法正常显示。").arg(enclibPath));
-        msg.setIcon(QMessageBox::Warning);
-        msg.setStandardButtons(QMessageBox::Ok);
-        msg.exec();
-    } else {
-        Logger::info("EnclInitialize succeeded with path: %s", enclibPath.toStdString().c_str());
-        
-        EnclDrawSetLoadMode(ENCL_LOAD_MODE_AUTO);
-        EnclDrawSetShowAccuracy(false);
-        EnclDrawSetUseAutoScamin(true);
-        EnclDrawSetTextGroupLayer(NULL, 0, ENCL_TGA_SET_ALL);
-        EnclDrawSetDisplayNationalLanguage(true);
-        EnclDrawSetDisplayChineseLanguage(true);
-        EnclDrawSetDisplayCategory(ENCL_BASE);
-        EnclDrawSetShowChartBoundary(false);
-        EnclDrawSetDisplayCategory(ENCL_CUSTOM);
-        EnclDrawSetShowIsolatedDangerObjects(false);
-        
-        m_viewWidget->setEnclibReady(true);
-        m_viewWidget->setChartCenter(121.0, 31.0);
-        m_viewWidget->updateChart();
+    try {
+        bool ret = EnclSENCInit(enclibPath.toLocal8Bit().constData());
+        Logger::info("EnclSENCInit returned: %d", ret);
+
+        if (!ret) {
+            Logger::warn("EnclSENCInit failed with path: %s", enclibPath.toStdString().c_str());
+        } else {
+            Logger::info("EnclSENCInit succeeded with path: %s", enclibPath.toStdString().c_str());
+
+            EnclViewSetScale(4000000);
+            EnclViewCenter(121.5, 31.2);
+
+            EnclDrawSetLoadMode(ENCL_LOAD_MODE_AUTO);
+            EnclDrawSetShowAccuracy(false);
+            EnclDrawSetUseAutoScamin(true);
+            EnclDrawSetTextGroupLayer(NULL, 0, ENCL_TGA_SET_ALL);
+            EnclDrawSetDisplayNationalLanguage(true);
+            EnclDrawSetDisplayChineseLanguage(true);
+            EnclDrawSetDisplayCategory(ENCL_BASE);
+            EnclDrawSetShowChartBoundary(false);
+            EnclDrawSetDisplayCategory(ENCL_CUSTOM);
+            EnclDrawSetShowIsolatedDangerObjects(false);
+
+            unsigned char *testPixBuf = EnclDrawChart();
+            if (testPixBuf) {
+                enclibUsable = true;
+                Logger::info("EnclDrawChart test succeeded, enclib is usable");
+            } else {
+                Logger::warn("EnclDrawChart test failed, enclib may have license issues");
+            }
+        }
+    } catch (...) {
+        Logger::error("Exception occurred during EnclSENCInit, license may be expired");
+    }
+    
+    m_viewWidget->setEnclibReady(enclibUsable);
+    m_viewWidget->updateChart();
+    Logger::info("Enclib settings applied, enclibUsable: %d", enclibUsable);
+
+    if (!enclibUsable) {
+        Logger::warn("Enclib may have license issues! Path: %s. Map display will show placeholder.", enclibPath.toStdString().c_str());
     }
 
     connect(m_viewWidget, &ViewWidget::updateGeoPosition,
             this, &MainWindow::updateGeoPosition);
+    Logger::info("ViewWidget signals connected");
 
-    DataManager *dm = DataManager::instance();
-
-    connect(dm, &DataManager::dynamicDataChanged,
+    DataManager *dataManager = DataManager::instance();
+    connect(dataManager, &DataManager::dynamicDataChanged,
             m_viewWidget, &ViewWidget::updateDynamicData);
-
-    UdpAdapter *udpAdapter = new UdpAdapter(this);
-    udpAdapter->setLocalPort(12345);
-    dm->addAdapter(udpAdapter);
-
-    TcpAdapter *tcpAdapter = new TcpAdapter(this);
-    tcpAdapter->setMode(TcpAdapter::ServerMode);
-    tcpAdapter->setServerPort(12346);
-    dm->addAdapter(tcpAdapter);
-
-    dm->startAllAdapters();
-
-    initTestData();
-
-    QTimer *timer = new QTimer(this);
-    connect(timer, &QTimer::timeout, this, &MainWindow::updateTestData);
-    timer->start(1000);
-}
-
-void MainWindow::initTestData()
-{
-    DataManager *dm = DataManager::instance();
-    qint64 now = QDateTime::currentMSecsSinceEpoch();
-
-    QJsonObject ownShipObj;
-    ownShipObj["type"] = "ownShip";
-    ownShipObj["mmsi"] = "123456789";
-    ownShipObj["name"] = "OwnShip";
-    ownShipObj["lon"] = 121.5;
-    ownShipObj["lat"] = 31.2;
-    ownShipObj["heading"] = 45.0;
-    ownShipObj["speed"] = 12.5;
-    ownShipObj["validDuration"] = 5000;
-    dm->onDataReceived(ownShipObj, Protocol_Unknown);
-
-    QJsonObject target1Obj;
-    target1Obj["type"] = "aisTarget";
-    target1Obj["mmsi"] = "987654321";
-    target1Obj["name"] = "MerchantA";
-    target1Obj["lon"] = 121.51;
-    target1Obj["lat"] = 31.22;
-    target1Obj["heading"] = 180.0;
-    target1Obj["speed"] = 8.0;
-    target1Obj["shipType"] = 5;
-    target1Obj["isDanger"] = false;
-    target1Obj["validDuration"] = 5000;
-    dm->onDataReceived(target1Obj, Protocol_Unknown);
-
-    QJsonObject target2Obj;
-    target2Obj["type"] = "aisTarget";
-    target2Obj["mmsi"] = "112233445";
-    target2Obj["name"] = "FishingB";
-    target2Obj["lon"] = 121.48;
-    target2Obj["lat"] = 31.18;
-    target2Obj["heading"] = 90.0;
-    target2Obj["speed"] = 5.0;
-    target2Obj["shipType"] = 30;
-    target2Obj["isDanger"] = false;
-    target2Obj["validDuration"] = 5000;
-    dm->onDataReceived(target2Obj, Protocol_Unknown);
-
-    QJsonObject target3Obj;
-    target3Obj["type"] = "aisTarget";
-    target3Obj["mmsi"] = "556677889";
-    target3Obj["name"] = "DangerTarget";
-    target3Obj["lon"] = 121.55;
-    target3Obj["lat"] = 31.25;
-    target3Obj["heading"] = 225.0;
-    target3Obj["speed"] = 15.0;
-    target3Obj["shipType"] = 50;
-    target3Obj["isDanger"] = true;
-    target3Obj["validDuration"] = 5000;
-    dm->onDataReceived(target3Obj, Protocol_Unknown);
-
-    QJsonObject radarObj;
-    radarObj["type"] = "sensor";
-    radarObj["id"] = "radar_01";
-    radarObj["lon"] = 121.5;
-    radarObj["lat"] = 31.2;
-    radarObj["radius"] = 10000;
-    radarObj["sensorType"] = "radar";
-    radarObj["active"] = true;
-    radarObj["validDuration"] = 5000;
-    dm->onDataReceived(radarObj, Protocol_Unknown);
-
-    QJsonObject sonarObj;
-    sonarObj["type"] = "sensor";
-    sonarObj["id"] = "sonar_01";
-    sonarObj["lon"] = 121.5;
-    sonarObj["lat"] = 31.2;
-    sonarObj["radius"] = 3000;
-    sonarObj["sensorType"] = "sonar";
-    sonarObj["active"] = true;
-    sonarObj["validDuration"] = 5000;
-    dm->onDataReceived(sonarObj, Protocol_Unknown);
-
-    QJsonObject weapon1Obj;
-    weapon1Obj["type"] = "weapon";
-    weapon1Obj["id"] = "missile_01";
-    weapon1Obj["lon"] = 121.5;
-    weapon1Obj["lat"] = 31.2;
-    weapon1Obj["targetLon"] = 121.55;
-    weapon1Obj["targetLat"] = 31.25;
-    weapon1Obj["weaponType"] = "missile";
-    weapon1Obj["active"] = true;
-    weapon1Obj["validDuration"] = 5000;
-    dm->onDataReceived(weapon1Obj, Protocol_Unknown);
-
-    QJsonObject marker1Obj;
-    marker1Obj["type"] = "marker";
-    marker1Obj["id"] = "mark_01";
-    marker1Obj["lon"] = 121.52;
-    marker1Obj["lat"] = 31.23;
-    marker1Obj["label"] = QString::fromLocal8Bit("航道标记");
-    marker1Obj["color"] = "#FFD700";
-    marker1Obj["validDuration"] = 5000;
-    dm->onDataReceived(marker1Obj, Protocol_Unknown);
-
-    QJsonObject marker2Obj;
-    marker2Obj["type"] = "marker";
-    marker2Obj["id"] = "mark_02";
-    marker2Obj["lon"] = 121.47;
-    marker2Obj["lat"] = 31.19;
-    marker2Obj["label"] = QString::fromLocal8Bit("NoEntry");
-    marker2Obj["color"] = "#FF4444";
-    marker2Obj["validDuration"] = 5000;
-    dm->onDataReceived(marker2Obj, Protocol_Unknown);
-
-    m_testData = dm->getAllData();
-}
-
-void MainWindow::updateTestData()
-{
-    DataManager *dm = DataManager::instance();
-    m_testData = dm->getAllData();
-    m_testData.timestamp = QDateTime::currentMSecsSinceEpoch();
-
-    double newOwnShipLon = m_testData.ownShip.lon + 0.0001;
-    double newOwnShipLat = m_testData.ownShip.lat + 0.00005;
-
-    QJsonObject ownShipObj;
-    ownShipObj["type"] = "ownShip";
-    ownShipObj["mmsi"] = m_testData.ownShip.mmsi;
-    ownShipObj["name"] = m_testData.ownShip.name;
-    ownShipObj["lon"] = newOwnShipLon;
-    ownShipObj["lat"] = newOwnShipLat;
-    ownShipObj["heading"] = fmod(m_testData.ownShip.heading + 0.5, 360.0);
-    ownShipObj["speed"] = m_testData.ownShip.speed;
-    ownShipObj["validDuration"] = 5000;
-    dm->onDataReceived(ownShipObj, Protocol_Unknown);
-
-    QVector<double> newTargetLons(m_testData.aisTargets.size());
-    QVector<double> newTargetLats(m_testData.aisTargets.size());
-
-    for (int i = 0; i < m_testData.aisTargets.size(); ++i) {
-        AisTarget &target = m_testData.aisTargets[i];
-        double angle = (i + 1) * 60.0 * M_PI / 180.0;
-
-        newTargetLons[i] = target.lon + 0.00005 * cos(angle);
-        newTargetLats[i] = target.lat + 0.00005 * sin(angle);
-
-        QJsonObject targetObj;
-        targetObj["type"] = "aisTarget";
-        targetObj["mmsi"] = target.mmsi;
-        targetObj["name"] = target.name;
-        targetObj["lon"] = newTargetLons[i];
-        targetObj["lat"] = newTargetLats[i];
-        targetObj["heading"] = fmod(target.heading + 1.0, 360.0);
-        targetObj["speed"] = target.speed;
-        targetObj["isDanger"] = target.isDanger;
-        targetObj["validDuration"] = 5000;
-        dm->onDataReceived(targetObj, Protocol_Unknown);
-    }
-
-    QJsonObject radarObj;
-    radarObj["type"] = "sensor";
-    radarObj["id"] = "radar_01";
-    radarObj["lon"] = newOwnShipLon;
-    radarObj["lat"] = newOwnShipLat;
-    radarObj["radius"] = 10000;
-    radarObj["sensorType"] = "radar";
-    radarObj["active"] = true;
-    radarObj["validDuration"] = 5000;
-    dm->onDataReceived(radarObj, Protocol_Unknown);
-
-    QJsonObject sonarObj;
-    sonarObj["type"] = "sensor";
-    sonarObj["id"] = "sonar_01";
-    sonarObj["lon"] = newOwnShipLon;
-    sonarObj["lat"] = newOwnShipLat;
-    sonarObj["radius"] = 3000;
-    sonarObj["sensorType"] = "sonar";
-    sonarObj["active"] = true;
-    sonarObj["validDuration"] = 5000;
-    dm->onDataReceived(sonarObj, Protocol_Unknown);
-
-    QJsonObject weaponObj;
-    weaponObj["type"] = "weapon";
-    weaponObj["id"] = "missile_01";
-    weaponObj["lon"] = newOwnShipLon;
-    weaponObj["lat"] = newOwnShipLat;
-    weaponObj["targetLon"] = newTargetLons[2];
-    weaponObj["targetLat"] = newTargetLats[2];
-    weaponObj["weaponType"] = "missile";
-    weaponObj["active"] = true;
-    weaponObj["validDuration"] = 5000;
-    dm->onDataReceived(weaponObj, Protocol_Unknown);
-
-    m_testData = dm->getAllData();
+    dataManager->startTestDataTimer(1000);
+    Logger::info("DataManager initialized and test data timer started");
 }
 
 void MainWindow::createActions()
@@ -301,27 +180,35 @@ void MainWindow::createActions()
 
 void MainWindow::createToolBar()
 {
-    QToolBar *toolBar = addToolBar(QString::fromUtf8(u8"操作"));
+    m_toolBar = new QToolBar(tr("Operations"), this);
 
-    QAction *zoomInAct = new QAction(QIcon(), QString::fromUtf8(u8"放大"), this);
+    QAction *zoomInAct = new QAction(QIcon(), tr("Zoom In"), this);
     zoomInAct->setShortcut(Qt::Key_Plus);
     connect(zoomInAct, &QAction::triggered, this, &MainWindow::zoomIn);
-    toolBar->addAction(zoomInAct);
+    m_toolBar->addAction(zoomInAct);
 
-    QAction *zoomOutAct = new QAction(QIcon(), QString::fromUtf8(u8"缩小"), this);
+    QAction *zoomOutAct = new QAction(QIcon(), tr("Zoom Out"), this);
     zoomOutAct->setShortcut(Qt::Key_Minus);
     connect(zoomOutAct, &QAction::triggered, this, &MainWindow::zoomOut);
-    toolBar->addAction(zoomOutAct);
+    m_toolBar->addAction(zoomOutAct);
 
-    QAction *resetAct = new QAction(QIcon(), QString::fromUtf8(u8"复位"), this);
+    QAction *resetAct = new QAction(QIcon(), tr("Reset"), this);
     resetAct->setShortcut(Qt::Key_R);
     connect(resetAct, &QAction::triggered, this, &MainWindow::resetView);
-    toolBar->addAction(resetAct);
+    m_toolBar->addAction(resetAct);
+
+    QAction *legendAct = new QAction(QIcon(), tr("Help"), this);
+    legendAct->setShortcut(Qt::Key_F1);
+    connect(legendAct, &QAction::triggered, this, &MainWindow::showEventLegend);
+    m_toolBar->addAction(legendAct);
+
+    m_toolBar->setOrientation(Qt::Vertical);
+    m_toolBar->setIconSize(QSize(24, 24));
 }
 
 void MainWindow::createStatusBar()
 {
-    statusBar()->showMessage(QString::fromUtf8(u8"CPSS v1.0 - 就绪"));
+    statusBar()->showMessage(tr("CPSS v1.0 - Ready"));
 }
 
 void MainWindow::zoomIn()
@@ -347,7 +234,50 @@ void MainWindow::resetView()
 
 void MainWindow::updateGeoPosition(QPoint pos)
 {
+    if (!m_viewWidget || !m_viewWidget->isEnclibReady()) {
+        statusBar()->showMessage(tr("Map not initialized"));
+        return;
+    }
+    
     double lon, lat;
     EnclTransformScrnToGeo(pos.x(), pos.y(), &lon, &lat);
-    statusBar()->showMessage(QString::fromLocal8Bit("经度: %1 纬度: %2").arg(lon, 0, 'f', 6).arg(lat, 0, 'f', 6));
+    statusBar()->showMessage(tr("Lon: %1 Lat: %2").arg(lon, 0, 'f', 6).arg(lat, 0, 'f', 6));
+}
+
+void MainWindow::showEventLegend()
+{
+    QString legendText = 
+        "<h2>Event Legend</h2>"
+        "<hr/>"
+        "<h3>Camp Colors:</h3>"
+        "<table border=\"0\" cellpadding=\"5\">"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FF00;border:1px solid black;\"></span></td><td> Friendly (Green)</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF0000;border:1px solid black;\"></span></td><td> Enemy (Red)</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFFF00;border:1px solid black;\"></span></td><td> Neutral (Yellow)</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#808080;border:1px solid black;\"></span></td><td> Unknown (Gray)</td></tr>"
+        "</table>"
+        "<hr/>"
+        "<h3>Event Icons:</h3>"
+        "<table border=\"0\" cellpadding=\"5\">"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">!</span></td><td> Alert - Warning event</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#8B0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">A</span></td><td> Attack - Attack event</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#0000FF;color:white;text-align:center;font-weight:bold;border:1px solid black;\">D</span></td><td> Defense - Defense event</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FFFF;color:black;text-align:center;font-weight:bold;border:1px solid black;\">C</span></td><td> Contact - Contact event</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFA500;color:white;text-align:center;font-weight:bold;border:1px solid black;\">X</span></td><td> Damage - Damage event</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FF00;color:black;text-align:center;font-weight:bold;border:1px solid black;\">M</span></td><td> Mission Start - Mission started</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#808080;color:white;text-align:center;font-weight:bold;border:1px solid black;\">E</span></td><td> Mission End - Mission ended</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF00FF;color:white;text-align:center;font-weight:bold;border:1px solid black;\">?</span></td><td> Lost - Target lost</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#90EE90;color:black;text-align:center;font-weight:bold;border:1px solid black;\">R</span></td><td> Repair - Repair event</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFFF00;color:black;text-align:center;font-weight:bold;border:1px solid black;\">*</span></td><td> Custom - Custom event</td></tr>"
+        "</table>"
+        "<hr/>"
+        "<h3>How to use:</h3>"
+        "<ul>"
+        "<li>Click on a target to show property box</li>"
+        "<li>Double-click on property box to close it</li>"
+        "<li>Drag property box to reposition</li>"
+        "<li>Click on blank area to hide all property boxes</li>"
+        "</ul>";
+    
+    QMessageBox::information(this, tr("Event Legend"), legendText);
 }

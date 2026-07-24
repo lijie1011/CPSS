@@ -2,6 +2,7 @@
 #define HTTPADAPTER_H
 
 #include "protocoladapter.h"
+#include "dynamicdata.h"
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
@@ -42,6 +43,9 @@ private slots:
 
 private:
     void sendRequest();
+    void parseAndUpdate(const QJsonObject &data, ProtocolType source);
+    PlatformData parsePlatform(const QJsonObject &obj, ProtocolType source);
+    SpecialEvent parseEvent(const QJsonObject &obj);
 
     QNetworkAccessManager *m_manager;
     AdapterStatus m_status;

@@ -1,6 +1,4 @@
 #include "datamanager.h"
-#include <QDateTime>
-#include <QMutexLocker>
 #include <QJsonArray>
 #include "logger.h"
 
@@ -11,16 +9,17 @@ DataManager::DataManager(QObject *parent)
     : QObject(parent),
       m_defaultValidDuration(5000)
 {
-    m_priorityMap[Protocol_DDS] = 10;
-    m_priorityMap[Protocol_Redis] = 9;
-    m_priorityMap[Protocol_TCP] = 8;
-    m_priorityMap[Protocol_UDP] = 7;
-    m_priorityMap[Protocol_WebSocket] = 6;
     m_priorityMap[Protocol_HTTP] = 5;
     m_priorityMap[Protocol_Unknown] = 0;
-
-    connect(&m_expireTimer, &QTimer::timeout, this, &DataManager::checkExpiredData);
-    m_expireTimer.start(1000);
+    
+    // 关键：连接 DataCache 信号到自己的信号
+    DataCache* cache = DataCache::instance();
+    connect(cache, &DataCache::dynamicDataChanged,
+            this, &DataManager::dynamicDataChanged);
+    connect(cache, &DataCache::platformUpdated,
+            this, &DataManager::platformUpdated);
+    connect(cache, &DataCache::platformsUpdated,
+            this, &DataManager::platformsUpdated);
 }
 
 DataManager::~DataManager()
@@ -30,63 +29,47 @@ DataManager::~DataManager()
 
 DataManager* DataManager::instance()
 {
-    QMutexLocker locker(&s_mutex);
     if (!s_instance) {
-        s_instance = new DataManager();
+        QMutexLocker locker(&s_mutex);
+        if (!s_instance) {
+            s_instance = new DataManager();
+        }
     }
     return s_instance;
 }
 
 void DataManager::addAdapter(IProtocolAdapter *adapter)
 {
-    if (!adapter || m_adapters.contains(adapter))
-        return;
-
-    m_adapters.append(adapter);
-    connect(adapter, &IProtocolAdapter::dataReceived,
-            this, &DataManager::onDataReceived, Qt::QueuedConnection);
-    connect(adapter, &IProtocolAdapter::statusChanged,
-            this, [this, adapter](IProtocolAdapter::AdapterStatus status) {
-        Logger::info("Adapter %s status changed to %d",
-                     adapter->adapterName().toStdString().c_str(), status);
-    });
-    connect(adapter, &IProtocolAdapter::errorOccurred,
-            this, [this, adapter](const QString &error) {
-        Logger::error("Adapter %s error: %s",
-                      adapter->adapterName().toStdString().c_str(),
-                      error.toStdString().c_str());
-    });
+    if (!m_adapters.contains(adapter)) {
+        m_adapters.append(adapter);
+        connect(adapter, &IProtocolAdapter::dataReceived,
+                this, &DataManager::onDataReceived);
+        Logger::info("Adapter added: %s", typeid(*adapter).name());
+    }
 }
 
 void DataManager::removeAdapter(IProtocolAdapter *adapter)
 {
-    int index = m_adapters.indexOf(adapter);
-    if (index != -1) {
-        adapter->disconnect(this);
-        m_adapters.removeAt(index);
-    }
+    m_adapters.removeOne(adapter);
+    disconnect(adapter, &IProtocolAdapter::dataReceived,
+               this, &DataManager::onDataReceived);
+    Logger::info("Adapter removed: %s", typeid(*adapter).name());
 }
 
 void DataManager::startAllAdapters()
 {
     for (auto adapter : m_adapters) {
-        if (adapter->start()) {
-            Logger::info("Adapter %s started", adapter->adapterName().toStdString().c_str());
-        } else {
-            Logger::error("Adapter %s failed to start: %s",
-                          adapter->adapterName().toStdString().c_str(),
-                          adapter->lastError().toStdString().c_str());
-        }
+        adapter->start();
     }
+    Logger::info("All adapters started, count: %d", m_adapters.size());
 }
 
 void DataManager::stopAllAdapters()
 {
     for (auto adapter : m_adapters) {
-        if (adapter->stop()) {
-            Logger::info("Adapter %s stopped", adapter->adapterName().toStdString().c_str());
-        }
+        adapter->stop();
     }
+    Logger::info("All adapters stopped");
 }
 
 void DataManager::setDataSourcePriority(ProtocolType type, int priority)
@@ -109,88 +92,32 @@ qint64 DataManager::defaultValidDuration() const
     return m_defaultValidDuration;
 }
 
-ShipData DataManager::getOwnShip()
+void DataManager::registerDataPushCallback(DataPushCallback callback)
 {
-    QReadLocker locker(&m_dataLock);
-    return m_dynamicData.ownShip;
+    m_pushCallbacks.push_back(callback);
+    Logger::info("Data push callback registered, total: %d", m_pushCallbacks.size());
 }
 
-QList<AisTarget> DataManager::getAisTargets()
+void DataManager::unregisterDataPushCallback(DataPushCallback callback)
 {
-    QReadLocker locker(&m_dataLock);
-    return m_dynamicData.aisTargets;
+    m_pushCallbacks.clear();
+    Logger::info("Data push callback unregistered");
 }
 
-QList<AisTarget> DataManager::getValidAisTargets()
+void DataManager::startDataPush(int intervalMs)
 {
-    QReadLocker locker(&m_dataLock);
-    QList<AisTarget> result;
-    for (const auto &target : m_dynamicData.aisTargets) {
-        if (!target.isExpired()) {
-            result.append(target);
-        }
+    if (m_pushTimer.isActive()) {
+        m_pushTimer.stop();
     }
-    return result;
+    connect(&m_pushTimer, &QTimer::timeout, this, &DataManager::pushData);
+    m_pushTimer.start(intervalMs);
+    Logger::info("Data push started with interval: %d ms", intervalMs);
 }
 
-QList<WeaponData> DataManager::getWeapons()
+void DataManager::stopDataPush()
 {
-    QReadLocker locker(&m_dataLock);
-    return m_dynamicData.weapons;
-}
-
-QList<WeaponData> DataManager::getValidWeapons()
-{
-    QReadLocker locker(&m_dataLock);
-    QList<WeaponData> result;
-    for (const auto &weapon : m_dynamicData.weapons) {
-        if (!weapon.isExpired()) {
-            result.append(weapon);
-        }
-    }
-    return result;
-}
-
-QList<SensorData> DataManager::getSensors()
-{
-    QReadLocker locker(&m_dataLock);
-    return m_dynamicData.sensors;
-}
-
-QList<SensorData> DataManager::getValidSensors()
-{
-    QReadLocker locker(&m_dataLock);
-    QList<SensorData> result;
-    for (const auto &sensor : m_dynamicData.sensors) {
-        if (!sensor.isExpired()) {
-            result.append(sensor);
-        }
-    }
-    return result;
-}
-
-QList<UserMarker> DataManager::getMarkers()
-{
-    QReadLocker locker(&m_dataLock);
-    return m_dynamicData.markers;
-}
-
-QList<UserMarker> DataManager::getValidMarkers()
-{
-    QReadLocker locker(&m_dataLock);
-    QList<UserMarker> result;
-    for (const auto &marker : m_dynamicData.markers) {
-        if (!marker.isExpired()) {
-            result.append(marker);
-        }
-    }
-    return result;
-}
-
-DynamicObjects DataManager::getAllData()
-{
-    QReadLocker locker(&m_dataLock);
-    return m_dynamicData;
+    m_pushTimer.stop();
+    Logger::info("Data push stopped");
 }
 
 void DataManager::onDataReceived(const QJsonObject &data, ProtocolType source)
@@ -198,324 +125,129 @@ void DataManager::onDataReceived(const QJsonObject &data, ProtocolType source)
     parseAndUpdate(data, source);
 }
 
-void DataManager::checkExpiredData()
+void DataManager::pushData()
 {
-    QWriteLocker locker(&m_dataLock);
-    bool changed = false;
+    static int pushCount = 0;
+    pushCount++;
+    
+    DynamicObjects data = DataCache::instance()->getAllData();
+    Logger::info("pushData: count=%d, platforms=%d", pushCount, data.platforms.size());
 
-    if (m_dynamicData.ownShip.isExpired() && 
-        m_dynamicData.ownShip.dataStatus == DataStatus_Normal) {
-        m_dynamicData.ownShip.dataStatus = DataStatus_Expired;
-        changed = true;
-        emit dataExpired(m_dynamicData.ownShip.mmsi, m_dynamicData.ownShip.sourceProtocol);
+    for (const auto &callback : m_pushCallbacks) {
+        callback(data);
     }
 
-    for (auto &target : m_dynamicData.aisTargets) {
-        if (target.isExpired() && target.dataStatus == DataStatus_Normal) {
-            target.dataStatus = DataStatus_Expired;
-            changed = true;
-            emit dataExpired(target.mmsi, target.sourceProtocol);
-        }
-    }
-
-    for (auto &weapon : m_dynamicData.weapons) {
-        if (weapon.isExpired() && weapon.dataStatus == DataStatus_Normal) {
-            weapon.dataStatus = DataStatus_Expired;
-            changed = true;
-            emit dataExpired(weapon.id, weapon.sourceProtocol);
-        }
-    }
-
-    for (auto &sensor : m_dynamicData.sensors) {
-        if (sensor.isExpired() && sensor.dataStatus == DataStatus_Normal) {
-            sensor.dataStatus = DataStatus_Expired;
-            changed = true;
-            emit dataExpired(sensor.id, sensor.sourceProtocol);
-        }
-    }
-
-    for (auto &marker : m_dynamicData.markers) {
-        if (marker.isExpired() && marker.dataStatus == DataStatus_Normal) {
-            marker.dataStatus = DataStatus_Expired;
-            changed = true;
-            emit dataExpired(marker.id, marker.sourceProtocol);
-        }
-    }
-
-    if (changed) {
-        m_dynamicData.timestamp = QDateTime::currentMSecsSinceEpoch();
-        emit dynamicDataChanged(m_dynamicData);
-    }
+    emit dataPushed(data);
 }
 
 void DataManager::parseAndUpdate(const QJsonObject &data, ProtocolType source)
 {
     QString type = data["type"].toString();
 
-    if (type == "ownShip") {
-        updateOwnShip(data, source);
-    } else if (type == "aisTarget") {
-        updateAisTarget(data, source);
-    } else if (type == "weapon") {
-        updateWeapon(data, source);
-    } else if (type == "sensor") {
-        updateSensor(data, source);
-    } else if (type == "marker") {
-        updateMarker(data, source);
+    if (type == "platform") {
+        updatePlatform(data, source);
+    } else if (type == "event") {
+        updateEvent(data, source);
     } else if (type == "batch") {
         QJsonArray items = data["items"].toArray();
         for (const auto &item : items) {
-            parseAndUpdate(item.toObject(), source);
+            if (item.isObject()) {
+                parseAndUpdate(item.toObject(), source);
+            }
         }
     }
 }
 
-void DataManager::updateOwnShip(const QJsonObject &obj, ProtocolType source)
+void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
 {
-    QWriteLocker locker(&m_dataLock);
-
-    int currentPriority = m_priorityMap.value(m_dynamicData.ownShip.sourceProtocol, 0);
-    int newPriority = m_priorityMap.value(source, 0);
-
-    if (newPriority < currentPriority && !m_dynamicData.ownShip.mmsi.isEmpty()) {
-        return;
-    }
-
-    qint64 updateTime = QDateTime::currentMSecsSinceEpoch();
-
-    m_dynamicData.ownShip.mmsi = obj["mmsi"].toString();
-    m_dynamicData.ownShip.name = obj["name"].toString();
-    m_dynamicData.ownShip.lon = obj["lon"].toDouble();
-    m_dynamicData.ownShip.lat = obj["lat"].toDouble();
-    m_dynamicData.ownShip.heading = obj["heading"].toDouble();
-    m_dynamicData.ownShip.speed = obj["speed"].toDouble();
-    m_dynamicData.ownShip.isOwnShip = true;
-    m_dynamicData.ownShip.visible = true;
-
-    m_dynamicData.ownShip.dataStatus = DataStatus_Normal;
-    m_dynamicData.ownShip.updateTime = updateTime;
-    m_dynamicData.ownShip.sourceProtocol = source;
-    m_dynamicData.ownShip.validUntil = calculateValidUntil(updateTime, obj);
-
-    m_dynamicData.timestamp = updateTime;
-    emit ownShipUpdated(m_dynamicData.ownShip);
-    emit dynamicDataChanged(m_dynamicData);
-}
-
-void DataManager::updateAisTarget(const QJsonObject &obj, ProtocolType source)
-{
-    QWriteLocker locker(&m_dataLock);
-
-    QString mmsi = obj["mmsi"].toString();
-    if (mmsi.isEmpty())
-        return;
-
-    int currentPriority = 0;
-    int newPriority = m_priorityMap.value(source, 0);
-    int targetIndex = -1;
-
-    for (int i = 0; i < m_dynamicData.aisTargets.size(); ++i) {
-        if (m_dynamicData.aisTargets[i].mmsi == mmsi) {
-            targetIndex = i;
-            currentPriority = m_priorityMap.value(m_dynamicData.aisTargets[i].sourceProtocol, 0);
-            break;
-        }
-    }
-
-    if (targetIndex != -1 && newPriority < currentPriority) {
-        return;
-    }
-
-    qint64 updateTime = QDateTime::currentMSecsSinceEpoch();
-
-    AisTarget target;
-    target.mmsi = mmsi;
-    target.name = obj["name"].toString();
-    target.lon = obj["lon"].toDouble();
-    target.lat = obj["lat"].toDouble();
-    target.heading = obj["heading"].toDouble();
-    target.speed = obj["speed"].toDouble();
-    target.shipType = obj["shipType"].toInt();
-    target.isDanger = obj["isDanger"].toBool();
-    target.visible = true;
-
-    target.dataStatus = DataStatus_Normal;
-    target.updateTime = updateTime;
-    target.sourceProtocol = source;
-    target.validUntil = calculateValidUntil(updateTime, obj);
-
-    if (targetIndex != -1) {
-        m_dynamicData.aisTargets[targetIndex] = target;
-    } else {
-        m_dynamicData.aisTargets.append(target);
-    }
-
-    m_dynamicData.timestamp = updateTime;
-    emit aisTargetsUpdated(m_dynamicData.aisTargets);
-    emit dynamicDataChanged(m_dynamicData);
-}
-
-void DataManager::updateWeapon(const QJsonObject &obj, ProtocolType source)
-{
-    QWriteLocker locker(&m_dataLock);
-
     QString id = obj["id"].toString();
-    if (id.isEmpty())
-        return;
-
-    int currentPriority = 0;
-    int newPriority = m_priorityMap.value(source, 0);
-    int weaponIndex = -1;
-
-    for (int i = 0; i < m_dynamicData.weapons.size(); ++i) {
-        if (m_dynamicData.weapons[i].id == id) {
-            weaponIndex = i;
-            currentPriority = m_priorityMap.value(m_dynamicData.weapons[i].sourceProtocol, 0);
-            break;
-        }
-    }
-
-    if (weaponIndex != -1 && newPriority < currentPriority) {
+    if (id.isEmpty()) {
+        Logger::warn("Platform update failed: id is empty");
         return;
     }
 
-    qint64 updateTime = QDateTime::currentMSecsSinceEpoch();
+    PlatformData platform;
+    platform.id = id;
+    platform.name = obj["name"].toString();
+    platform.lon = obj["lon"].toDouble();
+    platform.lat = obj["lat"].toDouble();
+    platform.altitude = obj["altitude"].toDouble();
+    platform.speed = obj["speed"].toDouble();
+    platform.type = obj["platformType"].toString();
+    if (platform.type.isEmpty()) platform.type = obj["type"].toString();
+    platform.category = obj["category"].toString();
+    
+    QString campStr = obj["camp"].toString().toLower();
+    if (campStr == "friendly") platform.camp = Camp_Friendly;
+    else if (campStr == "enemy") platform.camp = Camp_Enemy;
+    else if (campStr == "neutral") platform.camp = Camp_Neutral;
+    else platform.camp = Camp_Unknown;
 
-    WeaponData weapon;
-    weapon.id = id;
-    weapon.lon = obj["lon"].toDouble();
-    weapon.lat = obj["lat"].toDouble();
-    weapon.targetLon = obj["targetLon"].toDouble();
-    weapon.targetLat = obj["targetLat"].toDouble();
-    weapon.type = obj["weaponType"].toString();
-    weapon.active = obj["active"].toBool();
-
-    weapon.dataStatus = DataStatus_Normal;
-    weapon.updateTime = updateTime;
-    weapon.sourceProtocol = source;
-    weapon.validUntil = calculateValidUntil(updateTime, obj);
-
-    if (weaponIndex != -1) {
-        m_dynamicData.weapons[weaponIndex] = weapon;
-    } else {
-        m_dynamicData.weapons.append(weapon);
+    QJsonArray weaponsArray = obj["weapons"].toArray();
+    for (const auto &weapon : weaponsArray) {
+        QJsonObject w = weapon.toObject();
+        WeaponInfo wi = {w["type"].toString(), w["count"].toInt()};
+        platform.weapons.append(wi);
     }
 
-    m_dynamicData.timestamp = updateTime;
-    emit weaponsUpdated(m_dynamicData.weapons);
-    emit dynamicDataChanged(m_dynamicData);
+    QJsonArray sensorsArray = obj["sensors"].toArray();
+    for (const auto &sensor : sensorsArray) {
+        QJsonObject s = sensor.toObject();
+        SensorInfo si = {s["type"].toString(), s["count"].toInt()};
+        platform.sensors.append(si);
+    }
+
+    platform.dataStatus = DataStatus_Normal;
+    platform.updateTime = QDateTime::currentMSecsSinceEpoch();
+    platform.validUntil = platform.updateTime + 
+        (obj.contains("validDuration") ? obj["validDuration"].toInt() : m_defaultValidDuration);
+    platform.sourceProtocol = source;
+
+    DataCache::instance()->updatePlatform(platform);
+
+    emit platformUpdated(platform);
+    emit platformsUpdated(getAllPlatforms());
+    emit dynamicDataChanged(getAllData());
+
+    Logger::info("Platform updated via DataManager: id=%s", id.toStdString().c_str());
 }
 
-void DataManager::updateSensor(const QJsonObject &obj, ProtocolType source)
+void DataManager::updateEvent(const QJsonObject &obj, ProtocolType source)
 {
-    QWriteLocker locker(&m_dataLock);
-
-    QString id = obj["id"].toString();
-    if (id.isEmpty())
-        return;
-
-    int currentPriority = 0;
-    int newPriority = m_priorityMap.value(source, 0);
-    int sensorIndex = -1;
-
-    for (int i = 0; i < m_dynamicData.sensors.size(); ++i) {
-        if (m_dynamicData.sensors[i].id == id) {
-            sensorIndex = i;
-            currentPriority = m_priorityMap.value(m_dynamicData.sensors[i].sourceProtocol, 0);
-            break;
-        }
-    }
-
-    if (sensorIndex != -1 && newPriority < currentPriority) {
+    Q_UNUSED(source);
+    
+    QString eventId = obj["eventId"].toString();
+    if (eventId.isEmpty()) {
+        Logger::warn("Event update failed: eventId is empty");
         return;
     }
 
-    qint64 updateTime = QDateTime::currentMSecsSinceEpoch();
-
-    SensorData sensor;
-    sensor.id = id;
-    sensor.lon = obj["lon"].toDouble();
-    sensor.lat = obj["lat"].toDouble();
-    sensor.radius = obj["radius"].toDouble();
-    sensor.azimuth = obj["azimuth"].toDouble();
-    sensor.angle = obj["angle"].toDouble();
-    sensor.type = obj["sensorType"].toString();
-    sensor.active = obj["active"].toBool();
-
-    sensor.dataStatus = DataStatus_Normal;
-    sensor.updateTime = updateTime;
-    sensor.sourceProtocol = source;
-    sensor.validUntil = calculateValidUntil(updateTime, obj);
-
-    if (sensorIndex != -1) {
-        m_dynamicData.sensors[sensorIndex] = sensor;
-    } else {
-        m_dynamicData.sensors.append(sensor);
+    SpecialEvent event;
+    event.eventId = eventId;
+    
+    QString eventTypeStr = obj["eventType"].toString().toLower();
+    if (eventTypeStr == "attack") event.eventType = Event_Attack;
+    else if (eventTypeStr == "defense") event.eventType = Event_Defense;
+    else if (eventTypeStr == "alert") event.eventType = Event_Alert;
+    else if (eventTypeStr == "missionstart") event.eventType = Event_MissionStart;
+    else if (eventTypeStr == "missionend") event.eventType = Event_MissionEnd;
+    else if (eventTypeStr == "contact") event.eventType = Event_Contact;
+    else if (eventTypeStr == "lost") event.eventType = Event_Lost;
+    else if (eventTypeStr == "damage") event.eventType = Event_Damage;
+    else if (eventTypeStr == "repair") event.eventType = Event_Repair;
+    else if (eventTypeStr == "custom") event.eventType = Event_Custom;
+    else event.eventType = Event_Unknown;
+    
+    event.eventName = obj["eventName"].toString();
+    event.description = obj["description"].toString();
+    event.timestamp = static_cast<qint64>(obj["timestamp"].toDouble());
+    if (event.timestamp == 0) event.timestamp = QDateTime::currentMSecsSinceEpoch();
+    event.targetId = obj["targetId"].toString();
+    event.sourceId = obj["sourceId"].toString();
+    
+    if (obj.contains("extraData") && obj["extraData"].isObject()) {
+        event.extraData = obj["extraData"].toObject();
     }
 
-    m_dynamicData.timestamp = updateTime;
-    emit sensorsUpdated(m_dynamicData.sensors);
-    emit dynamicDataChanged(m_dynamicData);
-}
-
-void DataManager::updateMarker(const QJsonObject &obj, ProtocolType source)
-{
-    QWriteLocker locker(&m_dataLock);
-
-    QString id = obj["id"].toString();
-    if (id.isEmpty())
-        return;
-
-    int currentPriority = 0;
-    int newPriority = m_priorityMap.value(source, 0);
-    int markerIndex = -1;
-
-    for (int i = 0; i < m_dynamicData.markers.size(); ++i) {
-        if (m_dynamicData.markers[i].id == id) {
-            markerIndex = i;
-            currentPriority = m_priorityMap.value(m_dynamicData.markers[i].sourceProtocol, 0);
-            break;
-        }
-    }
-
-    if (markerIndex != -1 && newPriority < currentPriority) {
-        return;
-    }
-
-    qint64 updateTime = QDateTime::currentMSecsSinceEpoch();
-
-    UserMarker marker;
-    marker.id = id;
-    marker.lon = obj["lon"].toDouble();
-    marker.lat = obj["lat"].toDouble();
-    marker.label = obj["label"].toString();
-    marker.color = obj["color"].toString("red");
-
-    marker.dataStatus = DataStatus_Normal;
-    marker.updateTime = updateTime;
-    marker.sourceProtocol = source;
-    marker.validUntil = calculateValidUntil(updateTime, obj);
-
-    if (markerIndex != -1) {
-        m_dynamicData.markers[markerIndex] = marker;
-    } else {
-        m_dynamicData.markers.append(marker);
-    }
-
-    m_dynamicData.timestamp = updateTime;
-    emit markersUpdated(m_dynamicData.markers);
-    emit dynamicDataChanged(m_dynamicData);
-}
-
-qint64 DataManager::calculateValidUntil(qint64 updateTime, const QJsonObject &obj)
-{
-    if (obj.contains("validUntil") && obj["validUntil"].isDouble()) {
-        return obj["validUntil"].toDouble();
-    }
-
-    if (obj.contains("validDuration") && obj["validDuration"].isDouble()) {
-        return updateTime + obj["validDuration"].toDouble();
-    }
-
-    return updateTime + m_defaultValidDuration;
+    DataCache::instance()->addEvent(event);
 }

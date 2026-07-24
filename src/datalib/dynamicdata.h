@@ -1,9 +1,17 @@
 #ifndef DYNAMICDATA_H
 #define DYNAMICDATA_H
 
+#ifdef CPSS_DATA_EXPORT
+#   define CPSS_DATA_API __declspec(dllexport)
+#else
+#   define CPSS_DATA_API __declspec(dllimport)
+#endif
+
 #include <QString>
 #include <QList>
 #include <QDateTime>
+#include <QMap>
+#include <QJsonObject>
 
 enum DataStatus {
     DataStatus_Normal,
@@ -13,65 +21,52 @@ enum DataStatus {
 
 enum ProtocolType {
     Protocol_Unknown,
-    Protocol_DDS,
-    Protocol_Redis,
-    Protocol_UDP,
-    Protocol_TCP,
-    Protocol_WebSocket,
     Protocol_HTTP
 };
 
-struct ShipData {
-    QString mmsi;
+enum CampType {
+    Camp_Unknown,
+    Camp_Friendly,
+    Camp_Enemy,
+    Camp_Neutral
+};
+
+enum SpecialEventType {
+    Event_Unknown,
+    Event_Attack,
+    Event_Defense,
+    Event_Alert,
+    Event_MissionStart,
+    Event_MissionEnd,
+    Event_Contact,
+    Event_Lost,
+    Event_Damage,
+    Event_Repair,
+    Event_Custom
+};
+
+struct WeaponInfo {
+    QString type;
+    int count;
+};
+
+struct SensorInfo {
+    QString type;
+    int count;
+};
+
+struct PlatformData {
+    QString id;
     QString name;
     double lon;
     double lat;
-    double heading;
+    double altitude;
     double speed;
-    bool isOwnShip;
-    bool visible;
-
-    DataStatus dataStatus;
-    qint64 validUntil;
-    qint64 updateTime;
-    ProtocolType sourceProtocol;
-
-    bool isExpired() const {
-        return dataStatus == DataStatus_Expired || 
-               (validUntil > 0 && validUntil < QDateTime::currentMSecsSinceEpoch());
-    }
-};
-
-struct AisTarget {
-    QString mmsi;
-    QString name;
-    double lon;
-    double lat;
-    double heading;
-    double speed;
-    int shipType;
-    bool isDanger;
-    bool visible;
-
-    DataStatus dataStatus;
-    qint64 validUntil;
-    qint64 updateTime;
-    ProtocolType sourceProtocol;
-
-    bool isExpired() const {
-        return dataStatus == DataStatus_Expired || 
-               (validUntil > 0 && validUntil < QDateTime::currentMSecsSinceEpoch());
-    }
-};
-
-struct WeaponData {
-    QString id;
-    double lon;
-    double lat;
-    double targetLon;
-    double targetLat;
     QString type;
-    bool active;
+    QString category;
+    CampType camp;
+    QList<WeaponInfo> weapons;
+    QList<SensorInfo> sensors;
 
     DataStatus dataStatus;
     qint64 validUntil;
@@ -84,51 +79,20 @@ struct WeaponData {
     }
 };
 
-struct SensorData {
-    QString id;
-    double lon;
-    double lat;
-    double radius;
-    double azimuth;
-    double angle;
-    QString type;
-    bool active;
-
-    DataStatus dataStatus;
-    qint64 validUntil;
-    qint64 updateTime;
-    ProtocolType sourceProtocol;
-
-    bool isExpired() const {
-        return dataStatus == DataStatus_Expired || 
-               (validUntil > 0 && validUntil < QDateTime::currentMSecsSinceEpoch());
-    }
+struct SpecialEvent {
+    QString eventId;
+    SpecialEventType eventType;
+    QString eventName;
+    QString description;
+    qint64 timestamp;
+    QString targetId;
+    QString sourceId;
+    QJsonObject extraData;
 };
 
-struct UserMarker {
-    QString id;
-    double lon;
-    double lat;
-    QString label;
-    QString color;
-
-    DataStatus dataStatus;
-    qint64 validUntil;
-    qint64 updateTime;
-    ProtocolType sourceProtocol;
-
-    bool isExpired() const {
-        return dataStatus == DataStatus_Expired || 
-               (validUntil > 0 && validUntil < QDateTime::currentMSecsSinceEpoch());
-    }
-};
-
-struct DynamicObjects {
-    ShipData ownShip;
-    QList<AisTarget> aisTargets;
-    QList<WeaponData> weapons;
-    QList<SensorData> sensors;
-    QList<UserMarker> markers;
+struct CPSS_DATA_API DynamicObjects {
+    QMap<QString, PlatformData> platforms;
+    QList<SpecialEvent> events;
     qint64 timestamp;
 };
 

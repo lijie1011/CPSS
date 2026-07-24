@@ -6,6 +6,7 @@
 #include <QImage>
 #include <QString>
 #include <QSet>
+#include <QLabel>
 
 #include "dynamicdata.h"
 
@@ -17,9 +18,9 @@ struct PropertyBox {
     double lat;
     double heading;
     double speed;
-    QPoint offset;
+    QLabel *label;
     bool isDragging;
-    QRect rect;
+    QPoint dragOffset;
 
     bool operator==(const PropertyBox &other) const {
         return id == other.id && isOwnShip == other.isOwnShip;
@@ -37,6 +38,7 @@ public:
     void updateDynamicData(const DynamicObjects &data);
     const DynamicObjects& getDynamicData() const { return m_dynamicData; }
     void setEnclibReady(bool ready);
+    bool isEnclibReady() const { return m_enclibReady; }
 
 signals:
     void updateGeoPosition(QPoint pos);
@@ -54,18 +56,18 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
+    bool eventFilter(QObject *obj, QEvent *event) override;
 
 private:
-    void drawShip(QPainter &painter, const ShipData &ship);
-    void drawAisTargets(QPainter &painter);
-    void drawWeapons(QPainter &painter);
-    void drawSensors(QPainter &painter);
-    void drawMarkers(QPainter &painter);
-    void drawPropertyBoxes(QPainter &painter);
+    void drawPlatform(QPainter &painter, const PlatformData &platform);
+    void drawEventMarker(QPainter &painter, int x, int y, SpecialEventType eventType);
+    void drawConnectingLines(QPainter &painter);
     bool geoToScreen(double lon, double lat, int &x, int &y);
-    PropertyBox* findPropertyBoxAt(int x, int y);
+    PropertyBox* findPropertyBoxByLabel(QLabel *label);
     PropertyBox* findPropertyBoxById(const QString &id, bool isOwnShip);
     bool isPointInShip(int x, int y, int shipX, int shipY);
+    void createPropertyBox(const PlatformData &platform);
+    void destroyPropertyBox(PropertyBox *box);
 
     QPoint m_leftMousePressPt;
     QPoint m_lastLeftMousePt;
@@ -76,8 +78,6 @@ private:
     DynamicObjects m_dynamicData;
 
     QList<PropertyBox> m_propertyBoxes;
-    PropertyBox *m_draggingBox;
-    QPoint m_dragOffset;
 };
 
 #endif

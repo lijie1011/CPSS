@@ -7,6 +7,11 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
+set(CMAKE_BINARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
 if(WIN32)
     set(PLATFORM_NAME "windows")
 elseif(UNIX AND NOT APPLE)
@@ -16,6 +21,11 @@ else()
 endif()
 
 message(STATUS "Building CPSS for platform: ${PLATFORM_NAME}")
+
+if(WIN32)
+    set(Qt5_DIR "E:/Qt5.12.11/5.12.11/msvc2017_64/lib/cmake/Qt5")
+    message(STATUS "Using MSVC Qt5: ${Qt5_DIR}")
+endif()
 
 find_package(Qt5 5.12 REQUIRED COMPONENTS
     Widgets
@@ -34,6 +44,7 @@ if(NOT EXISTS "${ENCLIB_INCLUDE_DIR}/encl.h")
                         "Please copy Enclib SDK from ChartDemo to src/3dParty/Enclib")
 endif()
 
+add_subdirectory(common)
 add_subdirectory(datalib)
 
 set(SOURCES
@@ -42,8 +53,6 @@ set(SOURCES
     viewwidget.cpp
     webserver.cpp
     chartbridge.cpp
-    common/config.cpp
-    common/logger.cpp
 )
 
 set(HEADERS
@@ -51,8 +60,6 @@ set(HEADERS
     viewwidget.h
     webserver.h
     chartbridge.h
-    common/config.h
-    common/logger.h
 )
 
 add_executable(cpss WIN32 ${SOURCES} ${HEADERS})
@@ -65,6 +72,7 @@ target_include_directories(cpss PRIVATE
 )
 
 target_link_libraries(cpss PRIVATE
+    cpss_common
     cpss_data
     Qt5::Widgets
     Qt5::Gui
@@ -132,13 +140,13 @@ if(WIN32)
     file(WRITE ${CMAKE_BINARY_DIR}/deploy.bat
 "@echo off
 windeployqt --release --compiler-runtime bin\\\\cpss.exe
-copy ..\\\\3dParty\\\\Enclib\\\\bin\\\\enccore.dll bin\\\\
-copy ..\\\\3dParty\\\\Enclib\\\\bin\\\\msn.exe bin\\\\
-copy ..\\\\3dParty\\\\Enclib\\\\bin\\\\s52symbol.exe bin\\\\
-xcopy /E /I ..\\\\3dParty\\\\Enclib\\\\mapdata bin\\\\mapdata
-xcopy /E /I ..\\\\3dParty\\\\Enclib\\\\fonts bin\\\\fonts
-copy ..\\\\3dParty\\\\Enclib\\\\config.xml bin\\\\
-copy ..\\\\3dParty\\\\Enclib\\\\lic.dat bin\\\\
+copy .\\\\3dParty\\\\Enclib\\\\bin\\\\enccore.dll bin\\\\
+copy .\\\\3dParty\\\\Enclib\\\\bin\\\\msn.exe bin\\\\
+copy .\\\\3dParty\\\\Enclib\\\\bin\\\\s52symbol.exe bin\\\\
+xcopy /E /I .\\\\3dParty\\\\Enclib\\\\mapdata bin\\\\mapdata
+xcopy /E /I .\\\\3dParty\\\\Enclib\\\\fonts bin\\\\fonts
+copy .\\\\3dParty\\\\Enclib\\\\config.xml bin\\\\
+copy .\\\\3dParty\\\\Enclib\\\\lic.dat bin\\\\
 echo Deploy complete!
 "
     )
@@ -147,13 +155,13 @@ elseif(UNIX)
 "#!/bin/bash
 set -e
 linuxdeployqt bin/cpss -verbose=2
-cp ../3dParty/Enclib/bin/libenccore.so bin/
-cp ../3dParty/Enclib/bin/msn bin/
-cp ../3dParty/Enclib/bin/s52symbol bin/
-cp -r ../3dParty/Enclib/mapdata bin/
-cp -r ../3dParty/Enclib/fonts bin/
-cp ../3dParty/Enclib/config.xml bin/
-cp ../3dParty/Enclib/lic.dat bin/
+cp ./3dParty/Enclib/bin/libenccore.so bin/
+cp ./3dParty/Enclib/bin/msn bin/
+cp ./3dParty/Enclib/bin/s52symbol bin/
+cp -r ./3dParty/Enclib/mapdata bin/
+cp -r ./3dParty/Enclib/fonts bin/
+cp ./3dParty/Enclib/config.xml bin/
+cp ./3dParty/Enclib/lic.dat bin/
 echo 'Deploy complete!'
 "
     )

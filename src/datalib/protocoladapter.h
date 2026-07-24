@@ -6,7 +6,7 @@
 #include <QJsonObject>
 #include "dynamicdata.h"
 
-class IProtocolAdapter : public QObject
+class CPSS_DATA_API IProtocolAdapter : public QObject
 {
     Q_OBJECT
 

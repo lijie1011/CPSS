@@ -6,7 +6,13 @@
 #include <QFile>
 #include <QTextStream>
 
-class Logger
+#ifdef CPSS_COMMON_EXPORT
+#   define CPSS_COMMON_API __declspec(dllexport)
+#else
+#   define CPSS_COMMON_API __declspec(dllimport)
+#endif
+
+class CPSS_COMMON_API Logger
 {
 public:
     static void init(const QString &filename);

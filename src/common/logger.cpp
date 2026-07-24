@@ -34,9 +34,16 @@ void Logger::debug(const char *format, ...)
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
-    s_stream << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")
-             << " [DEBUG] " << buffer << endl;
-    s_stream.flush();
+    
+    if (s_file.isOpen()) {
+        s_stream << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")
+                 << " [DEBUG] " << buffer << endl;
+        s_stream.flush();
+    } else {
+        fprintf(stderr, "%s [DEBUG] %s\n", 
+                QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz").toStdString().c_str(), 
+                buffer);
+    }
 }
 
 void Logger::info(const char *format, ...)
@@ -47,9 +54,16 @@ void Logger::info(const char *format, ...)
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
-    s_stream << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")
-             << " [INFO]  " << buffer << endl;
-    s_stream.flush();
+    
+    if (s_file.isOpen()) {
+        s_stream << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")
+                 << " [INFO]  " << buffer << endl;
+        s_stream.flush();
+    } else {
+        fprintf(stderr, "%s [INFO]  %s\n", 
+                QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz").toStdString().c_str(), 
+                buffer);
+    }
 }
 
 void Logger::warn(const char *format, ...)
@@ -60,9 +74,16 @@ void Logger::warn(const char *format, ...)
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
-    s_stream << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")
-             << " [WARN]  " << buffer << endl;
-    s_stream.flush();
+    
+    if (s_file.isOpen()) {
+        s_stream << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")
+                 << " [WARN]  " << buffer << endl;
+        s_stream.flush();
+    } else {
+        fprintf(stderr, "%s [WARN]  %s\n", 
+                QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz").toStdString().c_str(), 
+                buffer);
+    }
 }
 
 void Logger::error(const char *format, ...)
@@ -73,7 +94,14 @@ void Logger::error(const char *format, ...)
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
-    s_stream << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")
-             << " [ERROR] " << buffer << endl;
-    s_stream.flush();
+    
+    if (s_file.isOpen()) {
+        s_stream << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")
+                 << " [ERROR] " << buffer << endl;
+        s_stream.flush();
+    } else {
+        fprintf(stderr, "%s [ERROR] %s\n", 
+                QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz").toStdString().c_str(), 
+                buffer);
+    }
 }

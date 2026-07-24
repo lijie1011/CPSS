@@ -2,6 +2,8 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QToolBar>
+#include <QHBoxLayout>
 #include "viewwidget.h"
 #include "dynamicdata.h"
 
@@ -17,21 +19,22 @@ public:
 
 private:
     void init();
-    void initTestData();
     void createActions();
     void createToolBar();
     void createStatusBar();
+    bool checkLicenseExpired(const QString &enclibPath);
+    void showEvent(QShowEvent *event) override;
 
 private slots:
     void zoomIn();
     void zoomOut();
     void resetView();
     void updateGeoPosition(QPoint pos);
-    void updateTestData();
+    void showEventLegend();
 
 private:
     ViewWidget* m_viewWidget;
-    DynamicObjects m_testData;
+    QToolBar* m_toolBar;
 };
 
 #endif
