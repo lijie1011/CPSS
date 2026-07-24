@@ -241,7 +241,8 @@ void MainWindow::updateGeoPosition(QPoint pos)
     
     double lon, lat;
     EnclTransformScrnToGeo(pos.x(), pos.y(), &lon, &lat);
-    statusBar()->showMessage(tr("Lon: %1 Lat: %2").arg(lon, 0, 'f', 6).arg(lat, 0, 'f', 6));
+    double scale = EnclViewGetScale();
+    statusBar()->showMessage(tr("Lon: %1 Lat: %2 Scale: %3").arg(lon, 0, 'f', 6).arg(lat, 0, 'f', 6).arg(scale, 0, 'f', 0));
 }
 
 void MainWindow::showEventLegend()
