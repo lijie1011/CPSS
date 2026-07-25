@@ -340,6 +340,18 @@ void DataCache::initTestData()
     missionEvent.extraData = extraData;
     addEvent(missionEvent);
 
+    SpecialEvent standaloneEvent;
+    standaloneEvent.eventId = "EVENT_003";
+    standaloneEvent.eventType = Event_Custom;
+    standaloneEvent.eventName = "Special Event";
+    standaloneEvent.description = "A special event occurred at this location";
+    standaloneEvent.timestamp = QDateTime::currentMSecsSinceEpoch();
+    standaloneEvent.targetId = "";
+    standaloneEvent.sourceId = "SYSTEM";
+    standaloneEvent.lon = 121.52;
+    standaloneEvent.lat = 31.21;
+    addEvent(standaloneEvent);
+
     Logger::info("Test data initialized, total platforms: %d, total events: %d", 
                  getAllPlatforms().size(), getAllEvents().size());
 }

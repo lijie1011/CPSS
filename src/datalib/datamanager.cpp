@@ -244,6 +244,8 @@ void DataManager::updateEvent(const QJsonObject &obj, ProtocolType source)
     if (event.timestamp == 0) event.timestamp = QDateTime::currentMSecsSinceEpoch();
     event.targetId = obj["targetId"].toString();
     event.sourceId = obj["sourceId"].toString();
+    event.lon = obj["lon"].toDouble();
+    event.lat = obj["lat"].toDouble();
     
     if (obj.contains("extraData") && obj["extraData"].isObject()) {
         event.extraData = obj["extraData"].toObject();

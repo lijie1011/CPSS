@@ -107,6 +107,12 @@ void ViewWidget::paintEvent(QPaintEvent *event)
         drawPlatform(painter, platform);
     }
 
+    for (const SpecialEvent &event : m_dynamicData.events) {
+        if (event.targetId.isEmpty() && event.lon != 0 && event.lat != 0) {
+            drawStandaloneEvent(painter, event);
+        }
+    }
+
     drawConnectingLines(painter);
     updateOverviewMap();
 }
@@ -169,6 +175,16 @@ void ViewWidget::mouseReleaseEvent(QMouseEvent *event)
                         } else {
                             createPropertyBox(platform);
                         }
+                        update();
+                        return;
+                    }
+                }
+            }
+
+            for (const SpecialEvent &event : m_dynamicData.events) {
+                if (event.targetId.isEmpty() && event.lon != 0 && event.lat != 0) {
+                    if (isPointInEvent(clickedX, clickedY, event)) {
+                        createEventInfoBox(event);
                         update();
                         return;
                     }
@@ -320,6 +336,107 @@ void ViewWidget::drawEventMarker(QPainter &painter, int x, int y, SpecialEventTy
     painter.drawText(QRect(-8, -8, 16, 16), Qt::AlignCenter, iconText);
 
     painter.restore();
+}
+
+void ViewWidget::drawStandaloneEvent(QPainter &painter, const SpecialEvent &event)
+{
+    int x, y;
+    if (!geoToScreen(event.lon, event.lat, x, y)) {
+        return;
+    }
+
+    painter.save();
+    painter.translate(x, y);
+
+    QColor markerColor = Qt::darkMagenta;
+    QString iconText = "e";
+
+    QPen pen(markerColor, 2);
+    painter.setPen(pen);
+    painter.setBrush(QBrush(markerColor, Qt::Dense4Pattern));
+    painter.drawRect(-10, -10, 20, 20);
+    
+    painter.setPen(Qt::white);
+    painter.setFont(QFont("Arial", 12, QFont::Bold));
+    painter.drawText(QRect(-10, -10, 20, 20), Qt::AlignCenter, iconText);
+
+    painter.restore();
+}
+
+bool ViewWidget::isPointInEvent(int x, int y, const SpecialEvent &event)
+{
+    int eventX, eventY;
+    if (!geoToScreen(event.lon, event.lat, eventX, eventY)) {
+        return false;
+    }
+    int radius = 15;
+    int dx = x - eventX;
+    int dy = y - eventY;
+    return (dx * dx + dy * dy) <= (radius * radius);
+}
+
+void ViewWidget::createEventInfoBox(const SpecialEvent &event)
+{
+    PropertyBox box;
+    box.id = event.eventId;
+    box.name = event.eventName;
+    box.isOwnShip = false;
+    box.lon = event.lon;
+    box.lat = event.lat;
+    box.heading = 0;
+    box.speed = 0;
+    box.isDragging = false;
+
+    QLabel *label = new QLabel(this);
+    label->setWindowFlags(Qt::FramelessWindowHint | Qt::Tool);
+    label->setStyleSheet("background-color: #FFE4E1; border: 1px solid #DC143C; padding: 8px;");
+
+    QString eventTypeStr;
+    switch (event.eventType) {
+    case Event_Alert: eventTypeStr = "Alert"; break;
+    case Event_Attack: eventTypeStr = "Attack"; break;
+    case Event_Defense: eventTypeStr = "Defense"; break;
+    case Event_Contact: eventTypeStr = "Contact"; break;
+    case Event_Damage: eventTypeStr = "Damage"; break;
+    case Event_MissionStart: eventTypeStr = "Mission Start"; break;
+    case Event_MissionEnd: eventTypeStr = "Mission End"; break;
+    case Event_Lost: eventTypeStr = "Lost"; break;
+    case Event_Repair: eventTypeStr = "Repair"; break;
+    case Event_Custom: eventTypeStr = "Custom"; break;
+    default: eventTypeStr = "Unknown"; break;
+    }
+
+    QDateTime timestamp = QDateTime::fromMSecsSinceEpoch(event.timestamp);
+
+    label->setText(
+        QString("Event\nName: %1\nType: %2\nID: %3\nLongitude: %4\nLatitude: %5\nTime: %6\nDescription: %7")
+            .arg(event.eventName)
+            .arg(eventTypeStr)
+            .arg(event.eventId)
+            .arg(event.lon, 0, 'f', 6)
+            .arg(event.lat, 0, 'f', 6)
+            .arg(timestamp.toString("yyyy-MM-dd HH:mm:ss"))
+            .arg(event.description)
+    );
+    label->adjustSize();
+    label->installEventFilter(this);
+    label->setMouseTracking(true);
+
+    int eventX, eventY;
+    if (geoToScreen(event.lon, event.lat, eventX, eventY)) {
+        QPoint pos = mapToGlobal(QPoint(eventX, eventY));
+        pos.setY(pos.y() - label->height() - 15);
+        QRect screenGeometry = QApplication::desktop()->availableGeometry(this);
+        if (pos.y() < screenGeometry.top())
+            pos.setY(mapToGlobal(QPoint(eventX, eventY)).y() + 20);
+        if (pos.x() + label->width() > screenGeometry.right())
+            pos.setX(screenGeometry.right() - label->width());
+        label->move(pos);
+    }
+
+    box.label = label;
+    m_propertyBoxes.append(box);
+    label->show();
 }
 
 void ViewWidget::drawConnectingLines(QPainter &painter)

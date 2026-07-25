@@ -88,6 +88,8 @@ struct SpecialEvent {
     QString targetId;
     QString sourceId;
     QJsonObject extraData;
+    double lon;
+    double lat;
 };
 
 struct CPSS_DATA_API DynamicObjects {

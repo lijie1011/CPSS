@@ -62,12 +62,15 @@ protected:
 private:
     void drawPlatform(QPainter &painter, const PlatformData &platform);
     void drawEventMarker(QPainter &painter, int x, int y, SpecialEventType eventType);
+    void drawStandaloneEvent(QPainter &painter, const SpecialEvent &event);
     void drawConnectingLines(QPainter &painter);
     bool geoToScreen(double lon, double lat, int &x, int &y);
     PropertyBox* findPropertyBoxByLabel(QLabel *label);
     PropertyBox* findPropertyBoxById(const QString &id, bool isOwnShip);
     bool isPointInShip(int x, int y, int shipX, int shipY);
+    bool isPointInEvent(int x, int y, const SpecialEvent &event);
     void createPropertyBox(const PlatformData &platform);
+    void createEventInfoBox(const SpecialEvent &event);
     void destroyPropertyBox(PropertyBox *box);
     void initOverviewMap();
     void updateOverviewMap();
