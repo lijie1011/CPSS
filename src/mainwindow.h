@@ -54,6 +54,8 @@ private slots:
     void updateGeoPosition(QPoint pos);
     void showEventLegend();
     void onPluginActionTriggered();
+    void showDisplaySetting();
+    void showDepthAndContour();
 
 private:
     Ui::MainWindow *ui;

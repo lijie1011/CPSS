@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<viewgroup>
+  <displaybase>
+    <chartdisplay desc="11000 - 海图显示信息">
+      <group desc="11010 - 光标"/>
+      <group desc="11030 - 比例尺、纬度、覆盖对象"/>
+      <group desc="11040 - 指北针"/>
+      <group desc="11050 - 无数据、未测量、未完全测量区域"/>
+      <group desc="11060 - 非官方数据边界"/>
+    </chartdisplay>
+    <Landarea desc="12000 - 陆地">
+      <group desc="12010 - 陆地"/>
+      <group desc="12200 - 水上危险"/>
+      <group desc="12210 - 桥梁、塔架、架空电缆、输送机、架空管道、海上平台"/>
+      <group desc="12400 - 海岸 "/>
+      <group desc="12410 - 海岸线、冰架、冰川、海岸设施、系船墙、系船柱、闸门、桩、井口、防冰栅、浮船坞、船体、浮船、防油栅、木栅、防洪堤"/>
+      <group desc="12420 - 码头、船闸、运河、河流"/>
+    </Landarea>
+    <depthsandcurrents desc="13000 - 深度和潮流等">
+      <group desc="13010 - 安全等深线"/>
+      <group desc="13030 - 深度区域，疏浚区"/>
+    </depthsandcurrents>
+    <Dangersunderwater desc="14000 - 水下危险">
+      <group desc="14010 - 大于安全等深线区域的水下孤立危险物"/>
+    </Dangersunderwater>
+  </displaybase>
+  <displaystandard>
+    <chartdisplay desc="21000 - 海图显示信息">
+      <group desc="21010 - 未知物标"/>
+      <group desc="21020 - 一般物标"/>
+      <group desc="21030 - 海图比例尺边界，超比例尺数据"/>
+      <group desc="21060 - 地名占位符"/>
+    </chartdisplay>
+    <MajorCoastalFeatures desc="22000 - 主要海岸物标 ">
+      <group desc="22010 - 河岸、湖泊、湖岸、斜坡地面、坡顶、堤坝、堤道、大坝"/>
+      <group desc="22210 - 雷达明显目标 "/>
+      <group desc="22220 - 雷达可见目标 "/>
+      <group desc="22240 - 建筑区域"/>
+    </MajorCoastalFeatures>
+    <Depths desc="23000 - 深度">
+      <group desc="23010 - 小于安全水深的区域"/>
+      <group desc="23030 - 扫海区"/>
+    </Depths>
+    <Seabeddangers desc="24000 - 底质危险物">
+      <group desc="24010 - 系泊电缆（CBLSUB、CATCBL6）、海底隧道、沙波"/>
+      <group desc="24020 - 零米与安全等深线之间的孤立危险"/>
+    </Seabeddangers>
+    <RoutesandTracks desc="25000 - 航线">
+      <group desc="25010 - 导航线、安全界线、通航分道、深水航道、分道通航区、分隔线、环行道、交叉口、警戒区、分道通航制边界、深水航线中心线、双向航线部分、沿岸通航区"/>
+      <group desc="25020 - 推荐航线、推荐通航分道、推荐航线中心线"/>
+      <group desc="25030 - 渡轮航线"/>
+      <group desc="25040 - 雷达线，海岸雷达边界"/>
+      <group desc="25060 - 无线电呼叫接入点"/>
+    </RoutesandTracks>
+    <RestrictedandCautionaryAreas desc="26000 - 限制区和警戒区">
+      <group desc="26010 - 限制区"/>
+      <group desc="26040 - 轮渡航线区、潜艇通过道、军事演习区、海上飞机降落区、海上生产区"/>
+      <group desc="26050 - 警告区,水上飞机航路"/>
+      <group desc="26210 - 渔场、海洋养殖场 "/>
+      <group desc="26220 - 锚泊区、锚位"/>
+      <group desc="26230 - 管线区、电缆区"/>
+      <group desc="26240 - 垃圾倾倒区"/>
+      <group desc="26250 - 货区中转站,焚烧区"/>
+      <group desc="26260 - 群岛海道"/>
+    </RestrictedandCautionaryAreas>
+    <BuoysBeaconsTopmarksLightsFogSignals desc="27000 - 浮标、立标、顶标、灯、雾信号">
+      <group desc="27010 - 浮筒、轻型浮筒、系泊浮筒"/>
+      <group desc="27011 - 灯船"/>
+      <group desc="27020 - 立标"/>
+      <group desc="27025 - 昼标"/>
+      <group desc="27030 - 距离标"/>
+      <group desc="27040 -  IALA 区域方位标"/>
+      <group desc="27050 - 顶标-纸海图符号"/>
+      <group desc="27060 - 船架"/>
+      <group desc="27070 - 灯"/>
+      <group desc="27080 - 雾信号, 反射器"/>
+      <group desc="27210 - 雷达立标"/>
+      <group desc="27230 - 雷达反射器"/>
+    </BuoysBeaconsTopmarksLightsFogSignals>
+    <Services desc="28000 - 服务">
+      <group desc="28010 - 引航员登船点"/>
+      <group desc="28020 - 信号站、交通、警告"/>
+    </Services>
+  </displaystandard>
+  <displayother>
+    <chartdisplay desc="31000 - 海图显示信息">
+      <group desc="31011 - 符号LOWACC01，用于识别低精度测量数据区，应用于沉船、岩石、障碍物的点和区域空间对象，以及陆地点空间对象"/>
+      <group desc="31020 - 航海出版物"/>
+      <group desc="31030 - 附加信息INFORM,NINFOM"/>
+      <group desc="31031 - 附加文档NTXTDS, TXTDSC, PICREP"/>
+      <group desc="31040 - 数据比例尺和范围"/>
+      <group desc="31080 - 磁差，局部磁异常"/>
+    </chartdisplay>
+    <NaturalFeatures desc="32000 - 自然物标">
+      <group desc="32010 - 沙丘、山丘、山脊、崖顶、等高线和高程"/>
+      <group desc="32030 - 树木、植被、红树林、沼泽 "/>
+      <group desc="32050 - 河流或湖泊、还有急流、瀑布 "/>
+      <group desc="32070 - 潮路,盐场"/>
+      <group desc="32220 - 以下任何未归类为CONVIS1（显眼）的物品：陆标、建筑、水箱、筒仓、水塔、石堆、堡垒等"/>
+      <group desc="32240 - 机场、跑道"/>
+      <group desc="32250 - 铁路、公路、隧道、管制站"/>
+      <group desc="32270 - 采石场、炼油厂、发电站、罐区、风电场、工厂、木材堆场"/>
+      <group desc="32400 - 港口设施"/>
+      <group desc="32410 - 港口、海关检查站"/>
+      <group desc="32430 - 距离标志"/>
+      <group desc="32440 - 泊位设施、泊位号、系泊设施、船闸、干船坞、起重机"/>
+    </NaturalFeatures>
+    <DepthsCurrentsTiderips desc="33000 - 深度、海流、潮汐等">
+      <group desc="33010 - 大于安全深度的深水水深"/>
+      <group desc="33012 - 小于安全深度的浅水水深"/>
+      <group desc="33020 - 安全等深线以外的等深线"/>
+      <group desc="33021 - 安全等深线标签"/>
+      <group desc="33022 - 安全等深线以外的等深线标签"/>
+      <group desc="33040 - 湍流"/>
+      <group desc="33050 - 潮汐资料"/>
+      <group desc="33060 - 洋流和潮流信息 "/>
+    </DepthsCurrentsTiderips>
+    <SeabedInformation desc="34000 - 海底底质信息: 岩石、沉船、碍航物、 管道、线缆">
+      <group desc="34010 - 海底底质"/>
+      <group desc="34020 - 泉、海草"/>
+      <group desc="34030 - 管线区、电缆区"/>
+      <group desc="34040 - 渔港、渔桩等"/>
+      <group desc="34050 - 对本船航行不构成危险的岩石、沉船、碍航物"/>
+      <group desc="34051 - 有深度属性且对本船航行不构成威胁的非危险岩石、沉船、碍航物"/>
+      <group desc="34070 - 水下电缆、水下管线"/>
+    </SeabedInformation>
+    <AdministrativeAreas desc="36000 - 行政区域">
+      <group desc="36010 - 大陆架"/>
+      <group desc="36020 - 港区自由港区、关税区"/>
+      <group desc="36040 - 渔区"/>
+      <group desc="36050 - 毗连区、专属经济区、国家领海、领海、领海基线、行政区域"/>
+    </AdministrativeAreas>
+    <Services desc="38000 - 服务">
+      <group desc="38010 - 雷达站、无线电台"/>
+      <group desc="38030 - 海岸警卫队、救援站"/>
+      <group desc="38210 - 小型船只设施"/>
+    </Services>
+  </displayother>
+</viewgroup>

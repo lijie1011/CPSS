@@ -7,6 +7,7 @@
 #include <QString>
 #include <QSet>
 #include <QLabel>
+#include <QRect>
 
 #include "dynamicdata.h"
 
@@ -68,16 +69,22 @@ private:
     bool isPointInShip(int x, int y, int shipX, int shipY);
     void createPropertyBox(const PlatformData &platform);
     void destroyPropertyBox(PropertyBox *box);
+    void initOverviewMap();
+    void updateOverviewMap();
+    void drawOverviewMapContent();
 
     QPoint m_leftMousePressPt;
     QPoint m_lastLeftMousePt;
     QImage m_storedViewImg;
+    QImage m_overviewImage;
     double m_rotAngle;
     bool   m_drawOthers;
     bool   m_enclibReady;
     DynamicObjects m_dynamicData;
 
     QList<PropertyBox> m_propertyBoxes;
+    QLabel *m_overviewLabel;
+    QRect m_overviewViewport;
 };
 
 #endif

@@ -19,6 +19,10 @@
 #include "ui_mainwindow.h"
 #include "encl.h"
 
+#include "displaycategory.h"
+#include "viewinggroupdialog.h"
+#include "waterdepthsetting.h"
+
 #include <QApplication>
 #include "dynamicdata.h"
 #include "datamanager.h"
@@ -44,6 +48,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionZoomIn, &QAction::triggered, this, &MainWindow::zoomIn);
     connect(ui->actionZoomOut, &QAction::triggered, this, &MainWindow::zoomOut);
     connect(ui->actionReset, &QAction::triggered, this, &MainWindow::resetView);
+    connect(ui->actionDisplaySetting, &QAction::triggered, this, &MainWindow::showDisplaySetting);
     connect(ui->actionHelp, &QAction::triggered, this, &MainWindow::showEventLegend);
     Logger::info("MainWindow constructor: actions connected");
 
@@ -397,6 +402,37 @@ void MainWindow::showEventLegend()
         "<li>Drag property box to reposition</li>"
         "<li>Click on blank area to hide all property boxes</li>"
         "</ul>";
-    
+
     QMessageBox::information(this, tr("Event Legend"), legendText);
+}
+
+void MainWindow::showDisplaySetting()
+{
+    QDialog* dialog = new QDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setModal(true);
+    dialog->setWindowTitle(QString::fromUtf8("海图显示控制"));
+
+    QGridLayout* gridLayout = new QGridLayout(dialog);
+    gridLayout->setContentsMargins(0, 0, 0, 0);
+    QTabWidget* tabWidget = new QTabWidget();
+    gridLayout->addWidget(tabWidget);
+
+    DisplayCategory* pDcd = new DisplayCategory(this);
+    connect(pDcd, SIGNAL(updateChartView()), m_viewWidget, SLOT(updateChart()));
+    tabWidget->addTab(pDcd, QString::fromUtf8("显示模式"));
+
+    ViewingGroupDialog* pVgd = new ViewingGroupDialog(this);
+    connect(pVgd, SIGNAL(updateChartView()), m_viewWidget, SLOT(updateChart()));
+    tabWidget->addTab(pVgd, QString::fromUtf8("显示分组"));
+
+    dialog->show();
+}
+
+void MainWindow::showDepthAndContour()
+{
+    WaterDepthSetting* depthAndContour = new WaterDepthSetting(this);
+    connect(depthAndContour, SIGNAL(updatChartView()), m_viewWidget, SLOT(updateChart()));
+    depthAndContour->show();
+    depthAndContour->setAttribute(Qt::WA_DeleteOnClose);
 }

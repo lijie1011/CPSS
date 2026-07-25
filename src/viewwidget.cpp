@@ -9,10 +9,12 @@
 
 ViewWidget::ViewWidget(QWidget *parent)
     : QWidget(parent),
-      m_enclibReady(false)
+      m_enclibReady(false),
+      m_overviewLabel(nullptr)
 {
     Logger::info("ViewWidget constructor: entering");
     setMouseTracking(true);
+    initOverviewMap();
     Logger::info("ViewWidget constructor: done");
 }
 
@@ -24,6 +26,7 @@ ViewWidget::~ViewWidget()
             delete box.label;
         }
     }
+    delete m_overviewLabel;
 }
 
 void ViewWidget::setEnclibReady(bool ready)
@@ -84,8 +87,8 @@ void ViewWidget::paintEvent(QPaintEvent *event)
         unsigned char *pPixBuf = EnclDrawChart();
         if (pPixBuf) {
             QImage img(pPixBuf, this->width(), this->height(), QImage::Format_RGB32);
-            painter.drawImage(0, 0, img);
-            m_storedViewImg = img.copy();
+            m_storedViewImg = QImage(img.constBits(), img.width(), img.height(), img.bytesPerLine(), img.format()).copy();
+            painter.drawImage(0, 0, m_storedViewImg);
         } else {
             painter.drawImage(0, 0, m_storedViewImg);
         }
@@ -105,6 +108,7 @@ void ViewWidget::paintEvent(QPaintEvent *event)
     }
 
     drawConnectingLines(painter);
+    updateOverviewMap();
 }
 
 void ViewWidget::resizeEvent(QResizeEvent *event)
@@ -453,6 +457,18 @@ void ViewWidget::destroyPropertyBox(PropertyBox *box)
 
 bool ViewWidget::eventFilter(QObject *obj, QEvent *event)
 {
+    if (obj == m_overviewLabel && event->type() == QEvent::MouseButtonPress) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+        QPoint pos = mouseEvent->pos();
+
+        double lon, lat;
+        EnclEagleEyePixToGeo(pos.x(), pos.y(), lon, lat);
+        EnclViewCenter(lon, lat);
+        update();
+        updateOverviewMap();
+        return true;
+    }
+
     for (auto &box : m_propertyBoxes) {
         if (obj == box.label) {
             if (event->type() == QEvent::MouseButtonDblClick) {
@@ -493,4 +509,79 @@ bool ViewWidget::eventFilter(QObject *obj, QEvent *event)
         }
     }
     return QWidget::eventFilter(obj, event);
+}
+
+void ViewWidget::initOverviewMap()
+{
+    m_overviewLabel = new QLabel(this);
+    m_overviewLabel->setFixedSize(200, 150);
+    m_overviewLabel->move(10, 10);
+    m_overviewLabel->setStyleSheet("background-color: rgba(200, 200, 200, 180); border: 1px solid gray;");
+    m_overviewLabel->setScaledContents(true);
+    m_overviewLabel->installEventFilter(this);
+}
+
+void ViewWidget::updateOverviewMap()
+{
+    if (!m_overviewLabel) return;
+
+    drawOverviewMapContent();
+    m_overviewLabel->setPixmap(QPixmap::fromImage(m_overviewImage));
+}
+
+void ViewWidget::drawOverviewMapContent()
+{
+    int w = m_overviewLabel->width();
+    int h = m_overviewLabel->height();
+    m_overviewImage = QImage(w, h, QImage::Format_ARGB32);
+    m_overviewImage.fill(QColor(220, 220, 220, 255));
+
+    if (!m_enclibReady) {
+        QPainter painter(&m_overviewImage);
+        painter.setPen(Qt::gray);
+        painter.drawText(m_overviewImage.rect(), Qt::AlignCenter, "Map not ready");
+        return;
+    }
+
+    unsigned char *pPixBuf = EnclEagleEyeGetImage(w, h);
+    if (pPixBuf) {
+        m_overviewImage = QImage(pPixBuf, w, h, QImage::Format_RGB32).copy();
+    }
+
+    QPainter overviewPainter(&m_overviewImage);
+
+    double lon0, lat0;
+    EnclTransformScrnToGeo(0, 0, &lon0, &lat0);
+    int x0, y0;
+    EnclEagleEyeGeoToPix(lon0, lat0, x0, y0);
+
+    double lon1, lat1;
+    EnclTransformScrnToGeo(width() - 1, height() - 1, &lon1, &lat1);
+    int x1, y1;
+    EnclEagleEyeGeoToPix(lon1, lat1, x1, y1);
+
+    m_overviewViewport = QRect(QPoint(x0, y0), QPoint(x1, y1)).normalized();
+
+    QPen pen(Qt::red, 2);
+    overviewPainter.setPen(pen);
+    overviewPainter.setBrush(Qt::NoBrush);
+    overviewPainter.drawRect(m_overviewViewport);
+
+    for (const PlatformData &platform : m_dynamicData.platforms.values()) {
+        int x, y;
+        EnclEagleEyeGeoToPix(platform.lon, platform.lat, x, y);
+
+        QColor campColor;
+        switch (platform.camp) {
+        case Camp_Friendly: campColor = Qt::green; break;
+        case Camp_Enemy: campColor = Qt::red; break;
+        case Camp_Neutral: campColor = Qt::yellow; break;
+        default: campColor = Qt::gray; break;
+        }
+
+        QPen p(campColor, 2);
+        overviewPainter.setPen(p);
+        overviewPainter.setBrush(campColor);
+        overviewPainter.drawEllipse(x - 3, y - 3, 6, 6);
+    }
 }

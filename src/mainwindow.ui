@@ -59,6 +59,7 @@
    <addaction name="actionZoomIn"/>
    <addaction name="actionZoomOut"/>
    <addaction name="actionReset"/>
+   <addaction name="actionDisplaySetting"/>
    <addaction name="actionHelp"/>
   </widget>
   <widget class="QToolBar" name="pluginToolBar">
@@ -95,6 +96,15 @@
    </property>
    <property name="shortcut">
     <string>R</string>
+   </property>
+  </action>
+  <action name="actionDisplaySetting">
+   <property name="text">
+    <string>Display Setting</string>
+   </property>
+   <property name="icon">
+    <iconset resource="icons.qrc">
+     <normaloff>:/icons/images/settings64x64t.png</normaloff>:/icons/images/settings64x64t.png</iconset>
    </property>
   </action>
   <action name="actionHelp">

@@ -32,6 +32,7 @@ find_package(Qt5 5.12 REQUIRED COMPONENTS
     Gui
     Core
     Network
+    Xml
 )
 
 set(ENCLIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3dParty/Enclib)
@@ -52,11 +53,21 @@ set(SOURCES
     mainwindow.cpp
     viewwidget.cpp
     mainwindow.ui
+    icons.qrc
+    settings/displaycategory.cpp
+    settings/displaycategory.ui
+    settings/viewinggroupdialog.cpp
+    settings/viewinggroupdialog.ui
+    settings/waterdepthsetting.cpp
+    settings/waterdepthsetting.ui
 )
 
 set(HEADERS
     mainwindow.h
     viewwidget.h
+    settings/displaycategory.h
+    settings/viewinggroupdialog.h
+    settings/waterdepthsetting.h
 )
 
 add_executable(cpss WIN32 ${SOURCES} ${HEADERS})
@@ -66,6 +77,7 @@ target_include_directories(cpss PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}/datalib
     ${CMAKE_CURRENT_SOURCE_DIR}/plugin
+    ${CMAKE_CURRENT_SOURCE_DIR}/settings
     ${ENCLIB_INCLUDE_DIR}
 )
 
@@ -77,6 +89,7 @@ target_link_libraries(cpss PRIVATE
     Qt5::Gui
     Qt5::Core
     Qt5::Network
+    Qt5::Xml
 )
 
 if(WIN32)
@@ -103,6 +116,7 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${ENCLIB_DIR}/mapdata $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/mapdata
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${ENCLIB_DIR}/fonts $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/fonts
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${ENCLIB_DIR}/s57data $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/s57data
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/settings/chartinfodisplay.xml $<TARGET_FILE_DIR:cpss>
     )
     
 
