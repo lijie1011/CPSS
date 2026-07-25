@@ -52,6 +52,8 @@ set(SOURCES
     main.cpp
     mainwindow.cpp
     viewwidget.cpp
+    eventhistorydialog.cpp
+    platformcontrolpanel.cpp
     mainwindow.ui
     icons.qrc
     settings/displaycategory.cpp
@@ -65,6 +67,9 @@ set(SOURCES
 set(HEADERS
     mainwindow.h
     viewwidget.h
+    eventhistorydialog.h
+    platformcontrolpanel.h
+    displaystate.h
     settings/displaycategory.h
     settings/viewinggroupdialog.h
     settings/waterdepthsetting.h

@@ -8,6 +8,7 @@
 #include <QAction>
 #include "viewwidget.h"
 #include "dynamicdata.h"
+#include "eventhistorydialog.h"
 #include "plugin/IPlugin.h"
 #include "plugin/IPluginHost.h"
 #include "plugin/PluginManager.h"
@@ -56,6 +57,8 @@ private slots:
     void onPluginActionTriggered();
     void showDisplaySetting();
     void showDepthAndContour();
+    void showEventHistory();
+    void showPlatformControl();
 
 private:
     Ui::MainWindow *ui;

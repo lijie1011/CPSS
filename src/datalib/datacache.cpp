@@ -19,7 +19,11 @@ DataCache* DataCache::instance()
 }
 
 DataCache::DataCache(QObject *parent)
-    : QObject(parent)
+    : QObject(parent),
+      m_maxHistorySize(100),
+      m_testStartTime(0),
+      m_eventSecondPhase(false),
+      m_eventCounter(0)
 {
     connect(&m_expireTimer, &QTimer::timeout, this, &DataCache::invalidateExpiredData);
     m_expireTimer.start(1000);
@@ -34,14 +38,25 @@ DataCache::~DataCache()
 bool DataCache::updatePlatform(const PlatformData &data)
 {
     QWriteLocker locker(&m_dataLock);
-    m_dynamicData.platforms[data.id] = data;
+    
+    PlatformData newData = data;
+    if (m_dynamicData.platforms.contains(data.id)) {
+        PlatformData existing = m_dynamicData.platforms[data.id];
+        newData.trackPoints = existing.trackPoints;
+        if (existing.lon != data.lon || existing.lat != data.lat) {
+            newData.addTrackPoint(existing.lon, existing.lat);
+        }
+    }
+    
+    m_dynamicData.platforms[data.id] = newData;
     m_dynamicData.timestamp = QDateTime::currentMSecsSinceEpoch();
     locker.unlock();
-    emit platformUpdated(data);
+    emit platformUpdated(newData);
     emit platformsUpdated(getAllPlatforms());
     emit dynamicDataChanged(getAllData());
-    Logger::info("Platform cached: id=%s, lon=%f, lat=%f", 
-                 data.id.toStdString().c_str(), data.lon, data.lat);
+    Logger::info("Platform cached: id=%s, lon=%f, lat=%f, track points=%d", 
+                 newData.id.toStdString().c_str(), newData.lon, newData.lat, 
+                 newData.trackPoints.size());
     return true;
 }
 
@@ -88,12 +103,16 @@ bool DataCache::addEvent(const SpecialEvent &event)
 {
     QWriteLocker locker(&m_dataLock);
     m_dynamicData.events.append(event);
+    m_eventHistory.prepend(event);
+    while (m_eventHistory.size() > m_maxHistorySize) {
+        m_eventHistory.removeLast();
+    }
     m_dynamicData.timestamp = QDateTime::currentMSecsSinceEpoch();
     locker.unlock();
     emit eventAdded(event);
     emit dynamicDataChanged(getAllData());
-    Logger::info("Event cached: id=%s, type=%d", 
-                 event.eventId.toStdString().c_str(), event.eventType);
+    Logger::info("Event cached: id=%s, type=%d, history size=%d", 
+                 event.eventId.toStdString().c_str(), event.eventType, m_eventHistory.size());
     return true;
 }
 
@@ -127,6 +146,34 @@ QList<SpecialEvent> DataCache::getAllEvents() const
 {
     QReadLocker locker(&m_dataLock);
     return m_dynamicData.events;
+}
+
+QList<SpecialEvent> DataCache::getEventHistory() const
+{
+    QReadLocker locker(&m_dataLock);
+    return m_eventHistory;
+}
+
+void DataCache::clearEventHistory()
+{
+    QWriteLocker locker(&m_dataLock);
+    m_eventHistory.clear();
+    Logger::info("Event history cleared");
+}
+
+int DataCache::getMaxHistorySize() const
+{
+    return m_maxHistorySize;
+}
+
+void DataCache::setMaxHistorySize(int size)
+{
+    QWriteLocker locker(&m_dataLock);
+    m_maxHistorySize = size;
+    while (m_eventHistory.size() > m_maxHistorySize) {
+        m_eventHistory.removeLast();
+    }
+    Logger::info("Max history size set to: %d", m_maxHistorySize);
 }
 
 DynamicObjects DataCache::getAllData() const
@@ -263,32 +310,56 @@ void DataCache::initTestData()
 
     PlatformData target1;
     target1.id = "SHIP_002";
-    target1.name = "Merchant A";
+    target1.name = "Sensor Ship";
     target1.lon = 121.51;
     target1.lat = 31.22;
     target1.altitude = 0.0;
     target1.speed = 8.0;
-    target1.type = "merchant";
-    target1.category = "cargo";
-    target1.camp = Camp_Neutral;
+    target1.type = "sensor";
+    target1.category = "recon";
+    target1.camp = Camp_Friendly;
     target1.dataStatus = DataStatus_Normal;
     target1.updateTime = QDateTime::currentMSecsSinceEpoch();
+    
+    SensorInfo radarSensor;
+    radarSensor.type = "radar";
+    radarSensor.count = 2;
+    radarSensor.range = 30.0;
+    target1.sensors.append(radarSensor);
+    
+    SensorInfo sonarSensor;
+    sonarSensor.type = "sonar";
+    sonarSensor.count = 1;
+    sonarSensor.range = 15.0;
+    target1.sensors.append(sonarSensor);
     target1.validUntil = target1.updateTime + 5000;
     target1.sourceProtocol = Protocol_Unknown;
     updatePlatform(target1);
 
     PlatformData target2;
     target2.id = "SHIP_003";
-    target2.name = "Fishing B";
+    target2.name = "Weapon Ship";
     target2.lon = 121.48;
     target2.lat = 31.18;
     target2.altitude = 0.0;
     target2.speed = 5.0;
-    target2.type = "fishing";
-    target2.category = "fishing";
-    target2.camp = Camp_Neutral;
+    target2.type = "warship";
+    target2.category = "destroyer";
+    target2.camp = Camp_Friendly;
     target2.dataStatus = DataStatus_Normal;
     target2.updateTime = QDateTime::currentMSecsSinceEpoch();
+    
+    WeaponInfo missileWeapon;
+    missileWeapon.type = "missile";
+    missileWeapon.count = 8;
+    missileWeapon.range = 100.0;
+    target2.weapons.append(missileWeapon);
+    
+    WeaponInfo gunWeapon;
+    gunWeapon.type = "naval_gun";
+    gunWeapon.count = 2;
+    gunWeapon.range = 20.0;
+    target2.weapons.append(gunWeapon);
     target2.validUntil = target2.updateTime + 5000;
     target2.sourceProtocol = Protocol_Unknown;
     updatePlatform(target2);
@@ -352,6 +423,10 @@ void DataCache::initTestData()
     standaloneEvent.lat = 31.21;
     addEvent(standaloneEvent);
 
+    m_testStartTime = QDateTime::currentMSecsSinceEpoch();
+    m_eventSecondPhase = false;
+    m_eventCounter = 0;
+
     Logger::info("Test data initialized, total platforms: %d, total events: %d", 
                  getAllPlatforms().size(), getAllEvents().size());
 }
@@ -366,5 +441,35 @@ void DataCache::updateTestData()
         platform.updateTime = QDateTime::currentMSecsSinceEpoch();
         platform.validUntil = platform.updateTime + 5000;
         updatePlatform(platform);
+    }
+
+    qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - m_testStartTime;
+    if (elapsed >= 10000 && !m_eventSecondPhase) {
+        m_eventSecondPhase = true;
+        
+        SpecialEvent attackEvent;
+        attackEvent.eventId = QString("EVENT_%1").arg(100 + ++m_eventCounter, 3, 10, QChar('0'));
+        attackEvent.eventType = Event_Attack;
+        attackEvent.eventName = "Attack Executed";
+        attackEvent.description = "Own ship SHIP_001 launched attack on SHIP_004";
+        attackEvent.timestamp = QDateTime::currentMSecsSinceEpoch();
+        attackEvent.targetId = "SHIP_004";
+        attackEvent.sourceId = "SHIP_001";
+        addEvent(attackEvent);
+        Logger::info("Second phase event added: Attack Executed on SHIP_004");
+    } else if (elapsed >= 20000 && m_eventSecondPhase) {
+        m_eventSecondPhase = false;
+        m_testStartTime = QDateTime::currentMSecsSinceEpoch();
+        
+        SpecialEvent defenseEvent;
+        defenseEvent.eventId = QString("EVENT_%1").arg(200 + ++m_eventCounter, 3, 10, QChar('0'));
+        defenseEvent.eventType = Event_Defense;
+        defenseEvent.eventName = "Defense Activated";
+        defenseEvent.description = "SHIP_004 activated defense systems";
+        defenseEvent.timestamp = QDateTime::currentMSecsSinceEpoch();
+        defenseEvent.targetId = "SHIP_004";
+        defenseEvent.sourceId = "SYSTEM";
+        addEvent(defenseEvent);
+        Logger::info("Third phase event added: Defense Activated on SHIP_004");
     }
 }

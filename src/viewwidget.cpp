@@ -39,6 +39,10 @@ void ViewWidget::updateDynamicData(const DynamicObjects &data)
     m_dynamicData = data;
     Logger::info("ViewWidget::updateDynamicData received, platforms: %d", data.platforms.size());
     for (const auto &platform : data.platforms.values()) {
+        if (platform.isExpired()) {
+            Logger::info("  Platform: id=%s is expired, skipping", platform.id.toStdString().c_str());
+            continue;
+        }
         Logger::info("  Platform: id=%s, lon=%f, lat=%f", platform.id.toStdString().c_str(), platform.lon, platform.lat);
         PropertyBox *box = findPropertyBoxById(platform.id, platform.id == "SHIP_001");
         if (box && box->label && box->label->isVisible() && !box->isDragging) {
@@ -55,10 +59,16 @@ void ViewWidget::updateDynamicData(const DynamicObjects &data)
             }
             
             QString eventsStr;
+            const SpecialEvent *latestEvent = nullptr;
+            qint64 latestTimestamp = 0;
             for (const auto &event : data.events) {
-                if (event.targetId == platform.id) {
-                    eventsStr += QString("\nEvent: %1").arg(event.eventName);
+                if (event.targetId == platform.id && event.timestamp > latestTimestamp) {
+                    latestTimestamp = event.timestamp;
+                    latestEvent = &event;
                 }
+            }
+            if (latestEvent) {
+                eventsStr = QString("\nEvent: %1").arg(latestEvent->eventName);
             }
             
             box->label->setText(
@@ -104,6 +114,10 @@ void ViewWidget::paintEvent(QPaintEvent *event)
 
     Logger::info("paintEvent: drawing %d platforms, enclibReady=%d", m_dynamicData.platforms.size(), m_enclibReady);
     for (const PlatformData &platform : m_dynamicData.platforms.values()) {
+        if (platform.isExpired()) {
+            Logger::info("paintEvent: platform %s is expired, skipping", platform.id.toStdString().c_str());
+            continue;
+        }
         drawPlatform(painter, platform);
     }
 
@@ -252,8 +266,21 @@ void ViewWidget::setChartCenter(double lon, double lat)
     updateChart();
 }
 
+void ViewWidget::updateDisplayState(const DisplayStateMap &stateMap)
+{
+    m_displayStates = stateMap;
+    update();
+}
+
 void ViewWidget::drawPlatform(QPainter &painter, const PlatformData &platform)
 {
+    auto stateIt = m_displayStates.find(platform.id);
+    bool hasState = (stateIt != m_displayStates.end());
+    PlatformDisplayState state;
+    if (hasState) {
+        state = stateIt.value();
+    }
+
     int x, y;
     if (!geoToScreen(platform.lon, platform.lat, x, y)) {
         Logger::info("drawPlatform: geoToScreen failed for %s (lon=%f, lat=%f)", platform.id.toStdString().c_str(), platform.lon, platform.lat);
@@ -271,37 +298,77 @@ void ViewWidget::drawPlatform(QPainter &painter, const PlatformData &platform)
     default: campColor = Qt::gray; break;
     }
 
-    painter.save();
-    painter.translate(x, y);
+    if ((!hasState || state.showTrack) && !platform.trackPoints.isEmpty()) {
+        painter.save();
+        QPen trackPen(campColor, 2, Qt::DashLine);
+        painter.setPen(trackPen);
 
-    if (isOwnShip) {
-        QPen pen(campColor, 2);
-        painter.setPen(pen);
-
-        QPolygonF shipShape;
-        shipShape << QPointF(15, 0)
-                  << QPointF(-10, -8)
-                  << QPointF(-5, 0)
-                  << QPointF(-10, 8);
-        painter.drawPolygon(shipShape);
-    } else {
-        QPen pen(campColor, 2);
-        painter.setPen(pen);
-        painter.setBrush(campColor);
-        painter.drawEllipse(-8, -8, 16, 16);
+        QPainterPath trackPath;
+        bool firstPoint = true;
+        for (const QPointF &point : platform.trackPoints) {
+            int px, py;
+            if (geoToScreen(point.x(), point.y(), px, py)) {
+                if (firstPoint) {
+                    trackPath.moveTo(px, py);
+                    firstPoint = false;
+                } else {
+                    trackPath.lineTo(px, py);
+                }
+            }
+        }
+        painter.drawPath(trackPath);
+        painter.restore();
     }
 
-    painter.restore();
+    if (!hasState || state.showShip) {
+        painter.save();
+        painter.translate(x, y);
 
-    painter.setFont(QFont("Arial", 8));
-    painter.setPen(Qt::white);
-    painter.drawText(x + 18, y + 4, platform.id);
+        if (isOwnShip) {
+            QPen pen(campColor, 2);
+            painter.setPen(pen);
 
-    for (const auto &event : m_dynamicData.events) {
-        if (event.targetId == platform.id) {
-            drawEventMarker(painter, x, y, event.eventType);
-            break;
+            QPolygonF shipShape;
+            shipShape << QPointF(15, 0)
+                      << QPointF(-10, -8)
+                      << QPointF(-5, 0)
+                      << QPointF(-10, 8);
+            painter.drawPolygon(shipShape);
+        } else {
+            QPen pen(campColor, 2);
+            painter.setPen(pen);
+            painter.setBrush(campColor);
+            painter.drawEllipse(-8, -8, 16, 16);
         }
+
+        painter.restore();
+    }
+
+    if (!hasState || state.showName) {
+        painter.setFont(QFont("Arial", 8));
+        painter.setPen(Qt::white);
+        painter.drawText(x + 18, y + 4, platform.id);
+    }
+
+    if (!hasState || state.showEvents) {
+        const SpecialEvent *latestEvent = nullptr;
+        qint64 latestTimestamp = 0;
+        for (const auto &event : m_dynamicData.events) {
+            if (event.targetId == platform.id && event.timestamp > latestTimestamp) {
+                latestTimestamp = event.timestamp;
+                latestEvent = &event;
+            }
+        }
+        if (latestEvent) {
+            drawEventMarker(painter, x, y, latestEvent->eventType);
+        }
+    }
+    
+    if (!hasState || state.showSensors) {
+        drawSensorRanges(painter, x, y, platform);
+    }
+    if (!hasState || state.showWeapons) {
+        drawWeaponRanges(painter, x, y, platform);
     }
 }
 
@@ -336,6 +403,86 @@ void ViewWidget::drawEventMarker(QPainter &painter, int x, int y, SpecialEventTy
     painter.drawText(QRect(-8, -8, 16, 16), Qt::AlignCenter, iconText);
 
     painter.restore();
+}
+
+void ViewWidget::drawSensorRanges(QPainter &painter, int x, int y, const PlatformData &platform)
+{
+    if (platform.sensors.isEmpty()) {
+        return;
+    }
+    
+    for (const SensorInfo &sensor : platform.sensors) {
+        if (sensor.range <= 0) {
+            continue;
+        }
+        
+        double rangeKm = sensor.range * 1.852;
+        double rangeDegrees = rangeKm / 111.0;
+        
+        int edgeX, edgeY;
+        if (geoToScreen(platform.lon + rangeDegrees, platform.lat, edgeX, edgeY)) {
+            int radius = edgeX - x;
+            
+            QColor sensorColor;
+            if (sensor.type.contains("radar", Qt::CaseInsensitive)) {
+                sensorColor = Qt::cyan;
+            } else if (sensor.type.contains("sonar", Qt::CaseInsensitive)) {
+                sensorColor = Qt::blue;
+            } else {
+                sensorColor = Qt::green;
+            }
+            
+            QPen pen(sensorColor, 1, Qt::DashLine);
+            painter.setPen(pen);
+            painter.setBrush(QBrush(sensorColor, Qt::NoBrush));
+            painter.drawEllipse(x - radius, y - radius, radius * 2, radius * 2);
+            
+            painter.setFont(QFont("Arial", 7));
+            painter.setPen(sensorColor);
+            QString label = QString("%1:S:%2(%3nm)").arg(platform.id).arg(sensor.type).arg(sensor.range);
+            painter.drawText(x + radius + 5, y, label);
+        }
+    }
+}
+
+void ViewWidget::drawWeaponRanges(QPainter &painter, int x, int y, const PlatformData &platform)
+{
+    if (platform.weapons.isEmpty()) {
+        return;
+    }
+    
+    for (const WeaponInfo &weapon : platform.weapons) {
+        if (weapon.range <= 0) {
+            continue;
+        }
+        
+        double rangeKm = weapon.range * 1.852;
+        double rangeDegrees = rangeKm / 111.0;
+        
+        int edgeX, edgeY;
+        if (geoToScreen(platform.lon + rangeDegrees, platform.lat, edgeX, edgeY)) {
+            int radius = edgeX - x;
+            
+            QColor weaponColor;
+            if (weapon.type.contains("missile", Qt::CaseInsensitive)) {
+                weaponColor = Qt::red;
+            } else if (weapon.type.contains("gun", Qt::CaseInsensitive)) {
+                weaponColor = QColor(255, 165, 0);
+            } else {
+                weaponColor = Qt::darkRed;
+            }
+            
+            QPen pen(weaponColor, 2, Qt::DotLine);
+            painter.setPen(pen);
+            painter.setBrush(QBrush(weaponColor, Qt::NoBrush));
+            painter.drawEllipse(x - radius, y - radius, radius * 2, radius * 2);
+            
+            painter.setFont(QFont("Arial", 7));
+            painter.setPen(weaponColor);
+            QString label = QString("%1:W:%2(%3nm)").arg(platform.id).arg(weapon.type).arg(weapon.range);
+            painter.drawText(x + radius + 5, y + 10, label);
+        }
+    }
 }
 
 void ViewWidget::drawStandaloneEvent(QPainter &painter, const SpecialEvent &event)
@@ -525,10 +672,16 @@ void ViewWidget::createPropertyBox(const PlatformData &platform)
     }
     
     QString eventsStr;
+    const SpecialEvent *latestEvent = nullptr;
+    qint64 latestTimestamp = 0;
     for (const auto &event : m_dynamicData.events) {
-        if (event.targetId == platform.id) {
-            eventsStr += QString("\nEvent: %1").arg(event.eventName);
+        if (event.targetId == platform.id && event.timestamp > latestTimestamp) {
+            latestTimestamp = event.timestamp;
+            latestEvent = &event;
         }
+    }
+    if (latestEvent) {
+        eventsStr = QString("\nEvent: %1").arg(latestEvent->eventName);
     }
     
     label->setText(

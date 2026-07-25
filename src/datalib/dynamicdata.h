@@ -12,6 +12,7 @@
 #include <QDateTime>
 #include <QMap>
 #include <QJsonObject>
+#include <QPointF>
 
 enum DataStatus {
     DataStatus_Normal,
@@ -48,11 +49,13 @@ enum SpecialEventType {
 struct WeaponInfo {
     QString type;
     int count;
+    double range;
 };
 
 struct SensorInfo {
     QString type;
     int count;
+    double range;
 };
 
 struct PlatformData {
@@ -68,6 +71,9 @@ struct PlatformData {
     QList<WeaponInfo> weapons;
     QList<SensorInfo> sensors;
 
+    QList<QPointF> trackPoints;
+    static const int MAX_TRACK_POINTS = 1000;
+
     DataStatus dataStatus;
     qint64 validUntil;
     qint64 updateTime;
@@ -76,6 +82,13 @@ struct PlatformData {
     bool isExpired() const {
         return dataStatus == DataStatus_Expired || 
                (validUntil > 0 && validUntil < QDateTime::currentMSecsSinceEpoch());
+    }
+
+    void addTrackPoint(double lon, double lat) {
+        trackPoints.append(QPointF(lon, lat));
+        if (trackPoints.size() > MAX_TRACK_POINTS) {
+            trackPoints.removeFirst();
+        }
     }
 };
 

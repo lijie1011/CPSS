@@ -42,6 +42,9 @@ public:
     DynamicObjects getAllData() {
         return DataCache::instance()->getAllData();
     }
+    QList<SpecialEvent> getEventHistory() {
+        return DataCache::instance()->getEventHistory();
+    }
 
     typedef std::function<void(const DynamicObjects &data)> DataPushCallback;
 

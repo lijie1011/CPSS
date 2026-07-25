@@ -10,6 +10,7 @@
 #include <QRect>
 
 #include "dynamicdata.h"
+#include "displaystate.h"
 
 struct PropertyBox {
     QString id;
@@ -38,6 +39,7 @@ public:
 
     void updateDynamicData(const DynamicObjects &data);
     const DynamicObjects& getDynamicData() const { return m_dynamicData; }
+    const DisplayStateMap& getDisplayStates() const { return m_displayStates; }
     void setEnclibReady(bool ready);
     bool isEnclibReady() const { return m_enclibReady; }
 
@@ -49,6 +51,7 @@ public slots:
     void zoomIn();
     void zoomOut();
     void setChartCenter(double lon, double lat);
+    void updateDisplayState(const DisplayStateMap &stateMap);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -62,6 +65,8 @@ protected:
 private:
     void drawPlatform(QPainter &painter, const PlatformData &platform);
     void drawEventMarker(QPainter &painter, int x, int y, SpecialEventType eventType);
+    void drawSensorRanges(QPainter &painter, int x, int y, const PlatformData &platform);
+    void drawWeaponRanges(QPainter &painter, int x, int y, const PlatformData &platform);
     void drawStandaloneEvent(QPainter &painter, const SpecialEvent &event);
     void drawConnectingLines(QPainter &painter);
     bool geoToScreen(double lon, double lat, int &x, int &y);
@@ -84,6 +89,7 @@ private:
     bool   m_drawOthers;
     bool   m_enclibReady;
     DynamicObjects m_dynamicData;
+    DisplayStateMap m_displayStates;
 
     QList<PropertyBox> m_propertyBoxes;
     QLabel *m_overviewLabel;

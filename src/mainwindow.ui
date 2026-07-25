@@ -60,6 +60,9 @@
    <addaction name="actionZoomOut"/>
    <addaction name="actionReset"/>
    <addaction name="actionDisplaySetting"/>
+   <addaction name="separator"/>
+   <addaction name="actionEventHistory"/>
+   <addaction name="actionPlatformControl"/>
    <addaction name="actionHelp"/>
   </widget>
   <widget class="QToolBar" name="pluginToolBar">
@@ -113,6 +116,16 @@
    </property>
    <property name="shortcut">
     <string>F1</string>
+   </property>
+  </action>
+  <action name="actionEventHistory">
+   <property name="text">
+    <string>Event History</string>
+   </property>
+  </action>
+  <action name="actionPlatformControl">
+   <property name="text">
+    <string>Platform Control</string>
    </property>
   </action>
  </widget>

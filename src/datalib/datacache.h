@@ -26,6 +26,11 @@ public:
     void clearEvents();
     QList<SpecialEvent> getAllEvents() const;
     
+    QList<SpecialEvent> getEventHistory() const;
+    void clearEventHistory();
+    int getMaxHistorySize() const;
+    void setMaxHistorySize(int size);
+    
     DynamicObjects getAllData() const;
     void invalidateExpiredData();
     qint64 getTimestamp() const;
@@ -65,12 +70,18 @@ private:
     
     mutable QReadWriteLock m_dataLock;
     DynamicObjects m_dynamicData;
+    QList<SpecialEvent> m_eventHistory;
+    int m_maxHistorySize;
     
     QTimer m_expireTimer;
     QTimer m_pushTimer;
     QTimer m_testDataTimer;
     
     std::vector<DataPushCallback> m_pushCallbacks;
+    
+    qint64 m_testStartTime;
+    bool m_eventSecondPhase;
+    int m_eventCounter;
 };
 
 #endif

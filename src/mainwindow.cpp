@@ -22,6 +22,7 @@
 #include "displaycategory.h"
 #include "viewinggroupdialog.h"
 #include "waterdepthsetting.h"
+#include "platformcontrolpanel.h"
 
 #include <QApplication>
 #include "dynamicdata.h"
@@ -49,6 +50,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionZoomOut, &QAction::triggered, this, &MainWindow::zoomOut);
     connect(ui->actionReset, &QAction::triggered, this, &MainWindow::resetView);
     connect(ui->actionDisplaySetting, &QAction::triggered, this, &MainWindow::showDisplaySetting);
+    connect(ui->actionEventHistory, &QAction::triggered, this, &MainWindow::showEventHistory);
+    connect(ui->actionPlatformControl, &QAction::triggered, this, &MainWindow::showPlatformControl);
     connect(ui->actionHelp, &QAction::triggered, this, &MainWindow::showEventLegend);
     Logger::info("MainWindow constructor: actions connected");
 
@@ -435,4 +438,22 @@ void MainWindow::showDepthAndContour()
     connect(depthAndContour, SIGNAL(updatChartView()), m_viewWidget, SLOT(updateChart()));
     depthAndContour->show();
     depthAndContour->setAttribute(Qt::WA_DeleteOnClose);
+}
+
+void MainWindow::showEventHistory()
+{
+    EventHistoryDialog *dialog = new EventHistoryDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->updateHistory(DataManager::instance()->getEventHistory());
+    dialog->show();
+}
+
+void MainWindow::showPlatformControl()
+{
+    PlatformControlPanel *panel = new PlatformControlPanel(this);
+    panel->setAttribute(Qt::WA_DeleteOnClose);
+    panel->initWithData(m_viewWidget->getDynamicData(), m_viewWidget->getDisplayStates());
+    connect(panel, &PlatformControlPanel::displayStateChanged,
+            m_viewWidget, &ViewWidget::updateDisplayState);
+    panel->show();
 }
