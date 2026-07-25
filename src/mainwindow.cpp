@@ -12,8 +12,11 @@
 #include <QDateTime>
 #include <QDir>
 #include <QTimer>
+#include <QVBoxLayout>
+#include <QPushButton>
 
 #include "mainwindow.h"
+#include "ui_mainwindow.h"
 #include "encl.h"
 
 #include <QApplication>
@@ -23,27 +26,34 @@
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
+      ui(new Ui::MainWindow),
       m_viewWidget(nullptr),
-      m_toolBar(nullptr)
+      m_pluginManager(nullptr),
+      m_currentPlugin(nullptr)
 {
     Logger::info("MainWindow constructor: entering");
+    ui->setupUi(this);
+
+    QVBoxLayout *mapLayout = new QVBoxLayout(ui->mapArea);
+    mapLayout->setContentsMargins(0, 0, 0, 0);
+
     m_viewWidget = new ViewWidget(this);
+    mapLayout->addWidget(m_viewWidget);
     Logger::info("MainWindow constructor: ViewWidget created");
 
-    createActions();
-    Logger::info("MainWindow constructor: createActions done");
-    createToolBar();
-    Logger::info("MainWindow constructor: createToolBar done");
+    connect(ui->actionZoomIn, &QAction::triggered, this, &MainWindow::zoomIn);
+    connect(ui->actionZoomOut, &QAction::triggered, this, &MainWindow::zoomOut);
+    connect(ui->actionReset, &QAction::triggered, this, &MainWindow::resetView);
+    connect(ui->actionHelp, &QAction::triggered, this, &MainWindow::showEventLegend);
+    Logger::info("MainWindow constructor: actions connected");
 
-    QWidget *centralWidget = new QWidget(this);
-    QHBoxLayout *layout = new QHBoxLayout(centralWidget);
-    layout->addWidget(m_toolBar);
-    layout->addWidget(m_viewWidget);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-    setCentralWidget(centralWidget);
+    m_pluginManager = new PluginManager(this);
+    m_pluginManager->setPluginHost(this);
+    connect(m_pluginManager, &PluginManager::pluginLoaded,
+            this, &MainWindow::onPluginLoaded);
 
-    Logger::info("MainWindow constructor: setCentralWidget done");
+    addToolBar(Qt::LeftToolBarArea, ui->toolBar);
+    addToolBar(Qt::BottomToolBarArea, ui->pluginToolBar);
     createStatusBar();
     Logger::info("MainWindow constructor: createStatusBar done");
     Logger::info("MainWindow constructor: exiting");
@@ -53,6 +63,15 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     Logger::info("MainWindow destructor called");
+
+    for (auto action : m_pluginActions.values()) {
+        delete action;
+    }
+    for (auto widget : m_pluginWidgets.values()) {
+        delete widget;
+    }
+
+    delete ui;
 }
 
 void MainWindow::showEvent(QShowEvent *event)
@@ -172,38 +191,137 @@ void MainWindow::init()
             m_viewWidget, &ViewWidget::updateDynamicData);
     dataManager->startTestDataTimer(1000);
     Logger::info("DataManager initialized and test data timer started");
+
+    loadPlugins();
 }
 
-void MainWindow::createActions()
+void MainWindow::loadPlugins()
 {
+    QString pluginDir = QCoreApplication::applicationDirPath() + "/plugins";
+    Logger::info("Loading plugins from: %s", pluginDir.toStdString().c_str());
+    m_pluginManager->loadPlugins(pluginDir);
 }
 
-void MainWindow::createToolBar()
+void MainWindow::onPluginLoaded(IPlugin *plugin)
 {
-    m_toolBar = new QToolBar(tr("Operations"), this);
+    Logger::info("MainWindow::onPluginLoaded - %s", plugin->pluginName().toStdString().c_str());
+    registerPluginButton(plugin->pluginId(), plugin->pluginName());
+}
 
-    QAction *zoomInAct = new QAction(QIcon(), tr("Zoom In"), this);
-    zoomInAct->setShortcut(Qt::Key_Plus);
-    connect(zoomInAct, &QAction::triggered, this, &MainWindow::zoomIn);
-    m_toolBar->addAction(zoomInAct);
+bool MainWindow::registerPluginButton(const QString &pluginId, const QString &buttonText)
+{
+    QAction *action = new QAction(buttonText, this);
+    action->setObjectName("action_" + pluginId);
+    action->setProperty("pluginId", pluginId);
+    action->setCheckable(true);
+    connect(action, &QAction::triggered, this, &MainWindow::onPluginActionTriggered);
 
-    QAction *zoomOutAct = new QAction(QIcon(), tr("Zoom Out"), this);
-    zoomOutAct->setShortcut(Qt::Key_Minus);
-    connect(zoomOutAct, &QAction::triggered, this, &MainWindow::zoomOut);
-    m_toolBar->addAction(zoomOutAct);
+    ui->pluginToolBar->addAction(action);
+    m_pluginActions[pluginId] = action;
+    return true;
+}
 
-    QAction *resetAct = new QAction(QIcon(), tr("Reset"), this);
-    resetAct->setShortcut(Qt::Key_R);
-    connect(resetAct, &QAction::triggered, this, &MainWindow::resetView);
-    m_toolBar->addAction(resetAct);
+void MainWindow::unregisterPluginButton(const QString &pluginId)
+{
+    QAction *action = m_pluginActions.take(pluginId);
+    if (action) {
+        delete action;
+    }
+}
 
-    QAction *legendAct = new QAction(QIcon(), tr("Help"), this);
-    legendAct->setShortcut(Qt::Key_F1);
-    connect(legendAct, &QAction::triggered, this, &MainWindow::showEventLegend);
-    m_toolBar->addAction(legendAct);
+void MainWindow::onPluginActionTriggered()
+{
+    QAction *action = qobject_cast<QAction*>(sender());
+    if (!action) return;
 
-    m_toolBar->setOrientation(Qt::Vertical);
-    m_toolBar->setIconSize(QSize(24, 24));
+    QString pluginId = action->property("pluginId").toString();
+    IPlugin *plugin = m_pluginManager->getPlugin(pluginId);
+    if (plugin) {
+        if (m_currentPlugin == plugin && ui->pluginStack->isVisible()) {
+            action->setChecked(false);
+            showMapView();
+        } else {
+            for (auto act : m_pluginActions.values()) {
+                act->setChecked(false);
+            }
+            action->setChecked(true);
+            showPluginWidget(plugin);
+        }
+    }
+}
+
+void MainWindow::showPluginWidget(IPlugin *plugin)
+{
+    Logger::info("MainWindow::showPluginWidget - %s", plugin->pluginName().toStdString().c_str());
+
+    QString pluginId = plugin->pluginId();
+    QWidget *widget = m_pluginWidgets.value(pluginId, nullptr);
+
+    if (!widget) {
+        widget = plugin->createWidget(this);
+        m_pluginWidgets[pluginId] = widget;
+
+        QWidget *page = new QWidget(ui->pluginStack);
+        int pageIndex = ui->pluginStack->addWidget(page);
+        m_pluginPageIndices[pluginId] = pageIndex;
+
+        QVBoxLayout *layout = new QVBoxLayout(page);
+        layout->addWidget(widget);
+        layout->setContentsMargins(0, 0, 0, 0);
+    }
+
+    ui->pluginStack->setCurrentIndex(m_pluginPageIndices[pluginId]);
+    ui->pluginStack->setVisible(true);
+    m_currentPlugin = plugin;
+}
+
+bool MainWindow::setActiveWidget(QWidget *widget)
+{
+    for (auto it = m_pluginWidgets.constBegin(); it != m_pluginWidgets.constEnd(); ++it) {
+        if (it.value() == widget) {
+            int pageIndex = m_pluginPageIndices.value(it.key(), -1);
+            if (pageIndex >= 0) {
+                ui->pluginStack->setCurrentIndex(pageIndex);
+                ui->pluginStack->setVisible(true);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void MainWindow::showMapView()
+{
+    for (auto action : m_pluginActions.values()) {
+        action->setChecked(false);
+    }
+    ui->pluginStack->setVisible(false);
+    m_currentPlugin = nullptr;
+}
+
+DataManager* MainWindow::getDataManager()
+{
+    return DataManager::instance();
+}
+
+QString MainWindow::getAppVersion() const
+{
+    return QString("1.0.0");
+}
+
+QString MainWindow::getAppPath() const
+{
+    return QCoreApplication::applicationDirPath();
+}
+
+void MainWindow::showStatusMessage(const QString &message)
+{
+    ui->statusBar->showMessage(message);
+}
+
+void MainWindow::showNotification(const QString &title, const QString &message)
+{
+    QMessageBox::information(this, title, message);
 }
 
 void MainWindow::createStatusBar()

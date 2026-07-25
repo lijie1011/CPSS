@@ -32,7 +32,6 @@ find_package(Qt5 5.12 REQUIRED COMPONENTS
     Gui
     Core
     Network
-    WebSockets
 )
 
 set(ENCLIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3dParty/Enclib)
@@ -46,20 +45,18 @@ endif()
 
 add_subdirectory(common)
 add_subdirectory(datalib)
+add_subdirectory(plugin)
 
 set(SOURCES
     main.cpp
     mainwindow.cpp
     viewwidget.cpp
-    webserver.cpp
-    chartbridge.cpp
+    mainwindow.ui
 )
 
 set(HEADERS
     mainwindow.h
     viewwidget.h
-    webserver.h
-    chartbridge.h
 )
 
 add_executable(cpss WIN32 ${SOURCES} ${HEADERS})
@@ -68,17 +65,18 @@ target_include_directories(cpss PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}/datalib
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugin
     ${ENCLIB_INCLUDE_DIR}
 )
 
 target_link_libraries(cpss PRIVATE
     cpss_common
     cpss_data
+    cpss_plugin_framework
     Qt5::Widgets
     Qt5::Gui
     Qt5::Core
     Qt5::Network
-    Qt5::WebSockets
 )
 
 if(WIN32)
@@ -91,6 +89,20 @@ if(WIN32)
         WIN32_LEAN_AND_MEAN
         _UNICODE
         UNICODE
+    )
+
+    add_custom_command(TARGET cpss POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/bin
+        COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/s57data
+        COMMAND ${CMAKE_COMMAND} -E copy ${ENCLIB_BIN_DIR}/enccore.dll $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/bin
+        COMMAND ${CMAKE_COMMAND} -E copy ${ENCLIB_BIN_DIR}/enccore.lib $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/bin
+        COMMAND ${CMAKE_COMMAND} -E copy ${ENCLIB_BIN_DIR}/msn.exe $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/bin
+        COMMAND ${CMAKE_COMMAND} -E copy ${ENCLIB_BIN_DIR}/s52symbol.exe $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/bin
+        COMMAND ${CMAKE_COMMAND} -E copy ${ENCLIB_DIR}/config.xml $<TARGET_FILE_DIR:cpss>/3dParty/Enclib
+        COMMAND ${CMAKE_COMMAND} -E copy ${ENCLIB_DIR}/lic.dat $<TARGET_FILE_DIR:cpss>/3dParty/Enclib
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${ENCLIB_DIR}/mapdata $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/mapdata
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${ENCLIB_DIR}/fonts $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/fonts
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${ENCLIB_DIR}/s57data $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/s57data
     )
     
 

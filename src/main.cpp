@@ -5,7 +5,6 @@
 #include <stdexcept>
 
 #include "mainwindow.h"
-#include "webserver.h"
 #include "common/logger.h"
 
 int main(int argc, char *argv[])
@@ -35,9 +34,7 @@ int main(int argc, char *argv[])
         QCommandLineParser parser;
         parser.setApplicationDescription("CPSS - Combat Process Simulation Software");
         parser.addHelpOption();
-        parser.addOption({{"w", "web"}, "Enable web server"});
-        parser.addOption({{"p", "port"}, "Web server port", "port", "12345"});
-        parser.addOption({{"H", "headless"}, "Run without GUI (server mode)"});
+        parser.addOption({{"H", "headless"}, "Run without GUI"});
         parser.addOption({{"c", "chart-dir"}, "Chart data directory", "path"});
         parser.process(*app);
 
@@ -58,21 +55,9 @@ int main(int argc, char *argv[])
             Logger::info("Main window shown");
         }
 
-        WebServer *server = nullptr;
-        if (parser.isSet("web") || headlessMode) {
-            quint16 port = parser.value("port").toUShort();
-            server = new WebServer(port, app);
-            if (mainwin) {
-                server->setViewWidget(mainwin->getViewWidget());
-            }
-            Logger::info("Web server started on port %d", port);
-            qDebug() << "Web Server started on port" << port;
-        }
-
         Logger::info("Entering main event loop");
         int ret = app->exec();
 
-        delete server;
         delete mainwin;
         delete app;
 

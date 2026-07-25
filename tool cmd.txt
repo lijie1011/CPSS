@@ -1,0 +1,6 @@
+cmd /c "E:\Qt5.12.11\5.12.11\msvc2017_64\bin\designer.exe d:\ZCHH\CPSS\src\mainwindow.ui"
+
+cmake --build .\CPSS\src\build\ --config debug
+
+d:\ZCHH\CPSS\src\build\bin\Debug\cpss.exe
+
