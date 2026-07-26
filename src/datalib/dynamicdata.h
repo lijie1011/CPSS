@@ -28,7 +28,8 @@ enum ProtocolType {
 enum CampType {
     Camp_Unknown,
     Camp_Friendly,
-    Camp_Enemy,
+    Camp_Red,
+    Camp_Purple,
     Camp_Neutral
 };
 

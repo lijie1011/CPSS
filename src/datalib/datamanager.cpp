@@ -12,7 +12,6 @@ DataManager::DataManager(QObject *parent)
     m_priorityMap[Protocol_HTTP] = 5;
     m_priorityMap[Protocol_Unknown] = 0;
     
-    // 关键：连接 DataCache 信号到自己的信号
     DataCache* cache = DataCache::instance();
     connect(cache, &DataCache::dynamicDataChanged,
             this, &DataManager::dynamicDataChanged);
@@ -20,6 +19,71 @@ DataManager::DataManager(QObject *parent)
             this, &DataManager::platformUpdated);
     connect(cache, &DataCache::platformsUpdated,
             this, &DataManager::platformsUpdated);
+}
+
+void DataManager::registerPlatformUpdateCallback(PlatformUpdateCallback callback)
+{
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+    m_platformUpdateCallback = callback;
+    Logger::info("Platform update callback registered");
+}
+
+void DataManager::registerDataUpdateCallback(DataUpdateCallback callback)
+{
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+    m_dataUpdateCallback = callback;
+    Logger::info("Data update callback registered");
+}
+
+void DataManager::registerEventUpdateCallback(EventUpdateCallback callback)
+{
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+    m_eventUpdateCallback = callback;
+    Logger::info("Event update callback registered");
+}
+
+void DataManager::registerPlatformExpiredCallback(PlatformExpiredCallback callback)
+{
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+    m_platformExpiredCallback = callback;
+    Logger::info("Platform expired callback registered");
+}
+
+void DataManager::unregisterPlatformUpdateCallback()
+{
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+    m_platformUpdateCallback = nullptr;
+    Logger::info("Platform update callback unregistered");
+}
+
+void DataManager::unregisterDataUpdateCallback()
+{
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+    m_dataUpdateCallback = nullptr;
+    Logger::info("Data update callback unregistered");
+}
+
+void DataManager::unregisterEventUpdateCallback()
+{
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+    m_eventUpdateCallback = nullptr;
+    Logger::info("Event update callback unregistered");
+}
+
+void DataManager::unregisterPlatformExpiredCallback()
+{
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+    m_platformExpiredCallback = nullptr;
+    Logger::info("Platform expired callback unregistered");
+}
+
+void DataManager::onPlatformExpired(const QString &id)
+{
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+    if (m_platformExpiredCallback) {
+        m_platformExpiredCallback(id);
+    }
+    Logger::info("Platform expired callback triggered for: %s", id.toStdString().c_str());
 }
 
 DataManager::~DataManager()
@@ -205,6 +269,16 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
 
     DataCache::instance()->updatePlatform(platform);
 
+    {
+        std::lock_guard<std::mutex> lock(m_callbackMutex);
+        if (m_platformUpdateCallback) {
+            m_platformUpdateCallback(platform);
+        }
+        if (m_dataUpdateCallback) {
+            m_dataUpdateCallback(getAllData());
+        }
+    }
+
     emit platformUpdated(platform);
     emit platformsUpdated(getAllPlatforms());
     emit dynamicDataChanged(getAllData());
@@ -252,4 +326,14 @@ void DataManager::updateEvent(const QJsonObject &obj, ProtocolType source)
     }
 
     DataCache::instance()->addEvent(event);
+
+    {
+        std::lock_guard<std::mutex> lock(m_callbackMutex);
+        if (m_eventUpdateCallback) {
+            m_eventUpdateCallback(event);
+        }
+        if (m_dataUpdateCallback) {
+            m_dataUpdateCallback(getAllData());
+        }
+    }
 }

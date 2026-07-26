@@ -1,0 +1,114 @@
+syntax = "proto3";
+
+package cpss.data;
+
+option csharp_namespace = "CPSS.Data";
+option go_package = "cpss/data";
+option java_multiple_files = true;
+option java_package = "com.cpss.data";
+option objc_class_prefix = "CPSS";
+
+enum DataStatus {
+  DATA_STATUS_UNKNOWN = 0;
+  DATA_STATUS_NORMAL = 1;
+  DATA_STATUS_EXPIRED = 2;
+  DATA_STATUS_INVALID = 3;
+}
+
+enum ProtocolType {
+  PROTOCOL_UNKNOWN = 0;
+  PROTOCOL_HTTP = 1;
+  PROTOCOL_REDIS = 2;
+}
+
+enum CampType {
+  CAMP_UNKNOWN = 0;
+  CAMP_FRIENDLY = 1;
+  CAMP_ENEMY = 2;
+  CAMP_NEUTRAL = 3;
+}
+
+enum SpecialEventType {
+  EVENT_UNKNOWN = 0;
+  EVENT_ATTACK = 1;
+  EVENT_DEFENSE = 2;
+  EVENT_ALERT = 3;
+  EVENT_MISSION_START = 4;
+  EVENT_MISSION_END = 5;
+  EVENT_CONTACT = 6;
+  EVENT_LOST = 7;
+  EVENT_DAMAGE = 8;
+  EVENT_REPAIR = 9;
+  EVENT_CUSTOM = 10;
+}
+
+message WeaponInfo {
+  string type = 1;
+  int32 count = 2;
+  double range = 3;
+}
+
+message SensorInfo {
+  string type = 1;
+  int32 count = 2;
+  double range = 3;
+}
+
+message PlatformData {
+  string id = 1;
+  string name = 2;
+  double lon = 3;
+  double lat = 4;
+  double altitude = 5;
+  double speed = 6;
+  string type = 7;
+  string category = 8;
+  CampType camp = 9;
+  
+  repeated WeaponInfo weapons = 10;
+  repeated SensorInfo sensors = 11;
+  
+  repeated PointF track_points = 12;
+  
+  DataStatus data_status = 13;
+  int64 valid_until = 14;
+  int64 update_time = 15;
+  ProtocolType source_protocol = 16;
+}
+
+message PointF {
+  double x = 1;
+  double y = 2;
+}
+
+message SpecialEvent {
+  string event_id = 1;
+  SpecialEventType event_type = 2;
+  string event_name = 3;
+  string description = 4;
+  int64 timestamp = 5;
+  string target_id = 6;
+  string source_id = 7;
+  string extra_data = 8;
+  double lon = 9;
+  double lat = 10;
+}
+
+message DynamicObjects {
+  map<string, PlatformData> platforms = 1;
+  repeated SpecialEvent events = 2;
+  int64 timestamp = 3;
+}
+
+message DataUpdateRequest {
+  oneof update_type {
+    PlatformData platform = 1;
+    SpecialEvent event = 2;
+    DynamicObjects full_data = 3;
+  }
+}
+
+message DataUpdateResponse {
+  bool success = 1;
+  string message = 2;
+}

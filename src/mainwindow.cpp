@@ -197,7 +197,7 @@ void MainWindow::init()
     DataManager *dataManager = DataManager::instance();
     connect(dataManager, &DataManager::dynamicDataChanged,
             m_viewWidget, &ViewWidget::updateDynamicData);
-    dataManager->startTestDataTimer(1000);
+    //dataManager->startTestDataTimer(100);
     Logger::info("DataManager initialized and test data timer started");
 
     loadPlugins();

@@ -3,6 +3,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include "logger.h"
+#include "datamanager.h"
 
 DataCache* DataCache::s_instance = nullptr;
 QMutex DataCache::s_mutex;
@@ -198,6 +199,11 @@ void DataCache::invalidateExpiredData()
     if (!expiredIds.isEmpty()) {
         m_dynamicData.timestamp = now;
         locker.unlock();
+        
+        for (const QString& id : expiredIds) {
+            DataManager::instance()->onPlatformExpired(id);
+        }
+        
         emit platformsUpdated(getAllPlatforms());
         emit dynamicDataChanged(getAllData());
         Logger::info("Expired platforms in cache: %d", expiredIds.size());
@@ -388,6 +394,26 @@ void DataCache::initTestData()
     target3.sensors.append(es1);
     updatePlatform(target3);
 
+    PlatformData target4;
+    target4.id = "SHIP_005";
+    target4.name = "Short-Lived Target";
+    target4.lon = 121.49;
+    target4.lat = 31.24;
+    target4.altitude = 0.0;
+    target4.speed = 6.0;
+    target4.type = "warship";
+    target4.category = "frigate";
+    target4.camp = Camp_Enemy;
+    target4.dataStatus = DataStatus_Normal;
+    target4.updateTime = QDateTime::currentMSecsSinceEpoch();
+    target4.validUntil = target4.updateTime + 5000;
+    target4.sourceProtocol = Protocol_Unknown;
+    WeaponInfo sw1;
+    sw1.type = "missile";
+    sw1.count = 4;
+    target4.weapons.append(sw1);
+    updatePlatform(target4);
+
     SpecialEvent alertEvent;
     alertEvent.eventId = "EVENT_001";
     alertEvent.eventType = Event_Alert;
@@ -435,7 +461,14 @@ void DataCache::updateTestData()
 {
     Logger::info("updateTestData called, platforms count: %d", getAllPlatforms().size());
     QList<PlatformData> platforms = getAllPlatforms();
+    
+    qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - m_testStartTime;
+    
     for (PlatformData &platform : platforms) {
+        if (platform.id == "SHIP_005" && elapsed >= 10000) {
+            continue;
+        }
+        
         platform.lon += 0.00005;
         platform.lat += 0.00003;
         platform.updateTime = QDateTime::currentMSecsSinceEpoch();
@@ -443,7 +476,6 @@ void DataCache::updateTestData()
         updatePlatform(platform);
     }
 
-    qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - m_testStartTime;
     if (elapsed >= 10000 && !m_eventSecondPhase) {
         m_eventSecondPhase = true;
         

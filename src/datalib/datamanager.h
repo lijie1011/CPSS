@@ -7,9 +7,15 @@
 #include <QMap>
 #include <QMutex>
 #include <functional>
+#include <mutex>
 #include "dynamicdata.h"
 #include "protocoladapter.h"
 #include "datacache.h"
+
+typedef std::function<void(const PlatformData&)> PlatformUpdateCallback;
+typedef std::function<void(const DynamicObjects&)> DataUpdateCallback;
+typedef std::function<void(const SpecialEvent&)> EventUpdateCallback;
+typedef std::function<void(const QString&)> PlatformExpiredCallback;
 
 class CPSS_DATA_API DataManager : public QObject
 {
@@ -29,7 +35,6 @@ public:
     void setDefaultValidDuration(qint64 ms);
     qint64 defaultValidDuration() const;
 
-    // 数据查询直接委托给 DataCache
     PlatformData getPlatform(const QString &id) {
         return DataCache::instance()->getPlatform(id);
     }
@@ -61,6 +66,18 @@ public:
         DataCache::instance()->stopTestDataTimer();
     }
 
+    void registerPlatformUpdateCallback(PlatformUpdateCallback callback);
+    void registerDataUpdateCallback(DataUpdateCallback callback);
+    void registerEventUpdateCallback(EventUpdateCallback callback);
+    void registerPlatformExpiredCallback(PlatformExpiredCallback callback);
+
+    void unregisterPlatformUpdateCallback();
+    void unregisterDataUpdateCallback();
+    void unregisterEventUpdateCallback();
+    void unregisterPlatformExpiredCallback();
+
+    void onPlatformExpired(const QString &id);
+
 signals:
     void platformUpdated(const PlatformData &data);
     void platformsUpdated(const QList<PlatformData> &platforms);
@@ -90,6 +107,12 @@ private:
     qint64 m_defaultValidDuration;
 
     std::vector<DataPushCallback> m_pushCallbacks;
+
+    PlatformUpdateCallback m_platformUpdateCallback;
+    DataUpdateCallback m_dataUpdateCallback;
+    EventUpdateCallback m_eventUpdateCallback;
+    PlatformExpiredCallback m_platformExpiredCallback;
+    std::mutex m_callbackMutex;
 };
 
 #endif
