@@ -28,6 +28,7 @@ enum ProtocolType {
 enum CampType {
     Camp_Unknown,
     Camp_Friendly,
+    Camp_Enemy,
     Camp_Red,
     Camp_Purple,
     Camp_Neutral
@@ -66,9 +67,11 @@ struct PlatformData {
     double lat;
     double altitude;
     double speed;
+    double heading;
     QString type;
     QString category;
     CampType camp;
+    QString targetId;
     QList<WeaponInfo> weapons;
     QList<SensorInfo> sensors;
 

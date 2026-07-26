@@ -243,6 +243,8 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
     
     QString campStr = obj["camp"].toString().toLower();
     if (campStr == "friendly") platform.camp = Camp_Friendly;
+    else if (campStr == "red") platform.camp = Camp_Red;
+    else if (campStr == "purple") platform.camp = Camp_Purple;
     else if (campStr == "enemy") platform.camp = Camp_Enemy;
     else if (campStr == "neutral") platform.camp = Camp_Neutral;
     else platform.camp = Camp_Unknown;

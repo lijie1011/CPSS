@@ -4,6 +4,7 @@
 #include <QMessageBox>
 #include <QDesktopWidget>
 #include <QDateTime>
+#include <cmath>
 #include "encl.h"
 #include "common/logger.h"
 
@@ -15,7 +16,24 @@ ViewWidget::ViewWidget(QWidget *parent)
     Logger::info("ViewWidget constructor: entering");
     setMouseTracking(true);
     initOverviewMap();
+    loadIcons();
     Logger::info("ViewWidget constructor: done");
+}
+
+void ViewWidget::loadIcons()
+{
+    QString resourcePath = QCoreApplication::applicationDirPath() + "/../resource";
+    
+    m_redBoatIcon = QImage(resourcePath + "/red/boat.png");
+    m_redPlaneIcon = QImage(resourcePath + "/red/plane.png");
+    m_purpleBoatIcon = QImage(resourcePath + "/purple/boat.png");
+    m_purplePlaneIcon = QImage(resourcePath + "/purple/plane.png");
+    
+    Logger::info("Icons loaded: redBoat=%dx%d, redPlane=%dx%d, purpleBoat=%dx%d, purplePlane=%dx%d",
+                 m_redBoatIcon.width(), m_redBoatIcon.height(),
+                 m_redPlaneIcon.width(), m_redPlaneIcon.height(),
+                 m_purpleBoatIcon.width(), m_purpleBoatIcon.height(),
+                 m_purplePlaneIcon.width(), m_purplePlaneIcon.height());
 }
 
 ViewWidget::~ViewWidget()
@@ -53,6 +71,8 @@ void ViewWidget::updateDynamicData(const DynamicObjects &data)
             QString campStr;
             switch (platform.camp) {
             case Camp_Friendly: campStr = "Friendly"; break;
+            case Camp_Red: campStr = "Red"; break;
+            case Camp_Purple: campStr = "Purple"; break;
             case Camp_Enemy: campStr = "Enemy"; break;
             case Camp_Neutral: campStr = "Neutral"; break;
             default: campStr = "Unknown"; break;
@@ -288,12 +308,14 @@ void ViewWidget::drawPlatform(QPainter &painter, const PlatformData &platform)
     }
     Logger::info("drawPlatform: drawing %s at screen (%d, %d)", platform.id.toStdString().c_str(), x, y);
 
-    bool isOwnShip = (platform.id == "SHIP_001");
+    bool isOwnShip = (platform.id == "1");
 
     QColor campColor;
     switch (platform.camp) {
     case Camp_Friendly: campColor = Qt::green; break;
-    case Camp_Enemy: campColor = Qt::red; break;
+    case Camp_Red: campColor = Qt::red; break;
+    case Camp_Purple: campColor = QColor(148, 0, 211); break;
+    case Camp_Enemy: campColor = Qt::darkRed; break;
     case Camp_Neutral: campColor = Qt::yellow; break;
     default: campColor = Qt::gray; break;
     }
@@ -323,8 +345,43 @@ void ViewWidget::drawPlatform(QPainter &painter, const PlatformData &platform)
     if (!hasState || state.showShip) {
         painter.save();
         painter.translate(x, y);
+        
+        if (platform.heading >= 0) {
+            painter.rotate(platform.heading);
+        }
 
-        if (isOwnShip) {
+        bool isAircraft = (platform.type == "aircraft");
+        bool isRed = (platform.camp == Camp_Red);
+        bool isPurple = (platform.camp == Camp_Purple);
+        bool isMissile = (platform.type == "missile");
+
+        QImage icon;
+        if (!isMissile) {
+            if (isRed && isAircraft) {
+                icon = m_redPlaneIcon;
+            } else if (isRed && !isAircraft) {
+                icon = m_redBoatIcon;
+            } else if (isPurple && isAircraft) {
+                icon = m_purplePlaneIcon;
+            } else if (isPurple && !isAircraft) {
+                icon = m_purpleBoatIcon;
+            }
+        }
+
+        if (!icon.isNull()) {
+            int iconSize = 32;
+            QImage scaledIcon = icon.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            painter.drawImage(-iconSize/2, -iconSize/2, scaledIcon);
+        } else if (isMissile) {
+            QColor missileColor(255, 165, 0);
+            QPen pen(missileColor, 2);
+            painter.setPen(pen);
+            painter.setBrush(missileColor);
+            painter.drawEllipse(-5, -5, 10, 10);
+            painter.setFont(QFont("Arial", 7));
+            painter.setPen(Qt::white);
+            painter.drawText(QRect(-15, -15, 30, 10), Qt::AlignCenter, "M");
+        } else if (isOwnShip) {
             QPen pen(campColor, 2);
             painter.setPen(pen);
 
@@ -364,10 +421,10 @@ void ViewWidget::drawPlatform(QPainter &painter, const PlatformData &platform)
         }
     }
     
-    if (!hasState || state.showSensors) {
+    if (state.showSensors) {
         drawSensorRanges(painter, x, y, platform);
     }
-    if (!hasState || state.showWeapons) {
+    if (state.showWeapons) {
         drawWeaponRanges(painter, x, y, platform);
     }
 }
@@ -655,7 +712,7 @@ void ViewWidget::createPropertyBox(const PlatformData &platform)
     box.isOwnShip = (platform.id == "SHIP_001");
     box.lon = platform.lon;
     box.lat = platform.lat;
-    box.heading = 0;
+    box.heading = platform.heading;
     box.speed = platform.speed;
     box.isDragging = false;
 
@@ -666,6 +723,8 @@ void ViewWidget::createPropertyBox(const PlatformData &platform)
     QString campStr;
     switch (platform.camp) {
     case Camp_Friendly: campStr = "Friendly"; break;
+    case Camp_Red: campStr = "Red"; break;
+    case Camp_Purple: campStr = "Purple"; break;
     case Camp_Enemy: campStr = "Enemy"; break;
     case Camp_Neutral: campStr = "Neutral"; break;
     default: campStr = "Unknown"; break;
@@ -685,12 +744,13 @@ void ViewWidget::createPropertyBox(const PlatformData &platform)
     }
     
     label->setText(
-        QString("Property\nName: %1\nID: %2\nCamp: %3\nLongitude: %4\nLatitude: %5\nSpeed: %6 kn%7")
+        QString("Property\nName: %1\nID: %2\nCamp: %3\nLongitude: %4\nLatitude: %5\nHeading: %6°\nSpeed: %7 kn%8")
             .arg(platform.name)
             .arg(platform.id)
             .arg(campStr)
             .arg(platform.lon, 0, 'f', 6)
             .arg(platform.lat, 0, 'f', 6)
+            .arg(platform.heading > 0 ? platform.heading : 0)
             .arg(platform.speed)
             .arg(eventsStr)
     );
@@ -844,7 +904,9 @@ void ViewWidget::drawOverviewMapContent()
         QColor campColor;
         switch (platform.camp) {
         case Camp_Friendly: campColor = Qt::green; break;
-        case Camp_Enemy: campColor = Qt::red; break;
+        case Camp_Red: campColor = Qt::red; break;
+        case Camp_Purple: campColor = QColor(148, 0, 211); break;
+        case Camp_Enemy: campColor = Qt::darkRed; break;
         case Camp_Neutral: campColor = Qt::yellow; break;
         default: campColor = Qt::gray; break;
         }
@@ -855,3 +917,4 @@ void ViewWidget::drawOverviewMapContent()
         overviewPainter.drawEllipse(x - 3, y - 3, 6, 6);
     }
 }
+

@@ -25,6 +25,8 @@
         <file alias="pru/group47.png">resource/pru/组 47.png</file>
         <file alias="pru/path114.png">resource/pru/路径 114.png</file>
         <file alias="pru/path271.png">resource/pru/路径 271.png</file>
+        <file alias="purple/boat.png">resource/purple/boat.png</file>
+        <file alias="purple/plane.png">resource/purple/plane.png</file>
         <file alias="red/group4.png">resource/red/组 4.png</file>
         <file alias="red/group5.png">resource/red/组 5.png</file>
         <file alias="red/group6.png">resource/red/组 6.png</file>
@@ -49,6 +51,8 @@
         <file alias="red/group25.png">resource/red/组 25.png</file>
         <file alias="red/path114.png">resource/red/路径 114.png</file>
         <file alias="red/path116.png">resource/red/路径 116.png</file>
+        <file alias="red/boat.png">resource/red/boat.png</file>
+        <file alias="red/plane.png">resource/red/plane.png</file>
         <file alias="unknow/group48.png">resource/unknow/组 48.png</file>
         <file alias="unknow/group49.png">resource/unknow/组 49.png</file>
         <file alias="unknow/group50.png">resource/unknow/组 50.png</file>

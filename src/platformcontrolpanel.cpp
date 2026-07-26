@@ -69,7 +69,7 @@ void PlatformControlPanel::populateTree(const DynamicObjects &data, const Displa
     }
 
     QList<CampType> campOrder;
-    campOrder << Camp_Friendly << Camp_Enemy << Camp_Neutral;
+    campOrder << Camp_Red << Camp_Purple << Camp_Friendly << Camp_Enemy << Camp_Neutral;
 
     for (CampType camp : campOrder) {
         if (!groups.contains(camp)) continue;
@@ -89,8 +89,8 @@ void PlatformControlPanel::populateTree(const DynamicObjects &data, const Displa
                 state.showShip = true;
                 state.showName = true;
                 state.showTrack = true;
-                state.showSensors = true;
-                state.showWeapons = true;
+                state.showSensors = false;
+                state.showWeapons = false;
                 state.showEvents = true;
             }
             addPlatformNode(campItem, platform, state);
@@ -107,17 +107,9 @@ void PlatformControlPanel::addPlatformNode(QTreeWidgetItem *campItem, const Plat
     platformItem->setData(0, Qt::UserRole, QVariant::fromValue(platform.id));
     platformItem->setFlags(platformItem->flags() | Qt::ItemIsUserCheckable);
     
-    bool allChecked = state.showShip && state.showName && state.showTrack && 
-                      state.showSensors && state.showWeapons && state.showEvents;
-    bool allUnchecked = !state.showShip && !state.showName && !state.showTrack && 
-                        !state.showSensors && !state.showWeapons && !state.showEvents;
-    if (allChecked) {
-        platformItem->setCheckState(0, Qt::Checked);
-    } else if (allUnchecked) {
-        platformItem->setCheckState(0, Qt::Unchecked);
-    } else {
-        platformItem->setCheckState(0, Qt::PartiallyChecked);
-    }
+    bool hasChecked = state.showShip || state.showName || state.showTrack || 
+                      state.showSensors || state.showWeapons || state.showEvents;
+    platformItem->setCheckState(0, hasChecked ? Qt::Checked : Qt::Unchecked);
 
     QTreeWidgetItem *shipItem = new QTreeWidgetItem(platformItem);
     shipItem->setText(0, QString::fromLocal8Bit("Ship Icon"));
@@ -232,23 +224,36 @@ void PlatformControlPanel::onTreeItemClicked(QTreeWidgetItem *item, int column)
 
     if (item->parent()) {
         QTreeWidgetItem *parent = item->parent();
+        bool hasChecked = false;
         bool allChecked = true;
-        bool allUnchecked = true;
 
         for (int i = 0; i < parent->childCount(); i++) {
-            if (parent->child(i)->checkState(column) == Qt::Checked) {
-                allUnchecked = false;
-            } else {
+            Qt::CheckState childState = parent->child(i)->checkState(column);
+            if (childState == Qt::Checked || childState == Qt::PartiallyChecked) {
+                hasChecked = true;
+            }
+            if (childState != Qt::Checked) {
                 allChecked = false;
             }
         }
 
-        if (allChecked) {
+        if (hasChecked) {
             parent->setCheckState(column, Qt::Checked);
-        } else if (allUnchecked) {
-            parent->setCheckState(column, Qt::Unchecked);
         } else {
-            parent->setCheckState(column, Qt::PartiallyChecked);
+            parent->setCheckState(column, Qt::Unchecked);
+        }
+
+        if (parent->parent()) {
+            QTreeWidgetItem *grandParent = parent->parent();
+            bool grandHasChecked = false;
+            for (int i = 0; i < grandParent->childCount(); i++) {
+                Qt::CheckState childState = grandParent->child(i)->checkState(column);
+                if (childState == Qt::Checked || childState == Qt::PartiallyChecked) {
+                    grandHasChecked = true;
+                    break;
+                }
+            }
+            grandParent->setCheckState(column, grandHasChecked ? Qt::Checked : Qt::Unchecked);
         }
     }
 
@@ -326,8 +331,8 @@ void PlatformControlPanel::collectStates(DisplayStateMap &stateMap)
             if (!hasShip) state.showShip = true;
             if (!hasName) state.showName = true;
             if (!hasTrack) state.showTrack = true;
-            if (!hasSensors) state.showSensors = true;
-            if (!hasWeapons) state.showWeapons = true;
+            if (!hasSensors) state.showSensors = false;
+            if (!hasWeapons) state.showWeapons = false;
             if (!hasEvents) state.showEvents = true;
 
             stateMap[platformId] = state;
@@ -341,6 +346,8 @@ QString PlatformControlPanel::campToString(CampType camp)
     case Camp_Friendly: return QString::fromLocal8Bit("Friendly");
     case Camp_Enemy: return QString::fromLocal8Bit("Enemy");
     case Camp_Neutral: return QString::fromLocal8Bit("Neutral");
+    case Camp_Red: return QString::fromLocal8Bit("Red");
+    case Camp_Purple: return QString::fromLocal8Bit("Purple");
     default: return QString::fromLocal8Bit("Unknown");
     }
 }

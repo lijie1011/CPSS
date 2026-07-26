@@ -94,6 +94,13 @@ private:
     QList<PropertyBox> m_propertyBoxes;
     QLabel *m_overviewLabel;
     QRect m_overviewViewport;
+
+    QImage m_redBoatIcon;
+    QImage m_redPlaneIcon;
+    QImage m_purpleBoatIcon;
+    QImage m_purplePlaneIcon;
+
+    void loadIcons();
 };
 
 #endif

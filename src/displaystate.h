@@ -28,7 +28,7 @@ struct PlatformDisplayState {
 
     PlatformDisplayState()
         : showShip(true), showName(true), showTrack(true),
-          showSensors(true), showWeapons(true), showEvents(true) {}
+          showSensors(false), showWeapons(false), showEvents(true) {}
 };
 
 typedef QMap<QString, PlatformDisplayState> DisplayStateMap;
