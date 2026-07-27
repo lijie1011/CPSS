@@ -55,9 +55,9 @@ bool DataCache::updatePlatform(const PlatformData &data)
     emit platformUpdated(newData);
     emit platformsUpdated(getAllPlatforms());
     emit dynamicDataChanged(getAllData());
-    Logger::info("Platform cached: id=%s, lon=%f, lat=%f, track points=%d", 
-                 newData.id.toStdString().c_str(), newData.lon, newData.lat, 
-                 newData.trackPoints.size());
+    // Logger::info("Platform cached: id=%s, lon=%f, lat=%f, track points=%d", 
+                 // newData.id.toStdString().c_str(), newData.lon, newData.lat, 
+                 // newData.trackPoints.size());
     return true;
 }
 
@@ -70,7 +70,7 @@ bool DataCache::removePlatform(const QString &id)
         locker.unlock();
         emit platformsUpdated(getAllPlatforms());
         emit dynamicDataChanged(getAllData());
-        Logger::info("Platform removed from cache: id=%s", id.toStdString().c_str());
+        // Logger::info("Platform removed from cache: id=%s", id.toStdString().c_str());
         return true;
     }
     return false;
@@ -112,8 +112,8 @@ bool DataCache::addEvent(const SpecialEvent &event)
     locker.unlock();
     emit eventAdded(event);
     emit dynamicDataChanged(getAllData());
-    Logger::info("Event cached: id=%s, type=%d, history size=%d", 
-                 event.eventId.toStdString().c_str(), event.eventType, m_eventHistory.size());
+    // Logger::info("Event cached: id=%s, type=%d, history size=%d", 
+                 // event.eventId.toStdString().c_str(), event.eventType, m_eventHistory.size());
     return true;
 }
 
@@ -127,7 +127,7 @@ bool DataCache::removeEvent(const QString &eventId)
             locker.unlock();
             emit eventRemoved(eventId);
             emit dynamicDataChanged(getAllData());
-            Logger::info("Event removed from cache: id=%s", eventId.toStdString().c_str());
+            // Logger::info("Event removed from cache: id=%s", eventId.toStdString().c_str());
             return true;
         }
     }
@@ -140,7 +140,7 @@ void DataCache::clearEvents()
     m_dynamicData.events.clear();
     m_dynamicData.timestamp = QDateTime::currentMSecsSinceEpoch();
     emit dynamicDataChanged(getAllData());
-    Logger::info("All events cleared from cache");
+    // Logger::info("All events cleared from cache");
 }
 
 QList<SpecialEvent> DataCache::getAllEvents() const
@@ -159,7 +159,7 @@ void DataCache::clearEventHistory()
 {
     QWriteLocker locker(&m_dataLock);
     m_eventHistory.clear();
-    Logger::info("Event history cleared");
+    // Logger::info("Event history cleared");
 }
 
 int DataCache::getMaxHistorySize() const
@@ -174,7 +174,7 @@ void DataCache::setMaxHistorySize(int size)
     while (m_eventHistory.size() > m_maxHistorySize) {
         m_eventHistory.removeLast();
     }
-    Logger::info("Max history size set to: %d", m_maxHistorySize);
+    // Logger::info("Max history size set to: %d", m_maxHistorySize);
 }
 
 DynamicObjects DataCache::getAllData() const
@@ -206,7 +206,7 @@ void DataCache::invalidateExpiredData()
         
         emit platformsUpdated(getAllPlatforms());
         emit dynamicDataChanged(getAllData());
-        Logger::info("Expired platforms in cache: %d", expiredIds.size());
+        // Logger::info("Expired platforms in cache: %d", expiredIds.size());
     }
 }
 
@@ -219,13 +219,13 @@ qint64 DataCache::getTimestamp() const
 void DataCache::registerDataPushCallback(DataPushCallback callback)
 {
     m_pushCallbacks.push_back(callback);
-    Logger::info("Data push callback registered, total callbacks: %d", m_pushCallbacks.size());
+    // Logger::info("Data push callback registered, total callbacks: %d", m_pushCallbacks.size());
 }
 
 void DataCache::unregisterDataPushCallback(DataPushCallback callback)
 {
     m_pushCallbacks.clear();
-    Logger::info("Data push callback unregistered, total callbacks: %d", m_pushCallbacks.size());
+    // Logger::info("Data push callback unregistered, total callbacks: %d", m_pushCallbacks.size());
 }
 
 void DataCache::startDataPush(int intervalMs)
@@ -236,13 +236,13 @@ void DataCache::startDataPush(int intervalMs)
     disconnect(&m_pushTimer, &QTimer::timeout, this, &DataCache::pushData);
     connect(&m_pushTimer, &QTimer::timeout, this, &DataCache::pushData);
     m_pushTimer.start(intervalMs);
-    Logger::info("Data push started with interval: %d ms", intervalMs);
+    // Logger::info("Data push started with interval: %d ms", intervalMs);
 }
 
 void DataCache::stopDataPush()
 {
     m_pushTimer.stop();
-    Logger::info("Data push stopped");
+    // Logger::info("Data push stopped");
 }
 
 bool DataCache::isPushRunning() const
@@ -259,13 +259,13 @@ void DataCache::startTestDataTimer(int intervalMs)
     disconnect(&m_testDataTimer, &QTimer::timeout, this, &DataCache::updateTestData);
     connect(&m_testDataTimer, &QTimer::timeout, this, &DataCache::updateTestData);
     m_testDataTimer.start(intervalMs);
-    Logger::info("Test data timer started with interval: %d ms", intervalMs);
+    // Logger::info("Test data timer started with interval: %d ms", intervalMs);
 }
 
 void DataCache::stopTestDataTimer()
 {
     m_testDataTimer.stop();
-    Logger::info("Test data timer stopped");
+    // Logger::info("Test data timer stopped");
 }
 
 void DataCache::pushData()
@@ -273,7 +273,7 @@ void DataCache::pushData()
     static int pushCount = 0;
     pushCount++;
     DynamicObjects data = getAllData();
-    Logger::info("pushData: count=%d, platforms=%d", pushCount, data.platforms.size());
+    // Logger::info("pushData: count=%d, platforms=%d", pushCount, data.platforms.size());
     for (const auto &callback : m_pushCallbacks) {
         callback(data);
     }
@@ -613,8 +613,8 @@ void DataCache::initTestData()
     m_eventSecondPhase = false;
     m_eventCounter = 0;
 
-    Logger::info("Test data initialized (Red-Purple scenario), total platforms: %d, total events: %d", 
-                 getAllPlatforms().size(), getAllEvents().size());
+    // Logger::info("Test data initialized (Red-Purple scenario), total platforms: %d, total events: %d", 
+                 // getAllPlatforms().size(), getAllEvents().size());
 }
 
 void DataCache::updateTestData()
@@ -695,7 +695,7 @@ void DataCache::updateTestData()
         missile1.updateTime = QDateTime::currentMSecsSinceEpoch();
         missile1.validUntil = missile1.updateTime + 30000;
         updatePlatform(missile1);
-        Logger::info("Missile M1 launched from Purple Ship 1 (id=9)");
+        // Logger::info("Missile M1 launched from Purple Ship 1 (id=9)");
 
         PlatformData missile2;
         missile2.id = "M2";
@@ -713,7 +713,7 @@ void DataCache::updateTestData()
         missile2.updateTime = QDateTime::currentMSecsSinceEpoch();
         missile2.validUntil = missile2.updateTime + 30000;
         updatePlatform(missile2);
-        Logger::info("Missile M2 launched from Purple Plane 1 (id=13)");
+        // Logger::info("Missile M2 launched from Purple Plane 1 (id=13)");
 
         SpecialEvent shipAttackEvent;
         shipAttackEvent.eventId = QString("EVENT_%1").arg(100 + ++m_eventCounter, 3, 10, QChar('0'));
@@ -723,8 +723,10 @@ void DataCache::updateTestData()
         shipAttackEvent.timestamp = QDateTime::currentMSecsSinceEpoch();
         shipAttackEvent.targetId = "1";
         shipAttackEvent.sourceId = "9";
+        shipAttackEvent.lon = target.lon;
+        shipAttackEvent.lat = target.lat;
         addEvent(shipAttackEvent);
-        Logger::info("Attack event added: Purple Ship 1 (id=9) attacked Red Ship 1 (id=1)");
+        // Logger::info("Attack event added: Purple Ship 1 (id=9) attacked Red Ship 1 (id=1)");
 
         SpecialEvent planeAttackEvent;
         planeAttackEvent.eventId = QString("EVENT_%1").arg(100 + ++m_eventCounter, 3, 10, QChar('0'));
@@ -734,11 +736,15 @@ void DataCache::updateTestData()
         planeAttackEvent.timestamp = QDateTime::currentMSecsSinceEpoch();
         planeAttackEvent.targetId = "1";
         planeAttackEvent.sourceId = "13";
+        planeAttackEvent.lon = target.lon;
+        planeAttackEvent.lat = target.lat;
         addEvent(planeAttackEvent);
-        Logger::info("Attack event added: Purple Plane 1 (id=13) attacked Red Ship 1 (id=1)");
+        // Logger::info("Attack event added: Purple Plane 1 (id=13) attacked Red Ship 1 (id=1)");
     } else if (elapsed >= 15000 && m_eventSecondPhase) {
         m_eventSecondPhase = false;
         m_testStartTime = QDateTime::currentMSecsSinceEpoch();
+        
+        PlatformData target = getPlatform("1");
         
         SpecialEvent alertEvent;
         alertEvent.eventId = QString("EVENT_%1").arg(200 + ++m_eventCounter, 3, 10, QChar('0'));
@@ -748,7 +754,11 @@ void DataCache::updateTestData()
         alertEvent.timestamp = QDateTime::currentMSecsSinceEpoch();
         alertEvent.targetId = "1";
         alertEvent.sourceId = "SYSTEM";
+        if (!target.id.isEmpty()) {
+            alertEvent.lon = target.lon;
+            alertEvent.lat = target.lat;
+        }
         addEvent(alertEvent);
-        Logger::info("Alert event added: Missile alert for Red Ship 1 (id=1)");
+        // Logger::info("Alert event added: Missile alert for Red Ship 1 (id=1)");
     }
 }

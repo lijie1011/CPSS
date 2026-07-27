@@ -45,7 +45,7 @@ void PlatformControlPanel::initUI()
     btnLayout->addWidget(m_resetBtn);
 
     m_closeBtn = new QPushButton(QString::fromLocal8Bit("Close"), this);
-    connect(m_closeBtn, &QPushButton::clicked, this, &PlatformControlPanel::close);
+    connect(m_closeBtn, &QPushButton::clicked, this, &PlatformControlPanel::onCloseClicked);
     btnLayout->addWidget(m_closeBtn);
 
     mainLayout->addLayout(btnLayout);
@@ -169,6 +169,8 @@ void PlatformControlPanel::onApplyClicked()
 
 void PlatformControlPanel::onResetClicked()
 {
+    m_updatingCheckState = true;
+
     for (int i = 0; i < m_treeWidget->topLevelItemCount(); i++) {
         QTreeWidgetItem *campItem = m_treeWidget->topLevelItem(i);
         campItem->setCheckState(0, Qt::Checked);
@@ -179,15 +181,31 @@ void PlatformControlPanel::onResetClicked()
 
             for (int k = 0; k < platformItem->childCount(); k++) {
                 QTreeWidgetItem *childItem = platformItem->child(k);
-                childItem->setCheckState(0, Qt::Checked);
+                QString text = childItem->text(0);
+                bool checked = (text == QString::fromLocal8Bit("Ship Icon") || 
+                                text == QString::fromLocal8Bit("Name Label"));
+                childItem->setCheckState(0, checked ? Qt::Checked : Qt::Unchecked);
 
                 for (int l = 0; l < childItem->childCount(); l++) {
                     QTreeWidgetItem *subChildItem = childItem->child(l);
-                    subChildItem->setCheckState(0, Qt::Checked);
+                    subChildItem->setCheckState(0, checked ? Qt::Checked : Qt::Unchecked);
                 }
             }
         }
     }
+
+    m_updatingCheckState = false;
+    DisplayStateMap stateMap;
+    collectStates(stateMap);
+    emit displayStateChanged(stateMap);
+}
+
+void PlatformControlPanel::onCloseClicked()
+{
+    DisplayStateMap stateMap;
+    collectStates(stateMap);
+    emit displayStateChanged(stateMap);
+    close();
 }
 
 void PlatformControlPanel::onSearchTextChanged(const QString &text)

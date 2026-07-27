@@ -29,6 +29,7 @@ signals:
 private slots:
     void onApplyClicked();
     void onResetClicked();
+    void onCloseClicked();
     void onSearchTextChanged(const QString &text);
     void onTreeItemClicked(QTreeWidgetItem *item, int column);
 

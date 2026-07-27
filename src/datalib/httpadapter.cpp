@@ -41,8 +41,8 @@ bool HttpAdapter::start()
 
     m_status = Running;
     emit statusChanged(m_status);
-    Logger::info("HTTP Adapter started, url: %s, interval: %dms",
-                 m_requestUrl.toStdString().c_str(), m_requestInterval);
+    // Logger::info("HTTP Adapter started, url: %s, interval: %dms",
+                 // m_requestUrl.toStdString().c_str(), m_requestInterval);
     return true;
 }
 
@@ -61,7 +61,7 @@ bool HttpAdapter::stop()
 
     m_status = Stopped;
     emit statusChanged(m_status);
-    Logger::info("HTTP Adapter stopped");
+    // Logger::info("HTTP Adapter stopped");
     return true;
 }
 
@@ -128,7 +128,7 @@ void HttpAdapter::onReplyFinished(QNetworkReply *reply)
         QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
 
         if (parseError.error != QJsonParseError::NoError) {
-            Logger::warn("HTTP Adapter invalid JSON: %s", parseError.errorString().toStdString().c_str());
+            // Logger::warn("HTTP Adapter invalid JSON: %s", parseError.errorString().toStdString().c_str());
         } else if (doc.isObject()) {
             parseAndUpdate(doc.object(), protocolType());
         } else if (doc.isArray()) {
@@ -148,7 +148,7 @@ void HttpAdapter::onReplyError(QNetworkReply::NetworkError error)
     QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
     if (reply) {
         m_lastError = reply->errorString();
-        Logger::error("HTTP Adapter error: %s", m_lastError.toStdString().c_str());
+        // Logger::error("HTTP Adapter error: %s", m_lastError.toStdString().c_str());
         reply->deleteLater();
     }
 }
@@ -267,6 +267,8 @@ SpecialEvent HttpAdapter::parseEvent(const QJsonObject &obj)
     }
     event.targetId = obj["targetId"].toString();
     event.sourceId = obj["sourceId"].toString();
+    event.lon = obj["lon"].toDouble();
+    event.lat = obj["lat"].toDouble();
     
     if (obj.contains("extraData") && obj["extraData"].isObject()) {
         event.extraData = obj["extraData"].toObject();

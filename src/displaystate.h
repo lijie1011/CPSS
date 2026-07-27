@@ -27,7 +27,7 @@ struct PlatformDisplayState {
     QList<ComponentState> weapons;
 
     PlatformDisplayState()
-        : showShip(true), showName(true), showTrack(true),
+        : showShip(true), showName(true), showTrack(false),
           showSensors(false), showWeapons(false), showEvents(true) {}
 };
 

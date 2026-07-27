@@ -13,11 +13,11 @@ ViewWidget::ViewWidget(QWidget *parent)
       m_enclibReady(false),
       m_overviewLabel(nullptr)
 {
-    Logger::info("ViewWidget constructor: entering");
+    // Logger::info("ViewWidget constructor: entering");
     setMouseTracking(true);
     initOverviewMap();
     loadIcons();
-    Logger::info("ViewWidget constructor: done");
+    // Logger::info("ViewWidget constructor: done");
 }
 
 void ViewWidget::loadIcons()
@@ -29,16 +29,16 @@ void ViewWidget::loadIcons()
     m_purpleBoatIcon = QImage(resourcePath + "/purple/boat.png");
     m_purplePlaneIcon = QImage(resourcePath + "/purple/plane.png");
     
-    Logger::info("Icons loaded: redBoat=%dx%d, redPlane=%dx%d, purpleBoat=%dx%d, purplePlane=%dx%d",
-                 m_redBoatIcon.width(), m_redBoatIcon.height(),
-                 m_redPlaneIcon.width(), m_redPlaneIcon.height(),
-                 m_purpleBoatIcon.width(), m_purpleBoatIcon.height(),
-                 m_purplePlaneIcon.width(), m_purplePlaneIcon.height());
+    // Logger::info("Icons loaded: redBoat=%dx%d, redPlane=%dx%d, purpleBoat=%dx%d, purplePlane=%dx%d",
+                 // m_redBoatIcon.width(), m_redBoatIcon.height(),
+                 // m_redPlaneIcon.width(), m_redPlaneIcon.height(),
+                 // m_purpleBoatIcon.width(), m_purpleBoatIcon.height(),
+                 // m_purplePlaneIcon.width(), m_purplePlaneIcon.height());
 }
 
 ViewWidget::~ViewWidget()
 {
-    Logger::info("ViewWidget destructor called");
+    // Logger::info("ViewWidget destructor called");
     for (auto &box : m_propertyBoxes) {
         if (box.label) {
             delete box.label;
@@ -55,13 +55,13 @@ void ViewWidget::setEnclibReady(bool ready)
 void ViewWidget::updateDynamicData(const DynamicObjects &data)
 {
     m_dynamicData = data;
-    Logger::info("ViewWidget::updateDynamicData received, platforms: %d", data.platforms.size());
+    // Logger::info("ViewWidget::updateDynamicData received, platforms: %d", data.platforms.size());
     for (const auto &platform : data.platforms.values()) {
         if (platform.isExpired()) {
-            Logger::info("  Platform: id=%s is expired, skipping", platform.id.toStdString().c_str());
+            // Logger::info("  Platform: id=%s is expired, skipping", platform.id.toStdString().c_str());
             continue;
         }
-        Logger::info("  Platform: id=%s, lon=%f, lat=%f", platform.id.toStdString().c_str(), platform.lon, platform.lat);
+        // Logger::info("  Platform: id=%s, lon=%f, lat=%f", platform.id.toStdString().c_str(), platform.lon, platform.lat);
         PropertyBox *box = findPropertyBoxById(platform.id, platform.id == "SHIP_001");
         if (box && box->label && box->label->isVisible() && !box->isDragging) {
             box->lon = platform.lon;
@@ -132,10 +132,10 @@ void ViewWidget::paintEvent(QPaintEvent *event)
     clipPath.addRect(this->rect());
     painter.setClipPath(clipPath);
 
-    Logger::info("paintEvent: drawing %d platforms, enclibReady=%d", m_dynamicData.platforms.size(), m_enclibReady);
+    // Logger::info("paintEvent: drawing %d platforms, enclibReady=%d", m_dynamicData.platforms.size(), m_enclibReady);
     for (const PlatformData &platform : m_dynamicData.platforms.values()) {
         if (platform.isExpired()) {
-            Logger::info("paintEvent: platform %s is expired, skipping", platform.id.toStdString().c_str());
+            // Logger::info("paintEvent: platform %s is expired, skipping", platform.id.toStdString().c_str());
             continue;
         }
         drawPlatform(painter, platform);
@@ -303,10 +303,10 @@ void ViewWidget::drawPlatform(QPainter &painter, const PlatformData &platform)
 
     int x, y;
     if (!geoToScreen(platform.lon, platform.lat, x, y)) {
-        Logger::info("drawPlatform: geoToScreen failed for %s (lon=%f, lat=%f)", platform.id.toStdString().c_str(), platform.lon, platform.lat);
+        // Logger::info("drawPlatform: geoToScreen failed for %s (lon=%f, lat=%f)", platform.id.toStdString().c_str(), platform.lon, platform.lat);
         return;
     }
-    Logger::info("drawPlatform: drawing %s at screen (%d, %d)", platform.id.toStdString().c_str(), x, y);
+    // Logger::info("drawPlatform: drawing %s at screen (%d, %d)", platform.id.toStdString().c_str(), x, y);
 
     bool isOwnShip = (platform.id == "1");
 

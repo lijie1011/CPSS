@@ -36,15 +36,15 @@ MainWindow::MainWindow(QWidget *parent)
       m_pluginManager(nullptr),
       m_currentPlugin(nullptr)
 {
-    Logger::info("MainWindow constructor: entering");
+    // Logger::info("MainWindow constructor: entering");
     ui->setupUi(this);
 
     QVBoxLayout *mapLayout = new QVBoxLayout(ui->mapArea);
     mapLayout->setContentsMargins(0, 0, 0, 0);
 
-    m_viewWidget = new ViewWidget(this);
+    m_viewWidget = new GraphicsViewWidget(this);
     mapLayout->addWidget(m_viewWidget);
-    Logger::info("MainWindow constructor: ViewWidget created");
+    // Logger::info("MainWindow constructor: GraphicsViewWidget created");
 
     connect(ui->actionZoomIn, &QAction::triggered, this, &MainWindow::zoomIn);
     connect(ui->actionZoomOut, &QAction::triggered, this, &MainWindow::zoomOut);
@@ -53,7 +53,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionEventHistory, &QAction::triggered, this, &MainWindow::showEventHistory);
     connect(ui->actionPlatformControl, &QAction::triggered, this, &MainWindow::showPlatformControl);
     connect(ui->actionHelp, &QAction::triggered, this, &MainWindow::showEventLegend);
-    Logger::info("MainWindow constructor: actions connected");
+    // Logger::info("MainWindow constructor: actions connected");
 
     m_pluginManager = new PluginManager(this);
     m_pluginManager->setPluginHost(this);
@@ -63,14 +63,14 @@ MainWindow::MainWindow(QWidget *parent)
     addToolBar(Qt::LeftToolBarArea, ui->toolBar);
     addToolBar(Qt::BottomToolBarArea, ui->pluginToolBar);
     createStatusBar();
-    Logger::info("MainWindow constructor: createStatusBar done");
-    Logger::info("MainWindow constructor: exiting");
+    // Logger::info("MainWindow constructor: createStatusBar done");
+    // Logger::info("MainWindow constructor: exiting");
     init();
 }
 
 MainWindow::~MainWindow()
 {
-    Logger::info("MainWindow destructor called");
+    // Logger::info("MainWindow destructor called");
 
     for (auto action : m_pluginActions.values()) {
         delete action;
@@ -85,7 +85,7 @@ MainWindow::~MainWindow()
 void MainWindow::showEvent(QShowEvent *event)
 {
     QMainWindow::showEvent(event);
-    Logger::info("MainWindow showEvent called");
+    // Logger::info("MainWindow showEvent called");
 }
 
 bool MainWindow::checkLicenseExpired(const QString &enclibPath)
@@ -94,7 +94,7 @@ bool MainWindow::checkLicenseExpired(const QString &enclibPath)
     QFile licFile(licPath);
     
     if (!licFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        Logger::warn("Cannot open license file: %s", licPath.toStdString().c_str());
+        // Logger::warn("Cannot open license file: %s", licPath.toStdString().c_str());
         return true;
     }
     
@@ -104,7 +104,7 @@ bool MainWindow::checkLicenseExpired(const QString &enclibPath)
     
     int pos = content.indexOf("Expires at:");
     if (pos == -1) {
-        Logger::warn("Cannot find expiration date in license file");
+        // Logger::warn("Cannot find expiration date in license file");
         return true;
     }
     
@@ -113,48 +113,48 @@ bool MainWindow::checkLicenseExpired(const QString &enclibPath)
     
     QDateTime expireDate = QDateTime::fromString(dateStr, "yyyy-MM-dd");
     if (!expireDate.isValid()) {
-        Logger::warn("Invalid expiration date format: %s", dateStr.toStdString().c_str());
+        // Logger::warn("Invalid expiration date format: %s", dateStr.toStdString().c_str());
         return true;
     }
     
     QDateTime now = QDateTime::currentDateTime();
     if (now > expireDate) {
-        Logger::warn("License expired at: %s, current time: %s", 
-                     dateStr.toStdString().c_str(), 
-                     now.toString("yyyy-MM-dd").toStdString().c_str());
+        // Logger::warn("License expired at: %s, current time: %s", 
+                     // dateStr.toStdString().c_str(), 
+                     // now.toString("yyyy-MM-dd").toStdString().c_str());
         return true;
     }
     
-    Logger::info("License valid, expires at: %s", dateStr.toStdString().c_str());
+    // Logger::info("License valid, expires at: %s", dateStr.toStdString().c_str());
     return false;
 }
 
 void MainWindow::init()
 {
-    Logger::info("MainWindow::init started");
+    // Logger::info("MainWindow::init started");
     
     QString enclibPath = QCoreApplication::applicationDirPath() + "/3dParty/Enclib";
-    Logger::info("Enclib path: %s", enclibPath.toLocal8Bit().constData());
+    // Logger::info("Enclib path: %s", enclibPath.toLocal8Bit().constData());
 
     bool enclibUsable = false;
     
-    Logger::info("Current dir before EnclSENCInit: %s", QDir::currentPath().toLocal8Bit().constData());
+    // Logger::info("Current dir before EnclSENCInit: %s", QDir::currentPath().toLocal8Bit().constData());
     QDir::setCurrent(enclibPath);
-    Logger::info("Current dir after setCurrent: %s", QDir::currentPath().toLocal8Bit().constData());
+    // Logger::info("Current dir after setCurrent: %s", QDir::currentPath().toLocal8Bit().constData());
 
     bool licenseExpired = checkLicenseExpired(enclibPath);
     if (licenseExpired) {
-        Logger::warn("License expired, but still trying EnclSENCInit to display chart");
+        // Logger::warn("License expired, but still trying EnclSENCInit to display chart");
     }
 
     try {
         bool ret = EnclSENCInit(enclibPath.toLocal8Bit().constData());
-        Logger::info("EnclSENCInit returned: %d", ret);
+        // Logger::info("EnclSENCInit returned: %d", ret);
 
         if (!ret) {
-            Logger::warn("EnclSENCInit failed with path: %s", enclibPath.toStdString().c_str());
+            // Logger::warn("EnclSENCInit failed with path: %s", enclibPath.toStdString().c_str());
         } else {
-            Logger::info("EnclSENCInit succeeded with path: %s", enclibPath.toStdString().c_str());
+            // Logger::info("EnclSENCInit succeeded with path: %s", enclibPath.toStdString().c_str());
 
             EnclViewSetScale(4000000);
             EnclViewCenter(121.5, 31.2);
@@ -173,32 +173,32 @@ void MainWindow::init()
             unsigned char *testPixBuf = EnclDrawChart();
             if (testPixBuf) {
                 enclibUsable = true;
-                Logger::info("EnclDrawChart test succeeded, enclib is usable");
+                // Logger::info("EnclDrawChart test succeeded, enclib is usable");
             } else {
-                Logger::warn("EnclDrawChart test failed, enclib may have license issues");
+                // Logger::warn("EnclDrawChart test failed, enclib may have license issues");
             }
         }
     } catch (...) {
-        Logger::error("Exception occurred during EnclSENCInit, license may be expired");
+        // Logger::error("Exception occurred during EnclSENCInit, license may be expired");
     }
     
     m_viewWidget->setEnclibReady(enclibUsable);
     m_viewWidget->updateChart();
-    Logger::info("Enclib settings applied, enclibUsable: %d", enclibUsable);
+    // Logger::info("Enclib settings applied, enclibUsable: %d", enclibUsable);
 
     if (!enclibUsable) {
-        Logger::warn("Enclib may have license issues! Path: %s. Map display will show placeholder.", enclibPath.toStdString().c_str());
+        // Logger::warn("Enclib may have license issues! Path: %s. Map display will show placeholder.", enclibPath.toStdString().c_str());
     }
 
-    connect(m_viewWidget, &ViewWidget::updateGeoPosition,
+    connect(m_viewWidget, &GraphicsViewWidget::updateGeoPosition,
             this, &MainWindow::updateGeoPosition);
-    Logger::info("ViewWidget signals connected");
+    // Logger::info("GraphicsViewWidget signals connected");
 
     DataManager *dataManager = DataManager::instance();
     connect(dataManager, &DataManager::dynamicDataChanged,
-            m_viewWidget, &ViewWidget::updateDynamicData);
+            m_viewWidget, &GraphicsViewWidget::updateDynamicData);
     dataManager->startTestDataTimer(100);
-    Logger::info("DataManager initialized and test data timer started");
+    // Logger::info("DataManager initialized and test data timer started");
 
     loadPlugins();
 }
@@ -206,13 +206,13 @@ void MainWindow::init()
 void MainWindow::loadPlugins()
 {
     QString pluginDir = QCoreApplication::applicationDirPath() + "/plugins";
-    Logger::info("Loading plugins from: %s", pluginDir.toStdString().c_str());
+    // Logger::info("Loading plugins from: %s", pluginDir.toStdString().c_str());
     m_pluginManager->loadPlugins(pluginDir);
 }
 
 void MainWindow::onPluginLoaded(IPlugin *plugin)
 {
-    Logger::info("MainWindow::onPluginLoaded - %s", plugin->pluginName().toStdString().c_str());
+    // Logger::info("MainWindow::onPluginLoaded - %s", plugin->pluginName().toStdString().c_str());
     registerPluginButton(plugin->pluginId(), plugin->pluginName());
 }
 
@@ -260,7 +260,7 @@ void MainWindow::onPluginActionTriggered()
 
 void MainWindow::showPluginWidget(IPlugin *plugin)
 {
-    Logger::info("MainWindow::showPluginWidget - %s", plugin->pluginName().toStdString().c_str());
+    // Logger::info("MainWindow::showPluginWidget - %s", plugin->pluginName().toStdString().c_str());
 
     QString pluginId = plugin->pluginId();
     QWidget *widget = m_pluginWidgets.value(pluginId, nullptr);
@@ -454,6 +454,6 @@ void MainWindow::showPlatformControl()
     panel->setAttribute(Qt::WA_DeleteOnClose);
     panel->initWithData(m_viewWidget->getDynamicData(), m_viewWidget->getDisplayStates());
     connect(panel, &PlatformControlPanel::displayStateChanged,
-            m_viewWidget, &ViewWidget::updateDisplayState);
+            m_viewWidget, &GraphicsViewWidget::updateDisplayState);
     panel->show();
 }

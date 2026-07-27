@@ -1,0 +1,1165 @@
+#include "graphicsviewwidget.h"
+#include <QPainter>
+#include <QApplication>
+#include <QDesktopWidget>
+#include <QDateTime>
+#include <cmath>
+#include <QGraphicsEllipseItem>
+#include <QGraphicsPathItem>
+#include <QGraphicsTextItem>
+#include <QGraphicsRectItem>
+#include <QPen>
+#include <QBrush>
+#include <QFont>
+
+#include "encl.h"
+#include "common/logger.h"
+
+GraphicsViewWidget::GraphicsViewWidget(QWidget *parent)
+    : QGraphicsView(parent),
+      m_enclibReady(false),
+      m_overviewLabel(nullptr),
+      m_scene(nullptr)
+{
+    m_scene = new QGraphicsScene(this);
+    setScene(m_scene);
+    setMouseTracking(true);
+    setInteractive(true);
+    setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
+
+    initOverviewMap();
+    loadIcons();
+}
+
+void GraphicsViewWidget::loadIcons()
+{
+    QString resourcePath = QCoreApplication::applicationDirPath() + "/../resource";
+
+    m_redBoatIcon = QImage(resourcePath + "/red/boat.png");
+    m_redPlaneIcon = QImage(resourcePath + "/red/plane.png");
+    m_purpleBoatIcon = QImage(resourcePath + "/purple/boat.png");
+    m_purplePlaneIcon = QImage(resourcePath + "/purple/plane.png");
+}
+
+GraphicsViewWidget::~GraphicsViewWidget()
+{
+    for (auto item : m_platformItems.values()) {
+        delete item;
+    }
+    m_platformItems.clear();
+
+    for (auto &items : m_sensorRangeItems) {
+        for (auto item : items) {
+            delete item;
+        }
+    }
+    m_sensorRangeItems.clear();
+
+    for (auto &items : m_weaponRangeItems) {
+        for (auto item : items) {
+            delete item;
+        }
+    }
+    m_weaponRangeItems.clear();
+
+    for (auto item : m_trackItems.values()) {
+        delete item;
+    }
+    m_trackItems.clear();
+
+    for (auto &items : m_eventMarkerItems) {
+        for (auto item : items) {
+            delete item;
+        }
+    }
+    m_eventMarkerItems.clear();
+
+    for (auto &box : m_propertyBoxes) {
+        if (box.label) {
+            delete box.label;
+        }
+    }
+
+    delete m_overviewLabel;
+    delete m_scene;
+}
+
+void GraphicsViewWidget::setEnclibReady(bool ready)
+{
+    m_enclibReady = ready;
+}
+
+void GraphicsViewWidget::updateDynamicData(const DynamicObjects &data)
+{
+    m_dynamicData = data;
+
+    for (const auto &platform : data.platforms.values()) {
+        if (platform.isExpired()) {
+            continue;
+        }
+
+        PropertyBox *box = findPropertyBoxById(platform.id, platform.id == "SHIP_001");
+        if (box && box->label && box->label->isVisible() && !box->isDragging) {
+            box->lon = platform.lon;
+            box->lat = platform.lat;
+            box->heading = platform.heading;
+            box->speed = platform.speed;
+
+            QString campStr;
+            switch (platform.camp) {
+            case Camp_Friendly: campStr = "Friendly"; break;
+            case Camp_Red: campStr = "Red"; break;
+            case Camp_Purple: campStr = "Purple"; break;
+            case Camp_Enemy: campStr = "Enemy"; break;
+            case Camp_Neutral: campStr = "Neutral"; break;
+            default: campStr = "Unknown"; break;
+            }
+
+            QString eventsStr;
+            const SpecialEvent *latestEvent = nullptr;
+            qint64 latestTimestamp = 0;
+            for (const auto &event : data.events) {
+                if (event.targetId == platform.id && event.timestamp > latestTimestamp) {
+                    latestTimestamp = event.timestamp;
+                    latestEvent = &event;
+                }
+            }
+            if (latestEvent) {
+                eventsStr = QString("\nEvent: %1").arg(latestEvent->eventName);
+            }
+
+            box->label->setText(
+                QString("Property\nName: %1\nID: %2\nCamp: %3\nLongitude: %4\nLatitude: %5\nHeading: %6°\nSpeed: %7 kn%8")
+                    .arg(platform.name)
+                    .arg(platform.id)
+                    .arg(campStr)
+                    .arg(platform.lon, 0, 'f', 6)
+                    .arg(platform.lat, 0, 'f', 6)
+                    .arg(platform.heading > 0 ? platform.heading : 0)
+                    .arg(platform.speed)
+                    .arg(eventsStr)
+            );
+            box->label->adjustSize();
+        }
+    }
+
+    updatePlatformItems();
+    updateSensorWeaponRanges();
+    updateTracks();
+    updateEventMarkers();
+    updateAllConnectingLines();
+}
+
+void GraphicsViewWidget::updateMapBackground()
+{
+    if (!m_enclibReady) {
+        QImage img(width(), height(), QImage::Format_RGB32);
+        img.fill(Qt::darkGray);
+        QPainter painter(&img);
+        painter.setPen(Qt::white);
+        painter.drawText(img.rect(), Qt::AlignCenter, tr("Map not initialized"));
+        m_storedViewImg = img;
+        m_scene->setBackgroundBrush(QBrush(m_storedViewImg));
+        return;
+    }
+
+    unsigned char *pPixBuf = EnclDrawChart();
+    if (pPixBuf) {
+        QImage img(pPixBuf, width(), height(), QImage::Format_RGB32);
+        m_storedViewImg = QImage(img.constBits(), img.width(), img.height(), img.bytesPerLine(), img.format()).copy();
+        m_scene->setBackgroundBrush(QBrush(m_storedViewImg));
+    } else {
+        m_scene->setBackgroundBrush(QBrush(m_storedViewImg));
+    }
+}
+
+void GraphicsViewWidget::updatePlatformItems()
+{
+    QSet<QString> currentPlatformIds;
+
+    for (const PlatformData &platform : m_dynamicData.platforms.values()) {
+        if (platform.isExpired()) {
+            continue;
+        }
+        currentPlatformIds.insert(platform.id);
+
+        PlatformItem *item = m_platformItems.value(platform.id, nullptr);
+
+        int x, y;
+        if (!geoToScreen(platform.lon, platform.lat, x, y)) {
+            continue;
+        }
+
+        if (!item) {
+            item = new PlatformItem(platform, m_redBoatIcon, m_redPlaneIcon,
+                                   m_purpleBoatIcon, m_purplePlaneIcon);
+            item->setPos(x, y);
+            m_scene->addItem(item);
+            m_platformItems[platform.id] = item;
+        } else {
+            item->updateData(platform);
+            item->setPos(x, y);
+        }
+
+        auto stateIt = m_displayStates.find(platform.id);
+        if (stateIt != m_displayStates.end()) {
+            item->updateDisplayState(stateIt.value());
+        }
+
+        item->setVisible(true);
+    }
+
+    QList<QString> toRemove;
+    for (const QString &id : m_platformItems.keys()) {
+        if (!currentPlatformIds.contains(id)) {
+            toRemove.append(id);
+        }
+    }
+
+    for (const QString &id : toRemove) {
+        PlatformItem *item = m_platformItems.take(id);
+        m_scene->removeItem(item);
+        delete item;
+    }
+}
+
+void GraphicsViewWidget::updateSensorWeaponRanges()
+{
+    QSet<QString> currentPlatformIds;
+
+    for (const PlatformData &platform : m_dynamicData.platforms.values()) {
+        if (platform.isExpired()) {
+            continue;
+        }
+        currentPlatformIds.insert(platform.id);
+
+        bool showSensors = m_displayStates.contains(platform.id) && m_displayStates[platform.id].showSensors;
+        bool showWeapons = m_displayStates.contains(platform.id) && m_displayStates[platform.id].showWeapons;
+
+        int x, y;
+        if (!geoToScreen(platform.lon, platform.lat, x, y)) {
+            if (m_sensorRangeItems.contains(platform.id)) {
+                for (auto item : m_sensorRangeItems[platform.id]) {
+                    item->setVisible(false);
+                }
+            }
+            if (m_weaponRangeItems.contains(platform.id)) {
+                for (auto item : m_weaponRangeItems[platform.id]) {
+                    item->setVisible(false);
+                }
+            }
+            continue;
+        }
+
+        if (showSensors) {
+            int sensorIndex = 0;
+            for (const SensorInfo &sensor : platform.sensors) {
+                if (sensor.range <= 0) {
+                    continue;
+                }
+
+                double rangeKm = sensor.range * 1.852;
+                double rangeDegrees = rangeKm / 111.0;
+
+                int edgeX, edgeY;
+                if (geoToScreen(platform.lon + rangeDegrees, platform.lat, edgeX, edgeY)) {
+                    int radius = edgeX - x;
+
+                    QColor sensorColor;
+                    if (sensor.type.contains("radar", Qt::CaseInsensitive)) {
+                        sensorColor = Qt::cyan;
+                    } else if (sensor.type.contains("sonar", Qt::CaseInsensitive)) {
+                        sensorColor = Qt::blue;
+                    } else {
+                        sensorColor = Qt::green;
+                    }
+
+                    int ellipseIdx = sensorIndex * 2;
+                    int textIdx = sensorIndex * 2 + 1;
+
+                    if (m_sensorRangeItems.contains(platform.id) && 
+                        m_sensorRangeItems[platform.id].size() > ellipseIdx) {
+                        QGraphicsEllipseItem *ellipse = 
+                            dynamic_cast<QGraphicsEllipseItem*>(m_sensorRangeItems[platform.id][ellipseIdx]);
+                        if (ellipse) {
+                            ellipse->setRect(x - radius, y - radius, radius * 2, radius * 2);
+                            ellipse->setVisible(true);
+                        }
+                        if (m_sensorRangeItems[platform.id].size() > textIdx) {
+                            QGraphicsTextItem *text = 
+                                dynamic_cast<QGraphicsTextItem*>(m_sensorRangeItems[platform.id][textIdx]);
+                            if (text) {
+                                text->setPos(x + radius + 5, y + sensorIndex * 15);
+                                text->setVisible(true);
+                            }
+                        }
+                    } else {
+                        QGraphicsEllipseItem *ellipse = new QGraphicsEllipseItem(x - radius, y - radius, radius * 2, radius * 2);
+                        ellipse->setPen(QPen(sensorColor, 1, Qt::DashLine));
+                        ellipse->setBrush(Qt::NoBrush);
+                        m_scene->addItem(ellipse);
+                        m_sensorRangeItems[platform.id].append(ellipse);
+
+                        QGraphicsTextItem *text = new QGraphicsTextItem(QString("%1:S:%2(%3nm)").arg(platform.id).arg(sensor.type).arg(sensor.range));
+                        text->setPos(x + radius + 5, y + sensorIndex * 15);
+                        text->setDefaultTextColor(sensorColor);
+                        text->setFont(QFont("Arial", 7));
+                        m_scene->addItem(text);
+                        m_sensorRangeItems[platform.id].append(text);
+                    }
+                    sensorIndex++;
+                }
+            }
+
+            if (m_sensorRangeItems.contains(platform.id)) {
+                int expectedSize = platform.sensors.size() * 2;
+                while (m_sensorRangeItems[platform.id].size() > expectedSize) {
+                    auto item = m_sensorRangeItems[platform.id].takeLast();
+                    m_scene->removeItem(item);
+                    delete item;
+                }
+            }
+        } else if (m_sensorRangeItems.contains(platform.id)) {
+            for (auto item : m_sensorRangeItems[platform.id]) {
+                item->setVisible(false);
+            }
+        }
+
+        if (showWeapons) {
+            int weaponIndex = 0;
+            for (const WeaponInfo &weapon : platform.weapons) {
+                if (weapon.range <= 0) {
+                    continue;
+                }
+
+                double rangeKm = weapon.range * 1.852;
+                double rangeDegrees = rangeKm / 111.0;
+
+                int edgeX, edgeY;
+                if (geoToScreen(platform.lon + rangeDegrees, platform.lat, edgeX, edgeY)) {
+                    int radius = edgeX - x;
+
+                    QColor weaponColor;
+                    if (weapon.type.contains("missile", Qt::CaseInsensitive)) {
+                        weaponColor = Qt::red;
+                    } else if (weapon.type.contains("gun", Qt::CaseInsensitive)) {
+                        weaponColor = QColor(255, 165, 0);
+                    } else {
+                        weaponColor = Qt::darkRed;
+                    }
+
+                    int ellipseIdx = weaponIndex * 2;
+                    int textIdx = weaponIndex * 2 + 1;
+
+                    if (m_weaponRangeItems.contains(platform.id) && 
+                        m_weaponRangeItems[platform.id].size() > ellipseIdx) {
+                        QGraphicsEllipseItem *ellipse = 
+                            dynamic_cast<QGraphicsEllipseItem*>(m_weaponRangeItems[platform.id][ellipseIdx]);
+                        if (ellipse) {
+                            ellipse->setRect(x - radius, y - radius, radius * 2, radius * 2);
+                            ellipse->setVisible(true);
+                        }
+                        if (m_weaponRangeItems[platform.id].size() > textIdx) {
+                            QGraphicsTextItem *text = 
+                                dynamic_cast<QGraphicsTextItem*>(m_weaponRangeItems[platform.id][textIdx]);
+                            if (text) {
+                                text->setPos(x + radius + 5, y + weaponIndex * 15);
+                                text->setVisible(true);
+                            }
+                        }
+                    } else {
+                        QGraphicsEllipseItem *ellipse = new QGraphicsEllipseItem(x - radius, y - radius, radius * 2, radius * 2);
+                        ellipse->setPen(QPen(weaponColor, 2, Qt::DotLine));
+                        ellipse->setBrush(Qt::NoBrush);
+                        m_scene->addItem(ellipse);
+                        m_weaponRangeItems[platform.id].append(ellipse);
+
+                        QGraphicsTextItem *text = new QGraphicsTextItem(QString("%1:W:%2(%3nm)").arg(platform.id).arg(weapon.type).arg(weapon.range));
+                        text->setPos(x + radius + 5, y + weaponIndex * 15);
+                        text->setDefaultTextColor(weaponColor);
+                        text->setFont(QFont("Arial", 7));
+                        m_scene->addItem(text);
+                        m_weaponRangeItems[platform.id].append(text);
+                    }
+                    weaponIndex++;
+                }
+            }
+
+            if (m_weaponRangeItems.contains(platform.id)) {
+                int expectedSize = platform.weapons.size() * 2;
+                while (m_weaponRangeItems[platform.id].size() > expectedSize) {
+                    auto item = m_weaponRangeItems[platform.id].takeLast();
+                    m_scene->removeItem(item);
+                    delete item;
+                }
+            }
+        } else if (m_weaponRangeItems.contains(platform.id)) {
+            for (auto item : m_weaponRangeItems[platform.id]) {
+                item->setVisible(false);
+            }
+        }
+    }
+
+    QList<QString> toRemove;
+    for (const QString &id : m_sensorRangeItems.keys()) {
+        if (!currentPlatformIds.contains(id)) {
+            toRemove.append(id);
+        }
+    }
+    for (const QString &id : toRemove) {
+        for (auto item : m_sensorRangeItems.take(id)) {
+            m_scene->removeItem(item);
+            delete item;
+        }
+    }
+
+    toRemove.clear();
+    for (const QString &id : m_weaponRangeItems.keys()) {
+        if (!currentPlatformIds.contains(id)) {
+            toRemove.append(id);
+        }
+    }
+    for (const QString &id : toRemove) {
+        for (auto item : m_weaponRangeItems.take(id)) {
+            m_scene->removeItem(item);
+            delete item;
+        }
+    }
+}
+
+void GraphicsViewWidget::updateTracks()
+{
+    QSet<QString> currentPlatformIds;
+
+    for (const PlatformData &platform : m_dynamicData.platforms.values()) {
+        if (platform.isExpired()) {
+            continue;
+        }
+        currentPlatformIds.insert(platform.id);
+
+        bool showTrack = m_displayStates.contains(platform.id) && m_displayStates[platform.id].showTrack;
+
+        if (m_trackItems.contains(platform.id)) {
+            m_trackItems[platform.id]->setVisible(showTrack);
+        }
+
+        if (!showTrack || platform.trackPoints.isEmpty()) {
+            continue;
+        }
+
+        QColor campColor;
+        switch (platform.camp) {
+        case Camp_Friendly: campColor = Qt::green; break;
+        case Camp_Red: campColor = Qt::red; break;
+        case Camp_Purple: campColor = QColor(148, 0, 211); break;
+        case Camp_Enemy: campColor = Qt::darkRed; break;
+        case Camp_Neutral: campColor = Qt::yellow; break;
+        default: campColor = Qt::gray; break;
+        }
+
+        QPainterPath trackPath;
+        bool firstPoint = true;
+        for (const QPointF &point : platform.trackPoints) {
+            int px, py;
+            if (geoToScreen(point.x(), point.y(), px, py)) {
+                if (firstPoint) {
+                    trackPath.moveTo(px, py);
+                    firstPoint = false;
+                } else {
+                    trackPath.lineTo(px, py);
+                }
+            }
+        }
+
+        if (m_trackItems.contains(platform.id)) {
+            QGraphicsPathItem *pathItem = static_cast<QGraphicsPathItem*>(m_trackItems[platform.id]);
+            pathItem->setPath(trackPath);
+            pathItem->setPen(QPen(campColor, 2, Qt::DashLine));
+        } else {
+            QGraphicsPathItem *pathItem = new QGraphicsPathItem(trackPath);
+            pathItem->setPen(QPen(campColor, 2, Qt::DashLine));
+            m_scene->addItem(pathItem);
+            m_trackItems[platform.id] = pathItem;
+        }
+    }
+
+    QList<QString> toRemove;
+    for (const QString &id : m_trackItems.keys()) {
+        if (!currentPlatformIds.contains(id)) {
+            toRemove.append(id);
+        }
+    }
+    for (const QString &id : toRemove) {
+        QGraphicsItem *item = m_trackItems.take(id);
+        m_scene->removeItem(item);
+        delete item;
+    }
+}
+
+void GraphicsViewWidget::updateEventMarkers()
+{
+    QSet<QString> currentPlatformIds;
+
+    for (const PlatformData &platform : m_dynamicData.platforms.values()) {
+        if (platform.isExpired()) {
+            continue;
+        }
+        currentPlatformIds.insert(platform.id);
+
+        bool showEvents = !m_displayStates.contains(platform.id) || m_displayStates[platform.id].showEvents;
+
+        if (m_eventMarkerItems.contains(platform.id)) {
+            for (auto item : m_eventMarkerItems[platform.id]) {
+                item->setVisible(showEvents);
+            }
+        }
+
+        if (!showEvents) {
+            continue;
+        }
+
+        const SpecialEvent *latestEvent = nullptr;
+        qint64 latestTimestamp = 0;
+        for (const auto &event : m_dynamicData.events) {
+            if (event.targetId == platform.id && event.timestamp > latestTimestamp) {
+                latestTimestamp = event.timestamp;
+                latestEvent = &event;
+            }
+        }
+
+        if (!latestEvent) {
+            if (m_eventMarkerItems.contains(platform.id)) {
+                for (auto item : m_eventMarkerItems[platform.id]) {
+                    item->setVisible(false);
+                }
+            }
+            continue;
+        }
+
+        int x, y;
+        if (!geoToScreen(platform.lon, platform.lat, x, y)) {
+            continue;
+        }
+
+        QColor markerColor;
+        QString iconText;
+
+        switch (latestEvent->eventType) {
+        case Event_Alert: markerColor = Qt::red; iconText = "!"; break;
+        case Event_Attack: markerColor = Qt::darkRed; iconText = "A"; break;
+        case Event_Defense: markerColor = Qt::blue; iconText = "D"; break;
+        case Event_Contact: markerColor = Qt::cyan; iconText = "C"; break;
+        case Event_Damage: markerColor = QColor(255, 165, 0); iconText = "X"; break;
+        case Event_MissionStart: markerColor = Qt::green; iconText = "M"; break;
+        case Event_MissionEnd: markerColor = Qt::gray; iconText = "E"; break;
+        case Event_Lost: markerColor = Qt::magenta; iconText = "?"; break;
+        case Event_Repair: markerColor = QColor(144, 238, 144); iconText = "R"; break;
+        default: markerColor = Qt::yellow; iconText = "*"; break;
+        }
+
+        if (m_eventMarkerItems.contains(platform.id)) {
+            QList<QGraphicsItem*> items = m_eventMarkerItems[platform.id];
+            if (items.size() >= 2) {
+                QGraphicsRectItem *rect = static_cast<QGraphicsRectItem*>(items[0]);
+                rect->setRect(x + 20 - 8, y - 15 - 8, 16, 16);
+                rect->setPen(QPen(markerColor, 2));
+                rect->setBrush(QBrush(markerColor, Qt::Dense4Pattern));
+                rect->setVisible(true);
+
+                QGraphicsTextItem *text = static_cast<QGraphicsTextItem*>(items[1]);
+                text->setPlainText(iconText);
+                text->setPos(x + 20 - 4, y - 15 - 6);
+                text->setVisible(true);
+            }
+        } else {
+            QGraphicsRectItem *rect = new QGraphicsRectItem(x + 20 - 8, y - 15 - 8, 16, 16);
+            rect->setPen(QPen(markerColor, 2));
+            rect->setBrush(QBrush(markerColor, Qt::Dense4Pattern));
+            m_scene->addItem(rect);
+            m_eventMarkerItems[platform.id].append(rect);
+
+            QGraphicsTextItem *text = new QGraphicsTextItem(iconText);
+            text->setPos(x + 20 - 4, y - 15 - 6);
+            text->setDefaultTextColor(Qt::white);
+            text->setFont(QFont("Arial", 10, QFont::Bold));
+            m_scene->addItem(text);
+            m_eventMarkerItems[platform.id].append(text);
+        }
+    }
+
+    QList<QString> toRemove;
+    for (const QString &id : m_eventMarkerItems.keys()) {
+        if (!currentPlatformIds.contains(id)) {
+            toRemove.append(id);
+        }
+    }
+    for (const QString &id : toRemove) {
+        for (auto item : m_eventMarkerItems.take(id)) {
+            m_scene->removeItem(item);
+            delete item;
+        }
+    }
+}
+
+void GraphicsViewWidget::paintEvent(QPaintEvent *event)
+{
+    QGraphicsView::paintEvent(event);
+    updateOverviewMap();
+}
+
+void GraphicsViewWidget::resizeEvent(QResizeEvent *event)
+{
+    Q_UNUSED(event);
+    if (m_enclibReady) {
+        EnclViewSetSize(size().width(), size().height());
+    }
+    m_scene->setSceneRect(0, 0, width(), height());
+    updateChart();
+}
+
+void GraphicsViewWidget::mousePressEvent(QMouseEvent *event)
+{
+    switch (event->button()) {
+    case Qt::LeftButton:
+        m_leftMousePressPt = event->pos();
+        m_lastLeftMousePt = event->pos();
+        break;
+    default:
+        break;
+    }
+
+    QGraphicsView::mousePressEvent(event);
+}
+
+void GraphicsViewWidget::mouseMoveEvent(QMouseEvent *event)
+{
+    QPoint currentMousePt = event->pos();
+    Qt::MouseButtons btns = event->buttons();
+    if (m_enclibReady && (Qt::LeftButton == (btns & Qt::LeftButton))) {
+        EnclViewPan(m_lastLeftMousePt.x(), m_lastLeftMousePt.y(), currentMousePt.x(), currentMousePt.y());
+        m_lastLeftMousePt = currentMousePt;
+        updateMapBackground();
+        update();
+    }
+
+    emit updateGeoPosition(currentMousePt);
+    QGraphicsView::mouseMoveEvent(event);
+}
+
+void GraphicsViewWidget::mouseReleaseEvent(QMouseEvent *event)
+{
+    switch (event->button()) {
+    case Qt::LeftButton: {
+        if (m_enclibReady) {
+            EnclViewPan(m_lastLeftMousePt.x(), m_lastLeftMousePt.y(), event->x(), event->y());
+        }
+
+        QPoint releasePos = event->pos();
+        QPoint dragDelta = releasePos - m_leftMousePressPt;
+        if (dragDelta.manhattanLength() < 5) {
+            QPointF scenePos = mapToScene(releasePos);
+            int clickedX = scenePos.x();
+            int clickedY = scenePos.y();
+
+            for (const PlatformData &platform : m_dynamicData.platforms.values()) {
+                if (platform.isExpired()) {
+                    continue;
+                }
+                int shipX, shipY;
+                if (geoToScreen(platform.lon, platform.lat, shipX, shipY)) {
+                    if (isPointInShip(clickedX, clickedY, shipX, shipY)) {
+                        PropertyBox *existingBox = findPropertyBoxById(platform.id, platform.id == "SHIP_001");
+                        if (existingBox) {
+                            destroyPropertyBox(existingBox);
+                        } else {
+                            createPropertyBox(platform);
+                        }
+                        update();
+                        return;
+                    }
+                }
+            }
+
+            for (const SpecialEvent &event : m_dynamicData.events) {
+                if (event.targetId.isEmpty() && event.lon != 0 && event.lat != 0) {
+                    if (isPointInEvent(clickedX, clickedY, event)) {
+                        createEventInfoBox(event);
+                        update();
+                        return;
+                    }
+                }
+            }
+
+            for (auto &box : m_propertyBoxes) {
+                if (box.label) {
+                    box.label->hide();
+                }
+            }
+            update();
+        }
+
+        break;
+    }
+    default:
+        break;
+    }
+
+    QGraphicsView::mouseReleaseEvent(event);
+}
+
+void GraphicsViewWidget::wheelEvent(QWheelEvent *event)
+{
+    if (!m_enclibReady) {
+        QGraphicsView::wheelEvent(event);
+        return;
+    }
+
+    double zoomFactor = 1;
+    if (event->delta() > 0)
+        zoomFactor = 1 / 1.25;
+    else
+        zoomFactor = 1.25;
+    EnclViewZoom(event->x(), event->y(), zoomFactor);
+    updateMapBackground();
+    update();
+    emit updateGeoPosition(event->pos());
+
+    QGraphicsView::wheelEvent(event);
+}
+
+void GraphicsViewWidget::updateChart()
+{
+    if (m_enclibReady) {
+        EnclViewSetSize(width(), size().height());
+        updateMapBackground();
+    }
+    update();
+}
+
+void GraphicsViewWidget::zoomIn()
+{
+    if (!m_enclibReady) return;
+    double currentScale = EnclViewGetScale();
+    EnclViewSetScale(currentScale * 0.8);
+    updateChart();
+}
+
+void GraphicsViewWidget::zoomOut()
+{
+    if (!m_enclibReady) return;
+    double currentScale = EnclViewGetScale();
+    EnclViewSetScale(currentScale * 1.25);
+    updateChart();
+}
+
+void GraphicsViewWidget::setChartCenter(double lon, double lat)
+{
+    if (!m_enclibReady) return;
+    EnclViewCenter(lon, lat);
+    EnclViewSetScale(4000000);
+    updateChart();
+}
+
+void GraphicsViewWidget::updateDisplayState(const DisplayStateMap &stateMap)
+{
+    m_displayStates = stateMap;
+    updatePlatformItems();
+    updateSensorWeaponRanges();
+    updateTracks();
+    updateEventMarkers();
+    update();
+}
+
+void GraphicsViewWidget::updateConnectingLine(PropertyBox &box)
+{
+    if (!box.label || !box.label->isVisible()) {
+        if (box.connectingLine) {
+            m_scene->removeItem(box.connectingLine);
+            delete box.connectingLine;
+            box.connectingLine = nullptr;
+        }
+        return;
+    }
+
+    int shipX, shipY;
+    if (!geoToScreen(box.lon, box.lat, shipX, shipY)) {
+        if (box.connectingLine) {
+            m_scene->removeItem(box.connectingLine);
+            delete box.connectingLine;
+            box.connectingLine = nullptr;
+        }
+        return;
+    }
+
+    QPoint shipCenter(shipX, shipY);
+    QPoint boxCenter = box.label->geometry().center();
+    boxCenter = mapFromGlobal(boxCenter);
+
+    if (!box.connectingLine) {
+        box.connectingLine = new QGraphicsLineItem(QLineF(shipCenter, boxCenter));
+        QPen pen(Qt::white, 1, Qt::DashLine);
+        box.connectingLine->setPen(pen);
+        m_scene->addItem(box.connectingLine);
+    } else {
+        box.connectingLine->setLine(QLineF(shipCenter, boxCenter));
+    }
+}
+
+void GraphicsViewWidget::updateAllConnectingLines()
+{
+    for (auto &box : m_propertyBoxes) {
+        updateConnectingLine(box);
+    }
+}
+
+bool GraphicsViewWidget::geoToScreen(double lon, double lat, int &x, int &y)
+{
+    if (!m_enclibReady) {
+        double scale = 500;
+        x = (lon - 120.0) * scale + width() / 2;
+        y = (31.5 - lat) * scale + height() / 2;
+        return true;
+    }
+
+    if (!EnclTransformGeoToScrn(lon, lat, &x, &y)) {
+        return false;
+    }
+    return true;
+}
+
+PropertyBox* GraphicsViewWidget::findPropertyBoxByLabel(QLabel *label)
+{
+    for (auto &box : m_propertyBoxes) {
+        if (box.label == label) {
+            return &box;
+        }
+    }
+    return nullptr;
+}
+
+PropertyBox* GraphicsViewWidget::findPropertyBoxById(const QString &id, bool isOwnShip)
+{
+    for (auto &box : m_propertyBoxes) {
+        if (box.id == id && box.isOwnShip == isOwnShip) {
+            return &box;
+        }
+    }
+    return nullptr;
+}
+
+bool GraphicsViewWidget::isPointInPlatform(int x, int y, PlatformItem *item)
+{
+    QPointF itemPos = item->pos();
+    QRectF boundingRect = item->boundingRect();
+    QRectF itemRect(itemPos.x() + boundingRect.left(), itemPos.y() + boundingRect.top(),
+                    boundingRect.width(), boundingRect.height());
+    return itemRect.contains(x, y);
+}
+
+bool GraphicsViewWidget::isPointInShip(int x, int y, int shipX, int shipY)
+{
+    int radius = 15;
+    int dx = x - shipX;
+    int dy = y - shipY;
+    return (dx * dx + dy * dy) <= (radius * radius);
+}
+
+bool GraphicsViewWidget::isPointInEvent(int x, int y, const SpecialEvent &event)
+{
+    int eventX, eventY;
+    if (!geoToScreen(event.lon, event.lat, eventX, eventY)) {
+        return false;
+    }
+    int radius = 15;
+    int dx = x - eventX;
+    int dy = y - eventY;
+    return (dx * dx + dy * dy) <= (radius * radius);
+}
+
+void GraphicsViewWidget::createPropertyBox(const PlatformData &platform)
+{
+    PropertyBox box;
+    box.id = platform.id;
+    box.name = platform.name;
+    box.isOwnShip = (platform.id == "SHIP_001");
+    box.lon = platform.lon;
+    box.lat = platform.lat;
+    box.heading = platform.heading;
+    box.speed = platform.speed;
+    box.isDragging = false;
+
+    QLabel *label = new QLabel(this);
+    label->setWindowFlags(Qt::FramelessWindowHint | Qt::Tool);
+    label->setStyleSheet("background-color: white; border: 1px solid black; padding: 8px;");
+
+    QString campStr;
+    switch (platform.camp) {
+    case Camp_Friendly: campStr = "Friendly"; break;
+    case Camp_Red: campStr = "Red"; break;
+    case Camp_Purple: campStr = "Purple"; break;
+    case Camp_Enemy: campStr = "Enemy"; break;
+    case Camp_Neutral: campStr = "Neutral"; break;
+    default: campStr = "Unknown"; break;
+    }
+
+    QString eventsStr;
+    const SpecialEvent *latestEvent = nullptr;
+    qint64 latestTimestamp = 0;
+    for (const auto &event : m_dynamicData.events) {
+        if (event.targetId == platform.id && event.timestamp > latestTimestamp) {
+            latestTimestamp = event.timestamp;
+            latestEvent = &event;
+        }
+    }
+    if (latestEvent) {
+        eventsStr = QString("\nEvent: %1").arg(latestEvent->eventName);
+    }
+
+    label->setText(
+        QString("Property\nName: %1\nID: %2\nCamp: %3\nLongitude: %4\nLatitude: %5\nHeading: %6°\nSpeed: %7 kn%8")
+            .arg(platform.name)
+            .arg(platform.id)
+            .arg(campStr)
+            .arg(platform.lon, 0, 'f', 6)
+            .arg(platform.lat, 0, 'f', 6)
+            .arg(platform.heading > 0 ? platform.heading : 0)
+            .arg(platform.speed)
+            .arg(eventsStr)
+    );
+    label->adjustSize();
+    label->installEventFilter(this);
+    label->setMouseTracking(true);
+
+    int shipX, shipY;
+    if (geoToScreen(platform.lon, platform.lat, shipX, shipY)) {
+        QPoint pos = mapToGlobal(QPoint(shipX, shipY));
+        pos.setY(pos.y() - label->height() - 15);
+        QRect screenGeometry = QApplication::desktop()->availableGeometry(this);
+        if (pos.y() < screenGeometry.top())
+            pos.setY(mapToGlobal(QPoint(shipX, shipY)).y() + 20);
+        if (pos.x() + label->width() > screenGeometry.right())
+            pos.setX(screenGeometry.right() - label->width());
+        label->move(pos);
+    }
+
+    box.label = label;
+    box.connectingLine = nullptr;
+    m_propertyBoxes.append(box);
+    label->show();
+    updateConnectingLine(m_propertyBoxes.last());
+}
+
+void GraphicsViewWidget::createEventInfoBox(const SpecialEvent &event)
+{
+    PropertyBox box;
+    box.id = event.eventId;
+    box.name = event.eventName;
+    box.isOwnShip = false;
+    box.lon = event.lon;
+    box.lat = event.lat;
+    box.heading = 0;
+    box.speed = 0;
+    box.isDragging = false;
+
+    QLabel *label = new QLabel(this);
+    label->setWindowFlags(Qt::FramelessWindowHint | Qt::Tool);
+    label->setStyleSheet("background-color: #FFE4E1; border: 1px solid #DC143C; padding: 8px;");
+
+    QString eventTypeStr;
+    switch (event.eventType) {
+    case Event_Alert: eventTypeStr = "Alert"; break;
+    case Event_Attack: eventTypeStr = "Attack"; break;
+    case Event_Defense: eventTypeStr = "Defense"; break;
+    case Event_Contact: eventTypeStr = "Contact"; break;
+    case Event_Damage: eventTypeStr = "Damage"; break;
+    case Event_MissionStart: eventTypeStr = "Mission Start"; break;
+    case Event_MissionEnd: eventTypeStr = "Mission End"; break;
+    case Event_Lost: eventTypeStr = "Lost"; break;
+    case Event_Repair: eventTypeStr = "Repair"; break;
+    case Event_Custom: eventTypeStr = "Custom"; break;
+    default: eventTypeStr = "Unknown"; break;
+    }
+
+    QDateTime timestamp = QDateTime::fromMSecsSinceEpoch(event.timestamp);
+
+    label->setText(
+        QString("Event\nName: %1\nType: %2\nID: %3\nLongitude: %4\nLatitude: %5\nTime: %6\nDescription: %7")
+            .arg(event.eventName)
+            .arg(eventTypeStr)
+            .arg(event.eventId)
+            .arg(event.lon, 0, 'f', 6)
+            .arg(event.lat, 0, 'f', 6)
+            .arg(timestamp.toString("yyyy-MM-dd HH:mm:ss"))
+            .arg(event.description)
+    );
+    label->adjustSize();
+    label->installEventFilter(this);
+    label->setMouseTracking(true);
+
+    int eventX, eventY;
+    if (geoToScreen(event.lon, event.lat, eventX, eventY)) {
+        QPoint pos = mapToGlobal(QPoint(eventX, eventY));
+        pos.setY(pos.y() - label->height() - 15);
+        QRect screenGeometry = QApplication::desktop()->availableGeometry(this);
+        if (pos.y() < screenGeometry.top())
+            pos.setY(mapToGlobal(QPoint(eventX, eventY)).y() + 20);
+        if (pos.x() + label->width() > screenGeometry.right())
+            pos.setX(screenGeometry.right() - label->width());
+        label->move(pos);
+    }
+
+    box.label = label;
+    box.connectingLine = nullptr;
+    m_propertyBoxes.append(box);
+    label->show();
+    updateConnectingLine(m_propertyBoxes.last());
+}
+
+void GraphicsViewWidget::destroyPropertyBox(PropertyBox *box)
+{
+    if (box && box->label) {
+        box->label->hide();
+        delete box->label;
+        box->label = nullptr;
+    }
+    if (box && box->connectingLine) {
+        m_scene->removeItem(box->connectingLine);
+        delete box->connectingLine;
+        box->connectingLine = nullptr;
+    }
+    m_propertyBoxes.removeOne(*box);
+}
+
+bool GraphicsViewWidget::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == m_overviewLabel && event->type() == QEvent::MouseButtonPress) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+        QPoint pos = mouseEvent->pos();
+
+        double lon, lat;
+        EnclEagleEyePixToGeo(pos.x(), pos.y(), lon, lat);
+        EnclViewCenter(lon, lat);
+        update();
+        updateOverviewMap();
+        return true;
+    }
+
+    for (auto &box : m_propertyBoxes) {
+        if (obj == box.label) {
+            if (event->type() == QEvent::MouseButtonDblClick) {
+                destroyPropertyBox(&box);
+                update();
+                return true;
+            }
+            if (event->type() == QEvent::MouseButtonPress) {
+                QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+                if (mouseEvent->button() == Qt::LeftButton) {
+                    box.isDragging = true;
+                    box.dragOffset = mouseEvent->globalPos() - box.label->pos();
+                    return true;
+                }
+            }
+            else if (event->type() == QEvent::MouseMove) {
+                if (box.isDragging) {
+                    QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+                    QPoint newPos = mouseEvent->globalPos() - box.dragOffset;
+                    QRect screenGeometry = QApplication::desktop()->availableGeometry(this);
+                    if (newPos.x() < screenGeometry.left())
+                        newPos.setX(screenGeometry.left());
+                    if (newPos.y() < screenGeometry.top())
+                        newPos.setY(screenGeometry.top());
+                    if (newPos.x() + box.label->width() > screenGeometry.right())
+                        newPos.setX(screenGeometry.right() - box.label->width());
+                    if (newPos.y() + box.label->height() > screenGeometry.bottom())
+                        newPos.setY(screenGeometry.bottom() - box.label->height());
+                    box.label->move(newPos);
+                    updateConnectingLine(box);
+                    return true;
+                }
+            }
+            else if (event->type() == QEvent::MouseButtonRelease) {
+                box.isDragging = false;
+                return true;
+            }
+        }
+    }
+    return QGraphicsView::eventFilter(obj, event);
+}
+
+void GraphicsViewWidget::initOverviewMap()
+{
+    m_overviewLabel = new QLabel(this);
+    m_overviewLabel->setFixedSize(200, 150);
+    m_overviewLabel->move(10, 10);
+    m_overviewLabel->setStyleSheet("background-color: rgba(200, 200, 200, 180); border: 1px solid gray;");
+    m_overviewLabel->setScaledContents(true);
+    m_overviewLabel->installEventFilter(this);
+    m_overviewLabel->raise();
+}
+
+void GraphicsViewWidget::updateOverviewMap()
+{
+    if (!m_overviewLabel) return;
+
+    drawOverviewMapContent();
+    m_overviewLabel->setPixmap(QPixmap::fromImage(m_overviewImage));
+}
+
+void GraphicsViewWidget::drawOverviewMapContent()
+{
+    int w = m_overviewLabel->width();
+    int h = m_overviewLabel->height();
+    m_overviewImage = QImage(w, h, QImage::Format_ARGB32);
+    m_overviewImage.fill(QColor(220, 220, 220, 255));
+
+    if (!m_enclibReady) {
+        QPainter painter(&m_overviewImage);
+        painter.setPen(Qt::gray);
+        painter.drawText(m_overviewImage.rect(), Qt::AlignCenter, "Map not ready");
+        return;
+    }
+
+    unsigned char *pPixBuf = EnclEagleEyeGetImage(w, h);
+    if (pPixBuf) {
+        m_overviewImage = QImage(pPixBuf, w, h, QImage::Format_RGB32).copy();
+    }
+
+    QPainter overviewPainter(&m_overviewImage);
+
+    double lon0, lat0;
+    EnclTransformScrnToGeo(0, 0, &lon0, &lat0);
+    int x0, y0;
+    EnclEagleEyeGeoToPix(lon0, lat0, x0, y0);
+
+    double lon1, lat1;
+    EnclTransformScrnToGeo(width() - 1, height() - 1, &lon1, &lat1);
+    int x1, y1;
+    EnclEagleEyeGeoToPix(lon1, lat1, x1, y1);
+
+    m_overviewViewport = QRect(QPoint(x0, y0), QPoint(x1, y1)).normalized();
+
+    QPen pen(Qt::red, 2);
+    overviewPainter.setPen(pen);
+    overviewPainter.setBrush(Qt::NoBrush);
+    overviewPainter.drawRect(m_overviewViewport);
+
+    for (const PlatformData &platform : m_dynamicData.platforms.values()) {
+        int x, y;
+        EnclEagleEyeGeoToPix(platform.lon, platform.lat, x, y);
+
+        QColor campColor;
+        switch (platform.camp) {
+        case Camp_Friendly: campColor = Qt::green; break;
+        case Camp_Red: campColor = Qt::red; break;
+        case Camp_Purple: campColor = QColor(148, 0, 211); break;
+        case Camp_Enemy: campColor = Qt::darkRed; break;
+        case Camp_Neutral: campColor = Qt::yellow; break;
+        default: campColor = Qt::gray; break;
+        }
+
+        QPen p(campColor, 2);
+        overviewPainter.setPen(p);
+        overviewPainter.setBrush(campColor);
+        overviewPainter.drawEllipse(x - 3, y - 3, 6, 6);
+    }
+}

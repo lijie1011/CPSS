@@ -6,7 +6,7 @@
 #include <QHBoxLayout>
 #include <QMap>
 #include <QAction>
-#include "viewwidget.h"
+#include "graphicsviewwidget.h"
 #include "dynamicdata.h"
 #include "eventhistorydialog.h"
 #include "plugin/IPlugin.h"
@@ -25,7 +25,7 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    ViewWidget* getViewWidget() const override { return m_viewWidget; }
+    QWidget* getViewWidget() const override { return m_viewWidget; }
     DataManager* getDataManager() override;
     QString getAppVersion() const override;
     QString getAppPath() const override;
@@ -62,7 +62,7 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
-    ViewWidget* m_viewWidget;
+    GraphicsViewWidget* m_viewWidget;
     PluginManager* m_pluginManager;
     QMap<QString, QAction*> m_pluginActions;
     QMap<QString, QWidget*> m_pluginWidgets;

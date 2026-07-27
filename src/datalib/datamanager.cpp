@@ -25,56 +25,56 @@ void DataManager::registerPlatformUpdateCallback(PlatformUpdateCallback callback
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_platformUpdateCallback = callback;
-    Logger::info("Platform update callback registered");
+    // Logger::info("Platform update callback registered");
 }
 
 void DataManager::registerDataUpdateCallback(DataUpdateCallback callback)
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_dataUpdateCallback = callback;
-    Logger::info("Data update callback registered");
+    // Logger::info("Data update callback registered");
 }
 
 void DataManager::registerEventUpdateCallback(EventUpdateCallback callback)
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_eventUpdateCallback = callback;
-    Logger::info("Event update callback registered");
+    // Logger::info("Event update callback registered");
 }
 
 void DataManager::registerPlatformExpiredCallback(PlatformExpiredCallback callback)
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_platformExpiredCallback = callback;
-    Logger::info("Platform expired callback registered");
+    // Logger::info("Platform expired callback registered");
 }
 
 void DataManager::unregisterPlatformUpdateCallback()
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_platformUpdateCallback = nullptr;
-    Logger::info("Platform update callback unregistered");
+    // Logger::info("Platform update callback unregistered");
 }
 
 void DataManager::unregisterDataUpdateCallback()
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_dataUpdateCallback = nullptr;
-    Logger::info("Data update callback unregistered");
+    // Logger::info("Data update callback unregistered");
 }
 
 void DataManager::unregisterEventUpdateCallback()
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_eventUpdateCallback = nullptr;
-    Logger::info("Event update callback unregistered");
+    // Logger::info("Event update callback unregistered");
 }
 
 void DataManager::unregisterPlatformExpiredCallback()
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_platformExpiredCallback = nullptr;
-    Logger::info("Platform expired callback unregistered");
+    // Logger::info("Platform expired callback unregistered");
 }
 
 void DataManager::onPlatformExpired(const QString &id)
@@ -83,7 +83,7 @@ void DataManager::onPlatformExpired(const QString &id)
     if (m_platformExpiredCallback) {
         m_platformExpiredCallback(id);
     }
-    Logger::info("Platform expired callback triggered for: %s", id.toStdString().c_str());
+    // Logger::info("Platform expired callback triggered for: %s", id.toStdString().c_str());
 }
 
 DataManager::~DataManager()
@@ -108,7 +108,7 @@ void DataManager::addAdapter(IProtocolAdapter *adapter)
         m_adapters.append(adapter);
         connect(adapter, &IProtocolAdapter::dataReceived,
                 this, &DataManager::onDataReceived);
-        Logger::info("Adapter added: %s", typeid(*adapter).name());
+        // Logger::info("Adapter added: %s", typeid(*adapter).name());
     }
 }
 
@@ -117,7 +117,7 @@ void DataManager::removeAdapter(IProtocolAdapter *adapter)
     m_adapters.removeOne(adapter);
     disconnect(adapter, &IProtocolAdapter::dataReceived,
                this, &DataManager::onDataReceived);
-    Logger::info("Adapter removed: %s", typeid(*adapter).name());
+    // Logger::info("Adapter removed: %s", typeid(*adapter).name());
 }
 
 void DataManager::startAllAdapters()
@@ -125,7 +125,7 @@ void DataManager::startAllAdapters()
     for (auto adapter : m_adapters) {
         adapter->start();
     }
-    Logger::info("All adapters started, count: %d", m_adapters.size());
+    // Logger::info("All adapters started, count: %d", m_adapters.size());
 }
 
 void DataManager::stopAllAdapters()
@@ -133,7 +133,7 @@ void DataManager::stopAllAdapters()
     for (auto adapter : m_adapters) {
         adapter->stop();
     }
-    Logger::info("All adapters stopped");
+    // Logger::info("All adapters stopped");
 }
 
 void DataManager::setDataSourcePriority(ProtocolType type, int priority)
@@ -159,13 +159,13 @@ qint64 DataManager::defaultValidDuration() const
 void DataManager::registerDataPushCallback(DataPushCallback callback)
 {
     m_pushCallbacks.push_back(callback);
-    Logger::info("Data push callback registered, total: %d", m_pushCallbacks.size());
+    // Logger::info("Data push callback registered, total: %d", m_pushCallbacks.size());
 }
 
 void DataManager::unregisterDataPushCallback(DataPushCallback callback)
 {
     m_pushCallbacks.clear();
-    Logger::info("Data push callback unregistered");
+    // Logger::info("Data push callback unregistered");
 }
 
 void DataManager::startDataPush(int intervalMs)
@@ -175,13 +175,13 @@ void DataManager::startDataPush(int intervalMs)
     }
     connect(&m_pushTimer, &QTimer::timeout, this, &DataManager::pushData);
     m_pushTimer.start(intervalMs);
-    Logger::info("Data push started with interval: %d ms", intervalMs);
+    // Logger::info("Data push started with interval: %d ms", intervalMs);
 }
 
 void DataManager::stopDataPush()
 {
     m_pushTimer.stop();
-    Logger::info("Data push stopped");
+    // Logger::info("Data push stopped");
 }
 
 void DataManager::onDataReceived(const QJsonObject &data, ProtocolType source)
@@ -195,7 +195,7 @@ void DataManager::pushData()
     pushCount++;
     
     DynamicObjects data = DataCache::instance()->getAllData();
-    Logger::info("pushData: count=%d, platforms=%d", pushCount, data.platforms.size());
+    // Logger::info("pushData: count=%d, platforms=%d", pushCount, data.platforms.size());
 
     for (const auto &callback : m_pushCallbacks) {
         callback(data);
@@ -226,7 +226,7 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
 {
     QString id = obj["id"].toString();
     if (id.isEmpty()) {
-        Logger::warn("Platform update failed: id is empty");
+        // Logger::warn("Platform update failed: id is empty");
         return;
     }
 
@@ -252,14 +252,14 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
     QJsonArray weaponsArray = obj["weapons"].toArray();
     for (const auto &weapon : weaponsArray) {
         QJsonObject w = weapon.toObject();
-        WeaponInfo wi = {w["type"].toString(), w["count"].toInt()};
+        WeaponInfo wi = {w["type"].toString(), w["count"].toInt(), w["range"].toDouble()};
         platform.weapons.append(wi);
     }
 
     QJsonArray sensorsArray = obj["sensors"].toArray();
     for (const auto &sensor : sensorsArray) {
         QJsonObject s = sensor.toObject();
-        SensorInfo si = {s["type"].toString(), s["count"].toInt()};
+        SensorInfo si = {s["type"].toString(), s["count"].toInt(), s["range"].toDouble()};
         platform.sensors.append(si);
     }
 
@@ -285,7 +285,7 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
     emit platformsUpdated(getAllPlatforms());
     emit dynamicDataChanged(getAllData());
 
-    Logger::info("Platform updated via DataManager: id=%s", id.toStdString().c_str());
+    // Logger::info("Platform updated via DataManager: id=%s", id.toStdString().c_str());
 }
 
 void DataManager::updateEvent(const QJsonObject &obj, ProtocolType source)
@@ -294,7 +294,7 @@ void DataManager::updateEvent(const QJsonObject &obj, ProtocolType source)
     
     QString eventId = obj["eventId"].toString();
     if (eventId.isEmpty()) {
-        Logger::warn("Event update failed: eventId is empty");
+        // Logger::warn("Event update failed: eventId is empty");
         return;
     }
 

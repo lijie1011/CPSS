@@ -101,7 +101,7 @@ void EventHistoryDialog::updateHistory(const QList<SpecialEvent> &events)
         
         QString location;
         if (event.lon != 0 && event.lat != 0) {
-            location = QString("%1, %2").arg(event.lon, 0, 'f', 4).arg(event.lat, 0, 'f', 4);
+            location = QString("%1, %2").arg(event.lon, 0, 'f', 6).arg(event.lat, 0, 'f', 6);
         } else {
             location = "-";
         }

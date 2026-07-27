@@ -51,7 +51,8 @@ add_subdirectory(plugin)
 set(SOURCES
     main.cpp
     mainwindow.cpp
-    viewwidget.cpp
+    graphicsviewwidget.cpp
+    platformitem.cpp
     eventhistorydialog.cpp
     platformcontrolpanel.cpp
     mainwindow.ui
@@ -66,7 +67,8 @@ set(SOURCES
 
 set(HEADERS
     mainwindow.h
-    viewwidget.h
+    graphicsviewwidget.h
+    platformitem.h
     eventhistorydialog.h
     platformcontrolpanel.h
     displaystate.h

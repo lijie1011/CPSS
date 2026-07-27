@@ -3,7 +3,7 @@
 
 #include <QObject>
 #include <QString>
-#include "viewwidget.h"
+#include <QWidget>
 #include "datamanager.h"
 
 class IPluginHost
@@ -11,7 +11,7 @@ class IPluginHost
 public:
     virtual ~IPluginHost() = default;
 
-    virtual ViewWidget* getViewWidget() const = 0;
+    virtual QWidget* getViewWidget() const = 0;
     virtual DataManager* getDataManager() = 0;
     virtual QString getAppVersion() const = 0;
     virtual QString getAppPath() const = 0;
