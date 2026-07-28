@@ -1,12 +1,24 @@
+/**
+ * @file displaycategory.cpp
+ * @brief 显示分类设置对话框实现
+ * @details 该类提供海图显示分类的配置界面，支持基础/标准/自定义等多种显示模式，
+ *          以及配色方案、着色模式等设置。
+ * @date 2026-07-28
+ */
+
 #include "displaycategory.h"
 #include "ui_displaycategory.h"
 #include <QIcon>
 
+/**
+ * @brief 构造函数
+ * @param parent 父窗口
+ */
 DisplayCategory::DisplayCategory(QWidget *parent)
 	: QDialog(parent)
 {
     ui = new Ui::DisplayCategory();
-	setWindowIcon(QIcon(":/icons/images/settings64x64t.png"));
+	setWindowIcon(QIcon(":/resource/images/settings64x64t.png"));
 
 	QWidget::setAttribute(Qt::WA_DeleteOnClose);
 	ui->setupUi(this);
@@ -95,11 +107,17 @@ DisplayCategory::DisplayCategory(QWidget *parent)
     connect(ui->custumDisplay,SIGNAL(clicked()),this,SLOT(updateCheckBoxGroup()));
 }
 
+/**
+ * @brief 析构函数
+ */
 DisplayCategory::~DisplayCategory()
 {
 	delete ui;
 }
 
+/**
+ * @brief OK按钮点击处理
+ */
 void DisplayCategory::slot_pbOK()
 {
 	updateEncoreSetting();
@@ -108,11 +126,17 @@ void DisplayCategory::slot_pbOK()
 	this->close();
 }
 
+/**
+ * @brief Cancel按钮点击处理
+ */
 void DisplayCategory::slot_pbCancel()
 {
 	this->close();
 }
 
+/**
+ * @brief Apply按钮点击处理
+ */
 void DisplayCategory::slot_pbApplay()
 {
 	updateEncoreSetting();
@@ -120,6 +144,10 @@ void DisplayCategory::slot_pbApplay()
     emit updateQAcionsTatus();
 }
 
+/**
+ * @brief 更新复选框组状态
+ * @details 根据选中的显示模式更新各复选框的勾选状态
+ */
 void DisplayCategory::updateCheckBoxGroup()
 {  
     if (ui->baseDisplay->isChecked())
@@ -184,6 +212,10 @@ void DisplayCategory::updateCheckBoxGroup()
 	ui->otherGroupBox->setEnabled(true);
 }
 
+/**
+ * @brief 更新Enclib设置
+ * @details 将界面设置应用到Enclib海图库
+ */
 void DisplayCategory::updateEncoreSetting()
 {
     ui->satandardGroupBox->setEnabled(false);

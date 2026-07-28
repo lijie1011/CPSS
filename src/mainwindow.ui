@@ -18,11 +18,20 @@
     <property name="spacing">
      <number>0</number>
     </property>
-    <property name="margin">
+    <property name="leftMargin">
+     <number>0</number>
+    </property>
+    <property name="topMargin">
+     <number>0</number>
+    </property>
+    <property name="rightMargin">
+     <number>0</number>
+    </property>
+    <property name="bottomMargin">
      <number>0</number>
     </property>
     <item>
-     <widget class="QWidget" name="mapArea">
+     <widget class="QWidget" name="mapArea" native="true">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
         <horstretch>3</horstretch>
@@ -48,7 +57,7 @@
   </widget>
   <widget class="QToolBar" name="toolBar">
    <property name="orientation">
-    <enum>Qt::Vertical</enum>
+    <enum>Qt::Horizontal</enum>
    </property>
    <property name="iconSize">
     <size>
@@ -56,6 +65,12 @@
      <height>24</height>
     </size>
    </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
    <addaction name="actionZoomIn"/>
    <addaction name="actionZoomOut"/>
    <addaction name="actionReset"/>
@@ -75,6 +90,12 @@
      <height>24</height>
     </size>
    </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <action name="actionZoomIn">
@@ -82,7 +103,7 @@
     <string>Zoom In</string>
    </property>
    <property name="shortcut">
-    <string>Plus</string>
+    <string/>
    </property>
   </action>
   <action name="actionZoomOut">
@@ -90,7 +111,7 @@
     <string>Zoom Out</string>
    </property>
    <property name="shortcut">
-    <string>Minus</string>
+    <string/>
    </property>
   </action>
   <action name="actionReset">
@@ -104,10 +125,6 @@
   <action name="actionDisplaySetting">
    <property name="text">
     <string>Display Setting</string>
-   </property>
-   <property name="icon">
-    <iconset resource="icons.qrc">
-     <normaloff>:/icons/images/settings64x64t.png</normaloff>:/icons/images/settings64x64t.png</iconset>
    </property>
   </action>
   <action name="actionHelp">

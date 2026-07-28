@@ -1,3 +1,11 @@
+/**
+ * @file waterdepthsetting.cpp
+ * @brief 水深设置对话框实现
+ * @details 该类提供水深和等深线参数的配置界面，支持安全水深、安全等深线、
+ *          深水等深线和浅水等深线的设置。
+ * @date 2026-07-28
+ */
+
 #include "waterdepthsetting.h"
 #include "viewwidget.h"
 #include <QDoubleValidator>
@@ -5,6 +13,10 @@
 #include <QIcon>
 #include "encl.h"
 
+/**
+ * @brief 构造函数
+ * @param parent 父窗口
+ */
 WaterDepthSetting::WaterDepthSetting(QWidget *parent)
 	: QDialog(parent)
 {
@@ -35,11 +47,17 @@ WaterDepthSetting::WaterDepthSetting(QWidget *parent)
 	connect(ui.buttonBox,SIGNAL(accepted()),this,SLOT(updateValueToEncl()));
 }
 
+/**
+ * @brief 析构函数
+ */
 WaterDepthSetting::~WaterDepthSetting()
 {
-
 }
 
+/**
+ * @brief 更新设置到Enclib
+ * @details 将界面输入的水深参数应用到Enclib海图库
+ */
 void WaterDepthSetting::updateValueToEncl()
 {
 	double safetyDepth = ui.m_SafetyDepthLineEdit->text().toDouble();

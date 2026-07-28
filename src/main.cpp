@@ -1,3 +1,11 @@
+/**
+ * @file main.cpp
+ * @brief CPSS (Combat Process Simulation System) 主程序入口
+ * @details 该文件是战斗过程模拟系统的主程序入口，负责初始化应用程序、日志系统，
+ *          创建主窗口并进入事件循环。支持两种运行模式：GUI模式和无头模式(headless)。
+ * @date 2026-07-28
+ */
+
 #include <QApplication>
 #include <QCoreApplication>
 #include <QCommandLineParser>
@@ -7,9 +15,16 @@
 #include "mainwindow.h"
 #include "common/logger.h"
 
+/**
+ * @brief 主程序入口函数
+ * @param argc 命令行参数数量
+ * @param argv 命令行参数数组
+ * @return 程序退出码
+ */
 int main(int argc, char *argv[])
 {
     try {
+        // 检查是否为无头模式
         bool headlessMode = false;
         for (int i = 1; i < argc; ++i) {
             if (QString(argv[i]) == "--headless") {
@@ -18,6 +33,7 @@ int main(int argc, char *argv[])
             }
         }
 
+        // 根据运行模式创建应用程序实例
         QCoreApplication *app = nullptr;
         if (headlessMode) {
             app = new QCoreApplication(argc, argv);
@@ -25,12 +41,11 @@ int main(int argc, char *argv[])
             app = new QApplication(argc, argv);
         }
 
+        // 初始化日志系统
         QString logPath = QCoreApplication::applicationDirPath() + "/cpss.log";
         Logger::init(logPath);
-        // Logger::info("CPSS v1.0 starting...");
-        // Logger::info("Mode: %s", headlessMode ? "headless" : "GUI");
-        // Logger::info("Log path: %s", logPath.toStdString().c_str());
 
+        // 解析命令行参数
         QCommandLineParser parser;
         parser.setApplicationDescription("CPSS - Combat Process Simulation Software");
         parser.addHelpOption();
@@ -38,41 +53,31 @@ int main(int argc, char *argv[])
         parser.addOption({{"c", "chart-dir"}, "Chart data directory", "path"});
         parser.process(*app);
 
+        // GUI模式下创建主窗口
         MainWindow *mainwin = nullptr;
         if (!headlessMode) {
-            // Logger::info("Creating MainWindow...");
             mainwin = new MainWindow();
-            // Logger::info("MainWindow created successfully");
-            // fprintf(stderr, "[DEBUG] About to setWindowTitle\n"); fflush(stderr);
             mainwin->setWindowTitle("CPSS - Combat Process Simulation");
-            // fprintf(stderr, "[DEBUG] About to call showMaximized()...\n"); fflush(stderr);
-            // Logger::info("About to call showMaximized()...");
-            // fprintf(stderr, "[DEBUG] Before resize\n"); fflush(stderr);
             mainwin->resize(800, 600);
-            // fprintf(stderr, "[DEBUG] After resize, before show\n"); fflush(stderr);
             mainwin->show();
-            // fprintf(stderr, "[DEBUG] After show\n"); fflush(stderr);
-            // Logger::info("Main window shown");
         }
 
-        // Logger::info("Entering main event loop");
+        // 进入主事件循环
         int ret = app->exec();
 
+        // 清理资源
         delete mainwin;
         delete app;
 
-        // Logger::info("CPSS exited with code %d", ret);
         Logger::cleanup();
 
         return ret;
     } catch (const std::exception &e) {
         fprintf(stderr, "[FATAL] Exception: %s\n", e.what());
-        // Logger::error("Exception: %s", e.what());
         Logger::cleanup();
         return 1;
     } catch (...) {
         fprintf(stderr, "[FATAL] Unknown exception\n");
-        // Logger::error("Unknown exception");
         Logger::cleanup();
         return 1;
     }

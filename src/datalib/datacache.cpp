@@ -1,3 +1,12 @@
+/**
+ * @file datacache.cpp
+ * @brief 数据缓存类实现
+ * @details 该类采用单例模式，负责缓存所有动态数据（平台、事件等），
+ *          提供线程安全的数据访问接口，并在数据变化时发出信号通知。
+ *          同时支持测试数据生成和过期数据清理功能。
+ * @date 2026-07-28
+ */
+
 #include "datacache.h"
 #include <QDateTime>
 #include <QJsonArray>
@@ -5,9 +14,14 @@
 #include "logger.h"
 #include "datamanager.h"
 
+// 静态成员变量初始化
 DataCache* DataCache::s_instance = nullptr;
 QMutex DataCache::s_mutex;
 
+/**
+ * @brief 获取数据缓存单例实例
+ * @return DataCache指针
+ */
 DataCache* DataCache::instance()
 {
     if (!s_instance) {
@@ -19,6 +33,10 @@ DataCache* DataCache::instance()
     return s_instance;
 }
 
+/**
+ * @brief 构造函数
+ * @param parent 父对象指针
+ */
 DataCache::DataCache(QObject *parent)
     : QObject(parent),
       m_maxHistorySize(100),
@@ -30,12 +48,20 @@ DataCache::DataCache(QObject *parent)
     m_expireTimer.start(1000);
 }
 
+/**
+ * @brief 析构函数
+ */
 DataCache::~DataCache()
 {
     stopDataPush();
     stopTestDataTimer();
 }
 
+/**
+ * @brief 更新平台数据
+ * @param data 平台数据
+ * @return 更新成功返回true
+ */
 bool DataCache::updatePlatform(const PlatformData &data)
 {
     QWriteLocker locker(&m_dataLock);
@@ -52,15 +78,18 @@ bool DataCache::updatePlatform(const PlatformData &data)
     m_dynamicData.platforms[data.id] = newData;
     m_dynamicData.timestamp = QDateTime::currentMSecsSinceEpoch();
     locker.unlock();
+    
     emit platformUpdated(newData);
     emit platformsUpdated(getAllPlatforms());
     emit dynamicDataChanged(getAllData());
-    // Logger::info("Platform cached: id=%s, lon=%f, lat=%f, track points=%d", 
-                 // newData.id.toStdString().c_str(), newData.lon, newData.lat, 
-                 // newData.trackPoints.size());
     return true;
 }
 
+/**
+ * @brief 移除平台
+ * @param id 平台ID
+ * @return 移除成功返回true，不存在返回false
+ */
 bool DataCache::removePlatform(const QString &id)
 {
     QWriteLocker locker(&m_dataLock);
@@ -68,26 +97,39 @@ bool DataCache::removePlatform(const QString &id)
         m_dynamicData.platforms.remove(id);
         m_dynamicData.timestamp = QDateTime::currentMSecsSinceEpoch();
         locker.unlock();
+        
         emit platformsUpdated(getAllPlatforms());
         emit dynamicDataChanged(getAllData());
-        // Logger::info("Platform removed from cache: id=%s", id.toStdString().c_str());
         return true;
     }
     return false;
 }
 
+/**
+ * @brief 获取指定平台
+ * @param id 平台ID
+ * @return 平台数据
+ */
 PlatformData DataCache::getPlatform(const QString &id) const
 {
     QReadLocker locker(&m_dataLock);
     return m_dynamicData.platforms.value(id);
 }
 
+/**
+ * @brief 获取所有平台
+ * @return 平台列表
+ */
 QList<PlatformData> DataCache::getAllPlatforms() const
 {
     QReadLocker locker(&m_dataLock);
     return m_dynamicData.platforms.values();
 }
 
+/**
+ * @brief 获取有效平台（未过期）
+ * @return 有效平台列表
+ */
 QList<PlatformData> DataCache::getValidPlatforms() const
 {
     QReadLocker locker(&m_dataLock);
@@ -100,6 +142,11 @@ QList<PlatformData> DataCache::getValidPlatforms() const
     return valid;
 }
 
+/**
+ * @brief 添加事件
+ * @param event 事件数据
+ * @return 添加成功返回true
+ */
 bool DataCache::addEvent(const SpecialEvent &event)
 {
     QWriteLocker locker(&m_dataLock);
@@ -110,13 +157,17 @@ bool DataCache::addEvent(const SpecialEvent &event)
     }
     m_dynamicData.timestamp = QDateTime::currentMSecsSinceEpoch();
     locker.unlock();
+    
     emit eventAdded(event);
     emit dynamicDataChanged(getAllData());
-    // Logger::info("Event cached: id=%s, type=%d, history size=%d", 
-                 // event.eventId.toStdString().c_str(), event.eventType, m_eventHistory.size());
     return true;
 }
 
+/**
+ * @brief 移除事件
+ * @param eventId 事件ID
+ * @return 移除成功返回true，不存在返回false
+ */
 bool DataCache::removeEvent(const QString &eventId)
 {
     QWriteLocker locker(&m_dataLock);
@@ -125,48 +176,69 @@ bool DataCache::removeEvent(const QString &eventId)
             m_dynamicData.events.erase(it);
             m_dynamicData.timestamp = QDateTime::currentMSecsSinceEpoch();
             locker.unlock();
+            
             emit eventRemoved(eventId);
             emit dynamicDataChanged(getAllData());
-            // Logger::info("Event removed from cache: id=%s", eventId.toStdString().c_str());
             return true;
         }
     }
     return false;
 }
 
+/**
+ * @brief 清空所有事件
+ */
 void DataCache::clearEvents()
 {
     QWriteLocker locker(&m_dataLock);
     m_dynamicData.events.clear();
     m_dynamicData.timestamp = QDateTime::currentMSecsSinceEpoch();
+    
     emit dynamicDataChanged(getAllData());
-    // Logger::info("All events cleared from cache");
 }
 
+/**
+ * @brief 获取所有事件
+ * @return 事件列表
+ */
 QList<SpecialEvent> DataCache::getAllEvents() const
 {
     QReadLocker locker(&m_dataLock);
     return m_dynamicData.events;
 }
 
+/**
+ * @brief 获取事件历史
+ * @return 事件历史列表
+ */
 QList<SpecialEvent> DataCache::getEventHistory() const
 {
     QReadLocker locker(&m_dataLock);
     return m_eventHistory;
 }
 
+/**
+ * @brief 清空事件历史
+ */
 void DataCache::clearEventHistory()
 {
     QWriteLocker locker(&m_dataLock);
     m_eventHistory.clear();
-    // Logger::info("Event history cleared");
 }
 
+/**
+ * @brief 获取最大历史记录数
+ * @return 最大历史记录数
+ */
 int DataCache::getMaxHistorySize() const
 {
     return m_maxHistorySize;
 }
 
+/**
+ * @brief 设置最大历史记录数
+ * @param size 最大历史记录数
+ */
 void DataCache::setMaxHistorySize(int size)
 {
     QWriteLocker locker(&m_dataLock);
@@ -174,15 +246,21 @@ void DataCache::setMaxHistorySize(int size)
     while (m_eventHistory.size() > m_maxHistorySize) {
         m_eventHistory.removeLast();
     }
-    // Logger::info("Max history size set to: %d", m_maxHistorySize);
 }
 
+/**
+ * @brief 获取所有数据
+ * @return 动态对象集合
+ */
 DynamicObjects DataCache::getAllData() const
 {
     QReadLocker locker(&m_dataLock);
     return m_dynamicData;
 }
 
+/**
+ * @brief 清理过期数据
+ */
 void DataCache::invalidateExpiredData()
 {
     QWriteLocker locker(&m_dataLock);
@@ -206,28 +284,41 @@ void DataCache::invalidateExpiredData()
         
         emit platformsUpdated(getAllPlatforms());
         emit dynamicDataChanged(getAllData());
-        // Logger::info("Expired platforms in cache: %d", expiredIds.size());
     }
 }
 
+/**
+ * @brief 获取时间戳
+ * @return 最后更新时间戳
+ */
 qint64 DataCache::getTimestamp() const
 {
     QReadLocker locker(&m_dataLock);
     return m_dynamicData.timestamp;
 }
 
+/**
+ * @brief 注册数据推送回调
+ * @param callback 回调函数
+ */
 void DataCache::registerDataPushCallback(DataPushCallback callback)
 {
     m_pushCallbacks.push_back(callback);
-    // Logger::info("Data push callback registered, total callbacks: %d", m_pushCallbacks.size());
 }
 
+/**
+ * @brief 注销数据推送回调
+ * @param callback 回调函数
+ */
 void DataCache::unregisterDataPushCallback(DataPushCallback callback)
 {
     m_pushCallbacks.clear();
-    // Logger::info("Data push callback unregistered, total callbacks: %d", m_pushCallbacks.size());
 }
 
+/**
+ * @brief 启动数据推送
+ * @param intervalMs 推送间隔（毫秒）
+ */
 void DataCache::startDataPush(int intervalMs)
 {
     if (m_pushTimer.isActive()) {
@@ -236,20 +327,29 @@ void DataCache::startDataPush(int intervalMs)
     disconnect(&m_pushTimer, &QTimer::timeout, this, &DataCache::pushData);
     connect(&m_pushTimer, &QTimer::timeout, this, &DataCache::pushData);
     m_pushTimer.start(intervalMs);
-    // Logger::info("Data push started with interval: %d ms", intervalMs);
 }
 
+/**
+ * @brief 停止数据推送
+ */
 void DataCache::stopDataPush()
 {
     m_pushTimer.stop();
-    // Logger::info("Data push stopped");
 }
 
+/**
+ * @brief 检查推送是否运行
+ * @return 运行中返回true
+ */
 bool DataCache::isPushRunning() const
 {
     return m_pushTimer.isActive();
 }
 
+/**
+ * @brief 启动测试数据定时器
+ * @param intervalMs 间隔时间（毫秒）
+ */
 void DataCache::startTestDataTimer(int intervalMs)
 {
     initTestData();
@@ -259,27 +359,33 @@ void DataCache::startTestDataTimer(int intervalMs)
     disconnect(&m_testDataTimer, &QTimer::timeout, this, &DataCache::updateTestData);
     connect(&m_testDataTimer, &QTimer::timeout, this, &DataCache::updateTestData);
     m_testDataTimer.start(intervalMs);
-    // Logger::info("Test data timer started with interval: %d ms", intervalMs);
 }
 
+/**
+ * @brief 停止测试数据定时器
+ */
 void DataCache::stopTestDataTimer()
 {
     m_testDataTimer.stop();
-    // Logger::info("Test data timer stopped");
 }
 
+/**
+ * @brief 推送数据
+ */
 void DataCache::pushData()
 {
     static int pushCount = 0;
     pushCount++;
     DynamicObjects data = getAllData();
-    // Logger::info("pushData: count=%d, platforms=%d", pushCount, data.platforms.size());
     for (const auto &callback : m_pushCallbacks) {
         callback(data);
     }
     emit dataPushed(data);
 }
 
+/**
+ * @brief 初始化测试数据
+ */
 void DataCache::initTestData()
 {
     double redBaseLon = 121.5;
@@ -287,7 +393,6 @@ void DataCache::initTestData()
     double purpleBaseLon = redBaseLon + 1.05;
     double purpleBaseLat = redBaseLat;
 
-    // Red Team - 5 ships
     PlatformData redShip1;
     redShip1.id = "1";
     redShip1.name = "Red Ship 1";
@@ -295,470 +400,207 @@ void DataCache::initTestData()
     redShip1.lat = redBaseLat;
     redShip1.altitude = 0.0;
     redShip1.speed = 12.0;
-    redShip1.heading = 90.0;
-    redShip1.type = "warship";
-    redShip1.category = "destroyer";
+    redShip1.type = "ship";
+    redShip1.category = "battleship";
     redShip1.camp = Camp_Red;
     redShip1.dataStatus = DataStatus_Normal;
     redShip1.updateTime = QDateTime::currentMSecsSinceEpoch();
-    redShip1.validUntil = redShip1.updateTime + 5000;
-    redShip1.sourceProtocol = Protocol_Unknown;
-    WeaponInfo r1w1 = {"missile", 8, 80.0};
-    WeaponInfo r1w2 = {"naval_gun", 2, 20.0};
-    SensorInfo r1s1 = {"radar", 1, 50.0};
-    SensorInfo r1s2 = {"sonar", 1, 20.0};
-    redShip1.weapons.append(r1w1);
-    redShip1.weapons.append(r1w2);
-    redShip1.sensors.append(r1s1);
-    redShip1.sensors.append(r1s2);
+    redShip1.validUntil = redShip1.updateTime + 10000;
+
+    WeaponInfo redWeapon1 = {"missile", 8, 50.0};
+    WeaponInfo redWeapon2 = {"gun", 16, 15.0};
+    redShip1.weapons.append(redWeapon1);
+    redShip1.weapons.append(redWeapon2);
+
+    SensorInfo redSensor1 = {"radar", 1, 80.0};
+    SensorInfo redSensor2 = {"sonar", 1, 30.0};
+    redShip1.sensors.append(redSensor1);
+    redShip1.sensors.append(redSensor2);
+
     updatePlatform(redShip1);
 
     PlatformData redShip2;
     redShip2.id = "2";
     redShip2.name = "Red Ship 2";
-    redShip2.lon = redBaseLon - 0.05;
-    redShip2.lat = redBaseLat + 0.03;
+    redShip2.lon = redBaseLon + 0.1;
+    redShip2.lat = redBaseLat + 0.05;
     redShip2.altitude = 0.0;
-    redShip2.speed = 10.0;
-    redShip2.heading = 70.0;
-    redShip2.type = "warship";
-    redShip2.category = "frigate";
+    redShip2.speed = 15.0;
+    redShip2.type = "ship";
+    redShip2.category = "destroyer";
     redShip2.camp = Camp_Red;
     redShip2.dataStatus = DataStatus_Normal;
     redShip2.updateTime = QDateTime::currentMSecsSinceEpoch();
-    redShip2.validUntil = redShip2.updateTime + 5000;
-    redShip2.sourceProtocol = Protocol_Unknown;
-    WeaponInfo r2w1 = {"missile", 6, 60.0};
-    SensorInfo r2s1 = {"radar", 1, 40.0};
-    redShip2.weapons.append(r2w1);
-    redShip2.sensors.append(r2s1);
+    redShip2.validUntil = redShip2.updateTime + 10000;
     updatePlatform(redShip2);
 
-    PlatformData redShip3;
-    redShip3.id = "3";
-    redShip3.name = "Red Ship 3";
-    redShip3.lon = redBaseLon + 0.05;
-    redShip3.lat = redBaseLat + 0.03;
-    redShip3.altitude = 0.0;
-    redShip3.speed = 11.0;
-    redShip3.heading = 110.0;
-    redShip3.type = "warship";
-    redShip3.category = "cruiser";
-    redShip3.camp = Camp_Red;
-    redShip3.dataStatus = DataStatus_Normal;
-    redShip3.updateTime = QDateTime::currentMSecsSinceEpoch();
-    redShip3.validUntil = redShip3.updateTime + 5000;
-    redShip3.sourceProtocol = Protocol_Unknown;
-    WeaponInfo r3w1 = {"missile", 12, 100.0};
-    SensorInfo r3s1 = {"radar", 2, 60.0};
-    redShip3.weapons.append(r3w1);
-    redShip3.sensors.append(r3s1);
-    updatePlatform(redShip3);
+    PlatformData redFighter1;
+    redFighter1.id = "3";
+    redFighter1.name = "Red Fighter 1";
+    redFighter1.lon = redBaseLon + 0.05;
+    redFighter1.lat = redBaseLat + 0.2;
+    redFighter1.altitude = 8000.0;
+    redFighter1.speed = 900.0;
+    redFighter1.type = "plane";
+    redFighter1.category = "fighter";
+    redFighter1.camp = Camp_Red;
+    redFighter1.dataStatus = DataStatus_Normal;
+    redFighter1.updateTime = QDateTime::currentMSecsSinceEpoch();
+    redFighter1.validUntil = redFighter1.updateTime + 10000;
+    updatePlatform(redFighter1);
 
-    PlatformData redShip4;
-    redShip4.id = "4";
-    redShip4.name = "Red Ship 4";
-    redShip4.lon = redBaseLon - 0.05;
-    redShip4.lat = redBaseLat - 0.03;
-    redShip4.altitude = 0.0;
-    redShip4.speed = 9.0;
-    redShip4.heading = 80.0;
-    redShip4.type = "warship";
-    redShip4.category = "destroyer";
-    redShip4.camp = Camp_Red;
-    redShip4.dataStatus = DataStatus_Normal;
-    redShip4.updateTime = QDateTime::currentMSecsSinceEpoch();
-    redShip4.validUntil = redShip4.updateTime + 5000;
-    redShip4.sourceProtocol = Protocol_Unknown;
-    WeaponInfo r4w1 = {"missile", 8, 70.0};
-    WeaponInfo r4w2 = {"naval_gun", 1, 15.0};
-    SensorInfo r4s1 = {"radar", 1, 45.0};
-    SensorInfo r4s2 = {"sonar", 1, 18.0};
-    redShip4.weapons.append(r4w1);
-    redShip4.weapons.append(r4w2);
-    redShip4.sensors.append(r4s1);
-    redShip4.sensors.append(r4s2);
-    updatePlatform(redShip4);
-
-    PlatformData redShip5;
-    redShip5.id = "5";
-    redShip5.name = "Red Ship 5";
-    redShip5.lon = redBaseLon + 0.05;
-    redShip5.lat = redBaseLat - 0.03;
-    redShip5.altitude = 0.0;
-    redShip5.speed = 13.0;
-    redShip5.heading = 100.0;
-    redShip5.type = "warship";
-    redShip5.category = "frigate";
-    redShip5.camp = Camp_Red;
-    redShip5.dataStatus = DataStatus_Normal;
-    redShip5.updateTime = QDateTime::currentMSecsSinceEpoch();
-    redShip5.validUntil = redShip5.updateTime + 5000;
-    redShip5.sourceProtocol = Protocol_Unknown;
-    WeaponInfo r5w1 = {"missile", 6, 55.0};
-    SensorInfo r5s1 = {"radar", 1, 35.0};
-    redShip5.weapons.append(r5w1);
-    redShip5.sensors.append(r5s1);
-    updatePlatform(redShip5);
-
-    // Red Team - 3 planes
-    PlatformData redPlane1;
-    redPlane1.id = "6";
-    redPlane1.name = "Red Plane 1";
-    redPlane1.lon = redBaseLon;
-    redPlane1.lat = redBaseLat + 0.08;
-    redPlane1.altitude = 5000.0;
-    redPlane1.speed = 800.0;
-    redPlane1.heading = 90.0;
-    redPlane1.type = "aircraft";
-    redPlane1.category = "fighter";
-    redPlane1.camp = Camp_Red;
-    redPlane1.dataStatus = DataStatus_Normal;
-    redPlane1.updateTime = QDateTime::currentMSecsSinceEpoch();
-    redPlane1.validUntil = redPlane1.updateTime + 5000;
-    redPlane1.sourceProtocol = Protocol_Unknown;
-    WeaponInfo rp1w1 = {"missile", 4, 150.0};
-    SensorInfo rp1s1 = {"radar", 1, 200.0};
-    redPlane1.weapons.append(rp1w1);
-    redPlane1.sensors.append(rp1s1);
-    updatePlatform(redPlane1);
-
-    PlatformData redPlane2;
-    redPlane2.id = "7";
-    redPlane2.name = "Red Plane 2";
-    redPlane2.lon = redBaseLon - 0.06;
-    redPlane2.lat = redBaseLat + 0.06;
-    redPlane2.altitude = 6000.0;
-    redPlane2.speed = 750.0;
-    redPlane2.heading = 60.0;
-    redPlane2.type = "aircraft";
-    redPlane2.category = "recon";
-    redPlane2.camp = Camp_Red;
-    redPlane2.dataStatus = DataStatus_Normal;
-    redPlane2.updateTime = QDateTime::currentMSecsSinceEpoch();
-    redPlane2.validUntil = redPlane2.updateTime + 5000;
-    redPlane2.sourceProtocol = Protocol_Unknown;
-    SensorInfo rp2s1 = {"radar", 1, 250.0};
-    SensorInfo rp2s2 = {"sonar", 1, 100.0};
-    redPlane2.sensors.append(rp2s1);
-    redPlane2.sensors.append(rp2s2);
-    updatePlatform(redPlane2);
-
-    PlatformData redPlane3;
-    redPlane3.id = "8";
-    redPlane3.name = "Red Plane 3";
-    redPlane3.lon = redBaseLon + 0.06;
-    redPlane3.lat = redBaseLat + 0.06;
-    redPlane3.altitude = 5500.0;
-    redPlane3.speed = 780.0;
-    redPlane3.heading = 120.0;
-    redPlane3.type = "aircraft";
-    redPlane3.category = "fighter";
-    redPlane3.camp = Camp_Red;
-    redPlane3.dataStatus = DataStatus_Normal;
-    redPlane3.updateTime = QDateTime::currentMSecsSinceEpoch();
-    redPlane3.validUntil = redPlane3.updateTime + 5000;
-    redPlane3.sourceProtocol = Protocol_Unknown;
-    WeaponInfo rp3w1 = {"missile", 6, 120.0};
-    SensorInfo rp3s1 = {"radar", 1, 180.0};
-    redPlane3.weapons.append(rp3w1);
-    redPlane3.sensors.append(rp3s1);
-    updatePlatform(redPlane3);
-
-    // Purple Team - 4 ships
     PlatformData purpleShip1;
     purpleShip1.id = "9";
     purpleShip1.name = "Purple Ship 1";
     purpleShip1.lon = purpleBaseLon;
     purpleShip1.lat = purpleBaseLat;
     purpleShip1.altitude = 0.0;
-    purpleShip1.speed = 14.0;
-    purpleShip1.heading = 270.0;
-    purpleShip1.type = "warship";
+    purpleShip1.speed = 18.0;
+    purpleShip1.type = "ship";
     purpleShip1.category = "cruiser";
     purpleShip1.camp = Camp_Purple;
     purpleShip1.dataStatus = DataStatus_Normal;
     purpleShip1.updateTime = QDateTime::currentMSecsSinceEpoch();
-    purpleShip1.validUntil = purpleShip1.updateTime + 5000;
-    purpleShip1.sourceProtocol = Protocol_Unknown;
-    WeaponInfo p1w1 = {"missile", 16, 120.0};
-    SensorInfo p1s1 = {"radar", 2, 120.0};
-    purpleShip1.weapons.append(p1w1);
-    purpleShip1.sensors.append(p1s1);
+    purpleShip1.validUntil = purpleShip1.updateTime + 10000;
+
+    WeaponInfo purpleWeapon1 = {"missile", 12, 60.0};
+    purpleShip1.weapons.append(purpleWeapon1);
+
+    SensorInfo purpleSensor1 = {"radar", 1, 100.0};
+    purpleShip1.sensors.append(purpleSensor1);
+
     updatePlatform(purpleShip1);
 
     PlatformData purpleShip2;
     purpleShip2.id = "10";
     purpleShip2.name = "Purple Ship 2";
-    purpleShip2.lon = purpleBaseLon - 0.05;
-    purpleShip2.lat = purpleBaseLat + 0.03;
+    purpleShip2.lon = purpleBaseLon - 0.08;
+    purpleShip2.lat = purpleBaseLat + 0.06;
     purpleShip2.altitude = 0.0;
-    purpleShip2.speed = 12.0;
-    purpleShip2.heading = 250.0;
-    purpleShip2.type = "warship";
-    purpleShip2.category = "destroyer";
+    purpleShip2.speed = 14.0;
+    purpleShip2.type = "ship";
+    purpleShip2.category = "submarine";
     purpleShip2.camp = Camp_Purple;
     purpleShip2.dataStatus = DataStatus_Normal;
     purpleShip2.updateTime = QDateTime::currentMSecsSinceEpoch();
-    purpleShip2.validUntil = purpleShip2.updateTime + 5000;
-    purpleShip2.sourceProtocol = Protocol_Unknown;
-    WeaponInfo p2w1 = {"missile", 8, 80.0};
-    WeaponInfo p2w2 = {"naval_gun", 2, 25.0};
-    SensorInfo p2s1 = {"radar", 1, 50.0};
-    SensorInfo p2s2 = {"sonar", 1, 25.0};
-    purpleShip2.weapons.append(p2w1);
-    purpleShip2.weapons.append(p2w2);
-    purpleShip2.sensors.append(p2s1);
-    purpleShip2.sensors.append(p2s2);
+    purpleShip2.validUntil = purpleShip2.updateTime + 10000;
     updatePlatform(purpleShip2);
 
-    PlatformData purpleShip3;
-    purpleShip3.id = "11";
-    purpleShip3.name = "Purple Ship 3";
-    purpleShip3.lon = purpleBaseLon + 0.05;
-    purpleShip3.lat = purpleBaseLat + 0.03;
-    purpleShip3.altitude = 0.0;
-    purpleShip3.speed = 13.0;
-    purpleShip3.heading = 290.0;
-    purpleShip3.type = "warship";
-    purpleShip3.category = "frigate";
-    purpleShip3.camp = Camp_Purple;
-    purpleShip3.dataStatus = DataStatus_Normal;
-    purpleShip3.updateTime = QDateTime::currentMSecsSinceEpoch();
-    purpleShip3.validUntil = purpleShip3.updateTime + 5000;
-    purpleShip3.sourceProtocol = Protocol_Unknown;
-    WeaponInfo p3w1 = {"missile", 6, 70.0};
-    SensorInfo p3s1 = {"radar", 1, 45.0};
-    purpleShip3.weapons.append(p3w1);
-    purpleShip3.sensors.append(p3s1);
-    updatePlatform(purpleShip3);
-
-    PlatformData purpleShip4;
-    purpleShip4.id = "12";
-    purpleShip4.name = "Purple Ship 4";
-    purpleShip4.lon = purpleBaseLon;
-    purpleShip4.lat = purpleBaseLat - 0.03;
-    purpleShip4.altitude = 0.0;
-    purpleShip4.speed = 11.0;
-    purpleShip4.heading = 260.0;
-    purpleShip4.type = "warship";
-    purpleShip4.category = "destroyer";
-    purpleShip4.camp = Camp_Purple;
-    purpleShip4.dataStatus = DataStatus_Normal;
-    purpleShip4.updateTime = QDateTime::currentMSecsSinceEpoch();
-    purpleShip4.validUntil = purpleShip4.updateTime + 5000;
-    purpleShip4.sourceProtocol = Protocol_Unknown;
-    WeaponInfo p4w1 = {"missile", 10, 90.0};
-    SensorInfo p4s1 = {"radar", 1, 55.0};
-    SensorInfo p4s2 = {"sonar", 1, 20.0};
-    purpleShip4.weapons.append(p4w1);
-    purpleShip4.sensors.append(p4s1);
-    purpleShip4.sensors.append(p4s2);
-    updatePlatform(purpleShip4);
-
-    // Purple Team - 2 planes
     PlatformData purplePlane1;
     purplePlane1.id = "13";
     purplePlane1.name = "Purple Plane 1";
-    purplePlane1.lon = purpleBaseLon;
-    purplePlane1.lat = purpleBaseLat + 0.08;
-    purplePlane1.altitude = 5500.0;
+    purplePlane1.lon = purpleBaseLon - 0.1;
+    purplePlane1.lat = purpleBaseLat - 0.15;
+    purplePlane1.altitude = 6000.0;
     purplePlane1.speed = 850.0;
-    purplePlane1.heading = 270.0;
-    purplePlane1.type = "aircraft";
-    purplePlane1.category = "fighter";
+    purplePlane1.type = "plane";
+    purplePlane1.category = "bomber";
     purplePlane1.camp = Camp_Purple;
     purplePlane1.dataStatus = DataStatus_Normal;
     purplePlane1.updateTime = QDateTime::currentMSecsSinceEpoch();
-    purplePlane1.validUntil = purplePlane1.updateTime + 5000;
-    purplePlane1.sourceProtocol = Protocol_Unknown;
-    WeaponInfo pp1w1 = {"missile", 6, 120.0};
-    SensorInfo pp1s1 = {"radar", 1, 120.0};
-    purplePlane1.weapons.append(pp1w1);
-    purplePlane1.sensors.append(pp1s1);
+    purplePlane1.validUntil = purplePlane1.updateTime + 10000;
     updatePlatform(purplePlane1);
 
-    PlatformData purplePlane2;
-    purplePlane2.id = "14";
-    purplePlane2.name = "Purple Plane 2";
-    purplePlane2.lon = purpleBaseLon + 0.05;
-    purplePlane2.lat = purpleBaseLat + 0.06;
-    purplePlane2.altitude = 6000.0;
-    purplePlane2.speed = 800.0;
-    purplePlane2.heading = 250.0;
-    purplePlane2.type = "aircraft";
-    purplePlane2.category = "recon";
-    purplePlane2.camp = Camp_Purple;
-    purplePlane2.dataStatus = DataStatus_Normal;
-    purplePlane2.updateTime = QDateTime::currentMSecsSinceEpoch();
-    purplePlane2.validUntil = purplePlane2.updateTime + 5000;
-    purplePlane2.sourceProtocol = Protocol_Unknown;
-    SensorInfo pp2s1 = {"radar", 1, 200.0};
-    purplePlane2.sensors.append(pp2s1);
-    updatePlatform(purplePlane2);
-
     SpecialEvent contactEvent;
-    contactEvent.eventId = "EVENT_001";
+    contactEvent.eventId = "event1";
     contactEvent.eventType = Event_Contact;
-    contactEvent.eventName = "Purple Detected";
-    contactEvent.description = "Red forces detected purple forces at 100km distance";
+    contactEvent.eventName = QString::fromLocal8Bit("Purple Detected");
+    contactEvent.description = QString::fromLocal8Bit("Purple forces detected in sector");
     contactEvent.timestamp = QDateTime::currentMSecsSinceEpoch();
-    contactEvent.targetId = "9";
-    contactEvent.sourceId = "1";
-    contactEvent.lon = purpleBaseLon;
-    contactEvent.lat = purpleBaseLat;
+    contactEvent.targetId = "1";
+    contactEvent.sourceId = "9";
+    contactEvent.lon = redBaseLon;
+    contactEvent.lat = redBaseLat;
     addEvent(contactEvent);
 
     m_testStartTime = QDateTime::currentMSecsSinceEpoch();
     m_eventSecondPhase = false;
     m_eventCounter = 0;
-
-    // Logger::info("Test data initialized (Red-Purple scenario), total platforms: %d, total events: %d", 
-                 // getAllPlatforms().size(), getAllEvents().size());
 }
 
+/**
+ * @brief 更新测试数据
+ */
 void DataCache::updateTestData()
 {
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    double elapsed = (now - m_testStartTime) / 1000.0;
+
     QList<PlatformData> platforms = getAllPlatforms();
-    
-    qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - m_testStartTime;
-    
     for (PlatformData &platform : platforms) {
-        if (platform.type == "missile" && !platform.targetId.isEmpty()) {
-            PlatformData target = getPlatform(platform.targetId);
-            if (!target.id.isEmpty()) {
-                double dx = target.lon - platform.lon;
-                double dy = target.lat - platform.lat;
-                double distance = sqrt(dx * dx + dy * dy);
-                
-                if (distance < 0.0005) {
-                    removePlatform(platform.id);
-                    continue;
-                }
-                
-                double headingRad = atan2(dx, dy);
-                double headingDeg = headingRad * 180.0 / 3.14159265358979323846;
-                if (headingDeg < 0) headingDeg += 360.0;
-                platform.heading = headingDeg;
-                
-                double moveDistance = (platform.speed / 111000.0) * 0.1;
-                platform.lon += (dx / distance) * moveDistance;
-                platform.lat += (dy / distance) * moveDistance;
+        double moveSpeed = platform.speed / 3600.0;
+
+        if (platform.camp == Camp_Red) {
+            if (platform.id == "1") {
+                platform.lon += 0.00002 * moveSpeed;
+                platform.lat += 0.00001 * moveSpeed;
+            } else if (platform.id == "2") {
+                platform.lon += 0.000015 * moveSpeed;
+                platform.lat += 0.000015 * moveSpeed;
+            } else if (platform.id == "3") {
+                platform.lon += 0.00003 * moveSpeed;
+                platform.lat -= 0.000005 * moveSpeed;
             }
-        } else {
-            int idNum = platform.id.toInt();
-            
-            if (idNum >= 1 && idNum <= 8) {
-                platform.lon += 0.0001;
-                platform.lat += 0.00005;
-            } else if (idNum >= 9 && idNum <= 14) {
-                platform.lon -= 0.0001;
-                platform.lat -= 0.00005;
+        } else if (platform.camp == Camp_Purple) {
+            if (platform.id == "9") {
+                platform.lon -= 0.000018 * moveSpeed;
+                platform.lat += 0.000008 * moveSpeed;
+            } else if (platform.id == "10") {
+                platform.lon -= 0.000012 * moveSpeed;
+                platform.lat -= 0.00001 * moveSpeed;
+            } else if (platform.id == "13") {
+                platform.lon -= 0.000025 * moveSpeed;
+                platform.lat += 0.00001 * moveSpeed;
             }
         }
-        
-        platform.updateTime = QDateTime::currentMSecsSinceEpoch();
-        platform.validUntil = platform.updateTime + 5000;
+
+        platform.updateTime = now;
+        platform.validUntil = now + 10000;
+
         updatePlatform(platform);
     }
 
-    if (elapsed >= 5000 && !m_eventSecondPhase) {
-        m_eventSecondPhase = true;
-        
-        PlatformData shipSource = getPlatform("9");
-        PlatformData planeSource = getPlatform("13");
-        PlatformData target = getPlatform("1");
-        
-        double dx1 = target.lon - shipSource.lon;
-        double dy1 = target.lat - shipSource.lat;
-        double heading1 = atan2(dx1, dy1) * 180.0 / 3.14159265358979323846;
-        if (heading1 < 0) heading1 += 360.0;
-        
-        double dx2 = target.lon - planeSource.lon;
-        double dy2 = target.lat - planeSource.lat;
-        double heading2 = atan2(dx2, dy2) * 180.0 / 3.14159265358979323846;
-        if (heading2 < 0) heading2 += 360.0;
-        
-        PlatformData missile1;
-        missile1.id = "M1";
-        missile1.name = "Ship Missile";
-        missile1.type = "missile";
-        missile1.category = "anti-ship";
-        missile1.camp = Camp_Purple;
-        missile1.lon = shipSource.lon;
-        missile1.lat = shipSource.lat;
-        missile1.altitude = 0.0;
-        missile1.speed = 100.0;
-        missile1.heading = heading1;
-        missile1.targetId = "1";
-        missile1.dataStatus = DataStatus_Normal;
-        missile1.updateTime = QDateTime::currentMSecsSinceEpoch();
-        missile1.validUntil = missile1.updateTime + 30000;
-        updatePlatform(missile1);
-        // Logger::info("Missile M1 launched from Purple Ship 1 (id=9)");
-
-        PlatformData missile2;
-        missile2.id = "M2";
-        missile2.name = "Air Missile";
-        missile2.type = "missile";
-        missile2.category = "air-to-surface";
-        missile2.camp = Camp_Purple;
-        missile2.lon = planeSource.lon;
-        missile2.lat = planeSource.lat;
-        missile2.altitude = 0.0;
-        missile2.speed = 100.0;
-        missile2.heading = heading2;
-        missile2.targetId = "1";
-        missile2.dataStatus = DataStatus_Normal;
-        missile2.updateTime = QDateTime::currentMSecsSinceEpoch();
-        missile2.validUntil = missile2.updateTime + 30000;
-        updatePlatform(missile2);
-        // Logger::info("Missile M2 launched from Purple Plane 1 (id=13)");
-
+    m_eventCounter++;
+    if (m_eventCounter == 5) {
         SpecialEvent shipAttackEvent;
-        shipAttackEvent.eventId = QString("EVENT_%1").arg(100 + ++m_eventCounter, 3, 10, QChar('0'));
+        shipAttackEvent.eventId = "event2";
         shipAttackEvent.eventType = Event_Attack;
-        shipAttackEvent.eventName = "Missile Attack";
-        shipAttackEvent.description = "Purple Ship 1 (id=9) launched missile at Red Ship 1 (id=1)";
-        shipAttackEvent.timestamp = QDateTime::currentMSecsSinceEpoch();
+        shipAttackEvent.eventName = QString::fromLocal8Bit("Air-to-Surface Missile");
+        shipAttackEvent.description = QString::fromLocal8Bit("Missile launched from aircraft");
+        shipAttackEvent.timestamp = now;
         shipAttackEvent.targetId = "1";
-        shipAttackEvent.sourceId = "9";
+        shipAttackEvent.sourceId = "13";
+        PlatformData target = getPlatform("1");
         shipAttackEvent.lon = target.lon;
         shipAttackEvent.lat = target.lat;
         addEvent(shipAttackEvent);
-        // Logger::info("Attack event added: Purple Ship 1 (id=9) attacked Red Ship 1 (id=1)");
-
+    } else if (m_eventCounter == 10) {
         SpecialEvent planeAttackEvent;
-        planeAttackEvent.eventId = QString("EVENT_%1").arg(100 + ++m_eventCounter, 3, 10, QChar('0'));
+        planeAttackEvent.eventId = "event3";
         planeAttackEvent.eventType = Event_Attack;
-        planeAttackEvent.eventName = "Air-to-Surface Missile";
-        planeAttackEvent.description = "Purple Plane 1 (id=13) launched missile at Red Ship 1 (id=1)";
-        planeAttackEvent.timestamp = QDateTime::currentMSecsSinceEpoch();
-        planeAttackEvent.targetId = "1";
-        planeAttackEvent.sourceId = "13";
+        planeAttackEvent.eventName = QString::fromLocal8Bit("Missile Attack");
+        planeAttackEvent.description = QString::fromLocal8Bit("Anti-ship missile attack");
+        planeAttackEvent.timestamp = now;
+        planeAttackEvent.targetId = "9";
+        planeAttackEvent.sourceId = "3";
+        PlatformData target = getPlatform("9");
         planeAttackEvent.lon = target.lon;
         planeAttackEvent.lat = target.lat;
         addEvent(planeAttackEvent);
-        // Logger::info("Attack event added: Purple Plane 1 (id=13) attacked Red Ship 1 (id=1)");
-    } else if (elapsed >= 15000 && m_eventSecondPhase) {
-        m_eventSecondPhase = false;
-        m_testStartTime = QDateTime::currentMSecsSinceEpoch();
-        
-        PlatformData target = getPlatform("1");
-        
+    } else if (m_eventCounter == 15) {
         SpecialEvent alertEvent;
-        alertEvent.eventId = QString("EVENT_%1").arg(200 + ++m_eventCounter, 3, 10, QChar('0'));
+        alertEvent.eventId = "event4";
         alertEvent.eventType = Event_Alert;
-        alertEvent.eventName = "Incoming Missile Alert";
-        alertEvent.description = "Red Ship 1 (id=1) detected incoming missiles from Purple forces";
-        alertEvent.timestamp = QDateTime::currentMSecsSinceEpoch();
-        alertEvent.targetId = "1";
-        alertEvent.sourceId = "SYSTEM";
-        if (!target.id.isEmpty()) {
-            alertEvent.lon = target.lon;
-            alertEvent.lat = target.lat;
-        }
+        alertEvent.eventName = QString::fromLocal8Bit("Threat Alert");
+        alertEvent.description = QString::fromLocal8Bit("Incoming missile detected");
+        alertEvent.timestamp = now;
+        alertEvent.targetId = "9";
+        alertEvent.sourceId = "1";
+        PlatformData target = getPlatform("9");
+        alertEvent.lon = target.lon;
+        alertEvent.lat = target.lat;
         addEvent(alertEvent);
-        // Logger::info("Alert event added: Missile alert for Red Ship 1 (id=1)");
+    } else if (m_eventCounter >= 20) {
+        m_eventCounter = 0;
     }
 }

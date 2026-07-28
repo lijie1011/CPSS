@@ -1,3 +1,11 @@
+/**
+ * @file viewwidget.cpp
+ * @brief 视图部件类实现
+ * @details 该类是基于QWidget的海图显示组件，负责绘制平台、航迹、事件标记等动态元素。
+ *          支持与Enclib海图库的集成，提供地图缩放、平移、鹰眼图等功能。
+ * @date 2026-07-28
+ */
+
 #include "viewwidget.h"
 #include <QPainter>
 #include <QApplication>
@@ -8,18 +16,23 @@
 #include "encl.h"
 #include "common/logger.h"
 
+/**
+ * @brief 构造函数
+ * @param parent 父组件
+ */
 ViewWidget::ViewWidget(QWidget *parent)
     : QWidget(parent),
       m_enclibReady(false),
       m_overviewLabel(nullptr)
 {
-    // Logger::info("ViewWidget constructor: entering");
     setMouseTracking(true);
     initOverviewMap();
     loadIcons();
-    // Logger::info("ViewWidget constructor: done");
 }
 
+/**
+ * @brief 加载平台图标资源
+ */
 void ViewWidget::loadIcons()
 {
     QString resourcePath = QCoreApplication::applicationDirPath() + "/../resource";
@@ -28,17 +41,13 @@ void ViewWidget::loadIcons()
     m_redPlaneIcon = QImage(resourcePath + "/red/plane.png");
     m_purpleBoatIcon = QImage(resourcePath + "/purple/boat.png");
     m_purplePlaneIcon = QImage(resourcePath + "/purple/plane.png");
-    
-    // Logger::info("Icons loaded: redBoat=%dx%d, redPlane=%dx%d, purpleBoat=%dx%d, purplePlane=%dx%d",
-                 // m_redBoatIcon.width(), m_redBoatIcon.height(),
-                 // m_redPlaneIcon.width(), m_redPlaneIcon.height(),
-                 // m_purpleBoatIcon.width(), m_purpleBoatIcon.height(),
-                 // m_purplePlaneIcon.width(), m_purplePlaneIcon.height());
 }
 
+/**
+ * @brief 析构函数
+ */
 ViewWidget::~ViewWidget()
 {
-    // Logger::info("ViewWidget destructor called");
     for (auto &box : m_propertyBoxes) {
         if (box.label) {
             delete box.label;
@@ -47,21 +56,28 @@ ViewWidget::~ViewWidget()
     delete m_overviewLabel;
 }
 
+/**
+ * @brief 设置Enclib海图库就绪状态
+ * @param ready 就绪标志
+ */
 void ViewWidget::setEnclibReady(bool ready)
 {
     m_enclibReady = ready;
 }
 
+/**
+ * @brief 更新动态数据
+ * @param data 动态对象数据
+ */
 void ViewWidget::updateDynamicData(const DynamicObjects &data)
 {
     m_dynamicData = data;
-    // Logger::info("ViewWidget::updateDynamicData received, platforms: %d", data.platforms.size());
+    
     for (const auto &platform : data.platforms.values()) {
         if (platform.isExpired()) {
-            // Logger::info("  Platform: id=%s is expired, skipping", platform.id.toStdString().c_str());
             continue;
         }
-        // Logger::info("  Platform: id=%s, lon=%f, lat=%f", platform.id.toStdString().c_str(), platform.lon, platform.lat);
+        
         PropertyBox *box = findPropertyBoxById(platform.id, platform.id == "SHIP_001");
         if (box && box->label && box->label->isVisible() && !box->isDragging) {
             box->lon = platform.lon;
@@ -107,6 +123,10 @@ void ViewWidget::updateDynamicData(const DynamicObjects &data)
     update();
 }
 
+/**
+ * @brief 绘制事件
+ * @param event 绘制事件
+ */
 void ViewWidget::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event);
@@ -132,10 +152,8 @@ void ViewWidget::paintEvent(QPaintEvent *event)
     clipPath.addRect(this->rect());
     painter.setClipPath(clipPath);
 
-    // Logger::info("paintEvent: drawing %d platforms, enclibReady=%d", m_dynamicData.platforms.size(), m_enclibReady);
     for (const PlatformData &platform : m_dynamicData.platforms.values()) {
         if (platform.isExpired()) {
-            // Logger::info("paintEvent: platform %s is expired, skipping", platform.id.toStdString().c_str());
             continue;
         }
         drawPlatform(painter, platform);
@@ -151,6 +169,10 @@ void ViewWidget::paintEvent(QPaintEvent *event)
     updateOverviewMap();
 }
 
+/**
+ * @brief 调整大小事件
+ * @param event 调整大小事件
+ */
 void ViewWidget::resizeEvent(QResizeEvent *event)
 {
     Q_UNUSED(event);
@@ -160,6 +182,10 @@ void ViewWidget::resizeEvent(QResizeEvent *event)
     updateChart();
 }
 
+/**
+ * @brief 鼠标按下事件
+ * @param event 鼠标事件
+ */
 void ViewWidget::mousePressEvent(QMouseEvent *event)
 {
     switch (event->button()) {
@@ -172,6 +198,10 @@ void ViewWidget::mousePressEvent(QMouseEvent *event)
     }
 }
 
+/**
+ * @brief 鼠标移动事件
+ * @param event 鼠标事件
+ */
 void ViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
     QPoint currentMousePt = event->pos();
@@ -185,6 +215,10 @@ void ViewWidget::mouseMoveEvent(QMouseEvent *event)
     emit updateGeoPosition(currentMousePt);
 }
 
+/**
+ * @brief 鼠标释放事件
+ * @param event 鼠标事件
+ */
 void ViewWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     switch (event->button()) {
@@ -240,6 +274,10 @@ void ViewWidget::mouseReleaseEvent(QMouseEvent *event)
     }
 }
 
+/**
+ * @brief 滚轮事件
+ * @param event 滚轮事件
+ */
 void ViewWidget::wheelEvent(QWheelEvent *event)
 {
     if (!m_enclibReady) return;
@@ -254,6 +292,9 @@ void ViewWidget::wheelEvent(QWheelEvent *event)
     emit updateGeoPosition(event->pos());
 }
 
+/**
+ * @brief 更新海图
+ */
 void ViewWidget::updateChart()
 {
     if (m_enclibReady) {
@@ -262,6 +303,9 @@ void ViewWidget::updateChart()
     update();
 }
 
+/**
+ * @brief 放大视图
+ */
 void ViewWidget::zoomIn()
 {
     if (!m_enclibReady) return;
@@ -270,6 +314,9 @@ void ViewWidget::zoomIn()
     updateChart();
 }
 
+/**
+ * @brief 缩小视图
+ */
 void ViewWidget::zoomOut()
 {
     if (!m_enclibReady) return;
@@ -278,6 +325,11 @@ void ViewWidget::zoomOut()
     updateChart();
 }
 
+/**
+ * @brief 设置海图中心
+ * @param lon 经度
+ * @param lat 纬度
+ */
 void ViewWidget::setChartCenter(double lon, double lat)
 {
     if (!m_enclibReady) return;
@@ -286,12 +338,21 @@ void ViewWidget::setChartCenter(double lon, double lat)
     updateChart();
 }
 
+/**
+ * @brief 更新显示状态
+ * @param stateMap 显示状态映射
+ */
 void ViewWidget::updateDisplayState(const DisplayStateMap &stateMap)
 {
     m_displayStates = stateMap;
     update();
 }
 
+/**
+ * @brief 绘制平台
+ * @param painter 绘制器
+ * @param platform 平台数据
+ */
 void ViewWidget::drawPlatform(QPainter &painter, const PlatformData &platform)
 {
     auto stateIt = m_displayStates.find(platform.id);
@@ -303,12 +364,8 @@ void ViewWidget::drawPlatform(QPainter &painter, const PlatformData &platform)
 
     int x, y;
     if (!geoToScreen(platform.lon, platform.lat, x, y)) {
-        // Logger::info("drawPlatform: geoToScreen failed for %s (lon=%f, lat=%f)", platform.id.toStdString().c_str(), platform.lon, platform.lat);
         return;
     }
-    // Logger::info("drawPlatform: drawing %s at screen (%d, %d)", platform.id.toStdString().c_str(), x, y);
-
-    bool isOwnShip = (platform.id == "1");
 
     QColor campColor;
     switch (platform.camp) {
@@ -381,16 +438,6 @@ void ViewWidget::drawPlatform(QPainter &painter, const PlatformData &platform)
             painter.setFont(QFont("Arial", 7));
             painter.setPen(Qt::white);
             painter.drawText(QRect(-15, -15, 30, 10), Qt::AlignCenter, "M");
-        } else if (isOwnShip) {
-            QPen pen(campColor, 2);
-            painter.setPen(pen);
-
-            QPolygonF shipShape;
-            shipShape << QPointF(15, 0)
-                      << QPointF(-10, -8)
-                      << QPointF(-5, 0)
-                      << QPointF(-10, 8);
-            painter.drawPolygon(shipShape);
         } else {
             QPen pen(campColor, 2);
             painter.setPen(pen);
@@ -429,6 +476,13 @@ void ViewWidget::drawPlatform(QPainter &painter, const PlatformData &platform)
     }
 }
 
+/**
+ * @brief 绘制事件标记
+ * @param painter 绘制器
+ * @param x X坐标
+ * @param y Y坐标
+ * @param eventType 事件类型
+ */
 void ViewWidget::drawEventMarker(QPainter &painter, int x, int y, SpecialEventType eventType)
 {
     painter.save();
@@ -462,6 +516,13 @@ void ViewWidget::drawEventMarker(QPainter &painter, int x, int y, SpecialEventTy
     painter.restore();
 }
 
+/**
+ * @brief 绘制传感器范围
+ * @param painter 绘制器
+ * @param x X坐标
+ * @param y Y坐标
+ * @param platform 平台数据
+ */
 void ViewWidget::drawSensorRanges(QPainter &painter, int x, int y, const PlatformData &platform)
 {
     if (platform.sensors.isEmpty()) {
@@ -502,6 +563,13 @@ void ViewWidget::drawSensorRanges(QPainter &painter, int x, int y, const Platfor
     }
 }
 
+/**
+ * @brief 绘制武器范围
+ * @param painter 绘制器
+ * @param x X坐标
+ * @param y Y坐标
+ * @param platform 平台数据
+ */
 void ViewWidget::drawWeaponRanges(QPainter &painter, int x, int y, const PlatformData &platform)
 {
     if (platform.weapons.isEmpty()) {
@@ -542,6 +610,11 @@ void ViewWidget::drawWeaponRanges(QPainter &painter, int x, int y, const Platfor
     }
 }
 
+/**
+ * @brief 绘制独立事件
+ * @param painter 绘制器
+ * @param event 事件数据
+ */
 void ViewWidget::drawStandaloneEvent(QPainter &painter, const SpecialEvent &event)
 {
     int x, y;
@@ -567,6 +640,13 @@ void ViewWidget::drawStandaloneEvent(QPainter &painter, const SpecialEvent &even
     painter.restore();
 }
 
+/**
+ * @brief 检查点是否在事件范围内
+ * @param x X坐标
+ * @param y Y坐标
+ * @param event 事件数据
+ * @return 点在范围内返回true
+ */
 bool ViewWidget::isPointInEvent(int x, int y, const SpecialEvent &event)
 {
     int eventX, eventY;
@@ -579,6 +659,10 @@ bool ViewWidget::isPointInEvent(int x, int y, const SpecialEvent &event)
     return (dx * dx + dy * dy) <= (radius * radius);
 }
 
+/**
+ * @brief 创建事件信息框
+ * @param event 事件数据
+ */
 void ViewWidget::createEventInfoBox(const SpecialEvent &event)
 {
     PropertyBox box;
@@ -643,6 +727,10 @@ void ViewWidget::createEventInfoBox(const SpecialEvent &event)
     label->show();
 }
 
+/**
+ * @brief 绘制连接线
+ * @param painter 绘制器
+ */
 void ViewWidget::drawConnectingLines(QPainter &painter)
 {
     for (const PropertyBox &box : m_propertyBoxes) {
@@ -661,6 +749,14 @@ void ViewWidget::drawConnectingLines(QPainter &painter)
     }
 }
 
+/**
+ * @brief 地理坐标转屏幕坐标
+ * @param lon 经度
+ * @param lat 纬度
+ * @param x 输出X坐标
+ * @param y 输出Y坐标
+ * @return 转换成功返回true
+ */
 bool ViewWidget::geoToScreen(double lon, double lat, int &x, int &y)
 {
     if (!m_enclibReady) {
@@ -676,6 +772,11 @@ bool ViewWidget::geoToScreen(double lon, double lat, int &x, int &y)
     return true;
 }
 
+/**
+ * @brief 通过标签查找属性框
+ * @param label 标签
+ * @return 属性框指针
+ */
 PropertyBox* ViewWidget::findPropertyBoxByLabel(QLabel *label)
 {
     for (auto &box : m_propertyBoxes) {
@@ -686,6 +787,12 @@ PropertyBox* ViewWidget::findPropertyBoxByLabel(QLabel *label)
     return nullptr;
 }
 
+/**
+ * @brief 通过ID查找属性框
+ * @param id 平台ID
+ * @param isOwnShip 是否为己方舰船
+ * @return 属性框指针
+ */
 PropertyBox* ViewWidget::findPropertyBoxById(const QString &id, bool isOwnShip)
 {
     for (auto &box : m_propertyBoxes) {
@@ -696,6 +803,14 @@ PropertyBox* ViewWidget::findPropertyBoxById(const QString &id, bool isOwnShip)
     return nullptr;
 }
 
+/**
+ * @brief 检查点是否在舰船范围内
+ * @param x X坐标
+ * @param y Y坐标
+ * @param shipX 舰船X坐标
+ * @param shipY 舰船Y坐标
+ * @return 点在范围内返回true
+ */
 bool ViewWidget::isPointInShip(int x, int y, int shipX, int shipY)
 {
     int radius = 15;
@@ -704,6 +819,10 @@ bool ViewWidget::isPointInShip(int x, int y, int shipX, int shipY)
     return (dx * dx + dy * dy) <= (radius * radius);
 }
 
+/**
+ * @brief 创建属性框
+ * @param platform 平台数据
+ */
 void ViewWidget::createPropertyBox(const PlatformData &platform)
 {
     PropertyBox box;
@@ -775,6 +894,10 @@ void ViewWidget::createPropertyBox(const PlatformData &platform)
     label->show();
 }
 
+/**
+ * @brief 销毁属性框
+ * @param box 属性框指针
+ */
 void ViewWidget::destroyPropertyBox(PropertyBox *box)
 {
     if (box && box->label) {
@@ -785,6 +908,12 @@ void ViewWidget::destroyPropertyBox(PropertyBox *box)
     m_propertyBoxes.removeOne(*box);
 }
 
+/**
+ * @brief 事件过滤器
+ * @param obj 目标对象
+ * @param event 事件
+ * @return 处理了事件返回true
+ */
 bool ViewWidget::eventFilter(QObject *obj, QEvent *event)
 {
     if (obj == m_overviewLabel && event->type() == QEvent::MouseButtonPress) {
@@ -841,6 +970,9 @@ bool ViewWidget::eventFilter(QObject *obj, QEvent *event)
     return QWidget::eventFilter(obj, event);
 }
 
+/**
+ * @brief 初始化鹰眼图
+ */
 void ViewWidget::initOverviewMap()
 {
     m_overviewLabel = new QLabel(this);
@@ -851,6 +983,9 @@ void ViewWidget::initOverviewMap()
     m_overviewLabel->installEventFilter(this);
 }
 
+/**
+ * @brief 更新鹰眼图
+ */
 void ViewWidget::updateOverviewMap()
 {
     if (!m_overviewLabel) return;
@@ -859,6 +994,9 @@ void ViewWidget::updateOverviewMap()
     m_overviewLabel->setPixmap(QPixmap::fromImage(m_overviewImage));
 }
 
+/**
+ * @brief 绘制鹰眼图内容
+ */
 void ViewWidget::drawOverviewMapContent()
 {
     int w = m_overviewLabel->width();
@@ -917,4 +1055,3 @@ void ViewWidget::drawOverviewMapContent()
         overviewPainter.drawEllipse(x - 3, y - 3, 6, 6);
     }
 }
-

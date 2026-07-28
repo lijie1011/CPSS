@@ -1,10 +1,23 @@
+/**
+ * @file datamanager.cpp
+ * @brief 数据管理器类实现
+ * @details 该类采用单例模式，作为数据层的核心管理组件，负责管理多个协议适配器，
+ *          接收和分发平台、事件数据，提供统一的数据访问接口，并支持回调机制。
+ * @date 2026-07-28
+ */
+
 #include "datamanager.h"
 #include <QJsonArray>
 #include "logger.h"
 
+// 静态成员变量初始化
 DataManager* DataManager::s_instance = nullptr;
 QMutex DataManager::s_mutex;
 
+/**
+ * @brief 构造函数
+ * @param parent 父对象指针
+ */
 DataManager::DataManager(QObject *parent)
     : QObject(parent),
       m_defaultValidDuration(5000)
@@ -21,76 +34,106 @@ DataManager::DataManager(QObject *parent)
             this, &DataManager::platformsUpdated);
 }
 
+/**
+ * @brief 注册平台更新回调
+ * @param callback 回调函数
+ */
 void DataManager::registerPlatformUpdateCallback(PlatformUpdateCallback callback)
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_platformUpdateCallback = callback;
-    // Logger::info("Platform update callback registered");
 }
 
+/**
+ * @brief 注册数据更新回调
+ * @param callback 回调函数
+ */
 void DataManager::registerDataUpdateCallback(DataUpdateCallback callback)
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_dataUpdateCallback = callback;
-    // Logger::info("Data update callback registered");
 }
 
+/**
+ * @brief 注册事件更新回调
+ * @param callback 回调函数
+ */
 void DataManager::registerEventUpdateCallback(EventUpdateCallback callback)
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_eventUpdateCallback = callback;
-    // Logger::info("Event update callback registered");
 }
 
+/**
+ * @brief 注册平台过期回调
+ * @param callback 回调函数
+ */
 void DataManager::registerPlatformExpiredCallback(PlatformExpiredCallback callback)
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_platformExpiredCallback = callback;
-    // Logger::info("Platform expired callback registered");
 }
 
+/**
+ * @brief 注销平台更新回调
+ */
 void DataManager::unregisterPlatformUpdateCallback()
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_platformUpdateCallback = nullptr;
-    // Logger::info("Platform update callback unregistered");
 }
 
+/**
+ * @brief 注销数据更新回调
+ */
 void DataManager::unregisterDataUpdateCallback()
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_dataUpdateCallback = nullptr;
-    // Logger::info("Data update callback unregistered");
 }
 
+/**
+ * @brief 注销事件更新回调
+ */
 void DataManager::unregisterEventUpdateCallback()
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_eventUpdateCallback = nullptr;
-    // Logger::info("Event update callback unregistered");
 }
 
+/**
+ * @brief 注销平台过期回调
+ */
 void DataManager::unregisterPlatformExpiredCallback()
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_platformExpiredCallback = nullptr;
-    // Logger::info("Platform expired callback unregistered");
 }
 
+/**
+ * @brief 平台过期处理
+ * @param id 过期平台的ID
+ */
 void DataManager::onPlatformExpired(const QString &id)
 {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     if (m_platformExpiredCallback) {
         m_platformExpiredCallback(id);
     }
-    // Logger::info("Platform expired callback triggered for: %s", id.toStdString().c_str());
 }
 
+/**
+ * @brief 析构函数
+ */
 DataManager::~DataManager()
 {
     stopAllAdapters();
 }
 
+/**
+ * @brief 获取数据管理器单例实例
+ * @return DataManager指针
+ */
 DataManager* DataManager::instance()
 {
     if (!s_instance) {
@@ -102,72 +145,110 @@ DataManager* DataManager::instance()
     return s_instance;
 }
 
+/**
+ * @brief 添加协议适配器
+ * @param adapter 协议适配器指针
+ */
 void DataManager::addAdapter(IProtocolAdapter *adapter)
 {
     if (!m_adapters.contains(adapter)) {
         m_adapters.append(adapter);
         connect(adapter, &IProtocolAdapter::dataReceived,
                 this, &DataManager::onDataReceived);
-        // Logger::info("Adapter added: %s", typeid(*adapter).name());
     }
 }
 
+/**
+ * @brief 移除协议适配器
+ * @param adapter 协议适配器指针
+ */
 void DataManager::removeAdapter(IProtocolAdapter *adapter)
 {
     m_adapters.removeOne(adapter);
     disconnect(adapter, &IProtocolAdapter::dataReceived,
                this, &DataManager::onDataReceived);
-    // Logger::info("Adapter removed: %s", typeid(*adapter).name());
 }
 
+/**
+ * @brief 启动所有适配器
+ */
 void DataManager::startAllAdapters()
 {
     for (auto adapter : m_adapters) {
         adapter->start();
     }
-    // Logger::info("All adapters started, count: %d", m_adapters.size());
 }
 
+/**
+ * @brief 停止所有适配器
+ */
 void DataManager::stopAllAdapters()
 {
     for (auto adapter : m_adapters) {
         adapter->stop();
     }
-    // Logger::info("All adapters stopped");
 }
 
+/**
+ * @brief 设置数据源优先级
+ * @param type 协议类型
+ * @param priority 优先级值
+ */
 void DataManager::setDataSourcePriority(ProtocolType type, int priority)
 {
     m_priorityMap[type] = priority;
 }
 
+/**
+ * @brief 获取数据源优先级
+ * @param type 协议类型
+ * @return 优先级值
+ */
 int DataManager::getDataSourcePriority(ProtocolType type) const
 {
     return m_priorityMap.value(type, 0);
 }
 
+/**
+ * @brief 设置默认数据有效期
+ * @param ms 有效期（毫秒）
+ */
 void DataManager::setDefaultValidDuration(qint64 ms)
 {
     m_defaultValidDuration = ms;
 }
 
+/**
+ * @brief 获取默认数据有效期
+ * @return 有效期（毫秒）
+ */
 qint64 DataManager::defaultValidDuration() const
 {
     return m_defaultValidDuration;
 }
 
+/**
+ * @brief 注册数据推送回调
+ * @param callback 回调函数
+ */
 void DataManager::registerDataPushCallback(DataPushCallback callback)
 {
     m_pushCallbacks.push_back(callback);
-    // Logger::info("Data push callback registered, total: %d", m_pushCallbacks.size());
 }
 
+/**
+ * @brief 注销数据推送回调
+ * @param callback 回调函数
+ */
 void DataManager::unregisterDataPushCallback(DataPushCallback callback)
 {
     m_pushCallbacks.clear();
-    // Logger::info("Data push callback unregistered");
 }
 
+/**
+ * @brief 启动数据推送
+ * @param intervalMs 推送间隔（毫秒）
+ */
 void DataManager::startDataPush(int intervalMs)
 {
     if (m_pushTimer.isActive()) {
@@ -175,35 +256,48 @@ void DataManager::startDataPush(int intervalMs)
     }
     connect(&m_pushTimer, &QTimer::timeout, this, &DataManager::pushData);
     m_pushTimer.start(intervalMs);
-    // Logger::info("Data push started with interval: %d ms", intervalMs);
 }
 
+/**
+ * @brief 停止数据推送
+ */
 void DataManager::stopDataPush()
 {
     m_pushTimer.stop();
-    // Logger::info("Data push stopped");
 }
 
+/**
+ * @brief 处理接收到的数据
+ * @param data JSON格式的数据
+ * @param source 数据来源协议类型
+ */
 void DataManager::onDataReceived(const QJsonObject &data, ProtocolType source)
 {
     parseAndUpdate(data, source);
 }
 
+/**
+ * @brief 推送数据
+ */
 void DataManager::pushData()
 {
     static int pushCount = 0;
     pushCount++;
     
     DynamicObjects data = DataCache::instance()->getAllData();
-    // Logger::info("pushData: count=%d, platforms=%d", pushCount, data.platforms.size());
-
+    
     for (const auto &callback : m_pushCallbacks) {
         callback(data);
     }
-
+    
     emit dataPushed(data);
 }
 
+/**
+ * @brief 解析并更新数据
+ * @param data JSON格式的数据
+ * @param source 数据来源协议类型
+ */
 void DataManager::parseAndUpdate(const QJsonObject &data, ProtocolType source)
 {
     QString type = data["type"].toString();
@@ -222,11 +316,15 @@ void DataManager::parseAndUpdate(const QJsonObject &data, ProtocolType source)
     }
 }
 
+/**
+ * @brief 更新平台数据
+ * @param obj JSON格式的平台对象
+ * @param source 数据来源协议类型
+ */
 void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
 {
     QString id = obj["id"].toString();
     if (id.isEmpty()) {
-        // Logger::warn("Platform update failed: id is empty");
         return;
     }
 
@@ -284,45 +382,49 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
     emit platformUpdated(platform);
     emit platformsUpdated(getAllPlatforms());
     emit dynamicDataChanged(getAllData());
-
-    // Logger::info("Platform updated via DataManager: id=%s", id.toStdString().c_str());
 }
 
+/**
+ * @brief 更新事件数据
+ * @param obj JSON格式的事件对象
+ * @param source 数据来源协议类型
+ */
 void DataManager::updateEvent(const QJsonObject &obj, ProtocolType source)
 {
     Q_UNUSED(source);
     
     QString eventId = obj["eventId"].toString();
     if (eventId.isEmpty()) {
-        // Logger::warn("Event update failed: eventId is empty");
         return;
     }
 
     SpecialEvent event;
     event.eventId = eventId;
-    
+
     QString eventTypeStr = obj["eventType"].toString().toLower();
     if (eventTypeStr == "attack") event.eventType = Event_Attack;
     else if (eventTypeStr == "defense") event.eventType = Event_Defense;
     else if (eventTypeStr == "alert") event.eventType = Event_Alert;
+    else if (eventTypeStr == "contact") event.eventType = Event_Contact;
+    else if (eventTypeStr == "damage") event.eventType = Event_Damage;
     else if (eventTypeStr == "missionstart") event.eventType = Event_MissionStart;
     else if (eventTypeStr == "missionend") event.eventType = Event_MissionEnd;
-    else if (eventTypeStr == "contact") event.eventType = Event_Contact;
     else if (eventTypeStr == "lost") event.eventType = Event_Lost;
-    else if (eventTypeStr == "damage") event.eventType = Event_Damage;
     else if (eventTypeStr == "repair") event.eventType = Event_Repair;
     else if (eventTypeStr == "custom") event.eventType = Event_Custom;
     else event.eventType = Event_Unknown;
-    
+
     event.eventName = obj["eventName"].toString();
     event.description = obj["description"].toString();
     event.timestamp = static_cast<qint64>(obj["timestamp"].toDouble());
-    if (event.timestamp == 0) event.timestamp = QDateTime::currentMSecsSinceEpoch();
+    if (event.timestamp == 0) {
+        event.timestamp = QDateTime::currentMSecsSinceEpoch();
+    }
     event.targetId = obj["targetId"].toString();
     event.sourceId = obj["sourceId"].toString();
     event.lon = obj["lon"].toDouble();
     event.lat = obj["lat"].toDouble();
-    
+
     if (obj.contains("extraData") && obj["extraData"].isObject()) {
         event.extraData = obj["extraData"].toObject();
     }
@@ -334,8 +436,77 @@ void DataManager::updateEvent(const QJsonObject &obj, ProtocolType source)
         if (m_eventUpdateCallback) {
             m_eventUpdateCallback(event);
         }
-        if (m_dataUpdateCallback) {
-            m_dataUpdateCallback(getAllData());
-        }
     }
+}
+
+/**
+ * @brief 获取所有平台
+ * @return 平台列表
+ */
+QList<PlatformData> DataManager::getAllPlatforms() const
+{
+    return DataCache::instance()->getAllPlatforms();
+}
+
+/**
+ * @brief 获取有效平台
+ * @return 有效平台列表
+ */
+QList<PlatformData> DataManager::getValidPlatforms() const
+{
+    return DataCache::instance()->getValidPlatforms();
+}
+
+/**
+ * @brief 获取指定平台
+ * @param id 平台ID
+ * @return 平台数据
+ */
+PlatformData DataManager::getPlatform(const QString &id) const
+{
+    return DataCache::instance()->getPlatform(id);
+}
+
+/**
+ * @brief 获取所有事件
+ * @return 事件列表
+ */
+QList<SpecialEvent> DataManager::getAllEvents() const
+{
+    return DataCache::instance()->getAllEvents();
+}
+
+/**
+ * @brief 获取事件历史
+ * @return 事件历史列表
+ */
+QList<SpecialEvent> DataManager::getEventHistory() const
+{
+    return DataCache::instance()->getEventHistory();
+}
+
+/**
+ * @brief 获取所有数据
+ * @return 动态对象集合
+ */
+DynamicObjects DataManager::getAllData() const
+{
+    return DataCache::instance()->getAllData();
+}
+
+/**
+ * @brief 启动测试数据定时器
+ * @param intervalMs 间隔时间（毫秒）
+ */
+void DataManager::startTestDataTimer(int intervalMs)
+{
+    DataCache::instance()->startTestDataTimer(intervalMs);
+}
+
+/**
+ * @brief 停止测试数据定时器
+ */
+void DataManager::stopTestDataTimer()
+{
+    DataCache::instance()->stopTestDataTimer();
 }

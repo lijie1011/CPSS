@@ -56,7 +56,6 @@ set(SOURCES
     eventhistorydialog.cpp
     platformcontrolpanel.cpp
     mainwindow.ui
-    icons.qrc
     settings/displaycategory.cpp
     settings/displaycategory.ui
     settings/viewinggroupdialog.cpp

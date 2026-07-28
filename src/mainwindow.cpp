@@ -1,3 +1,11 @@
+/**
+ * @file mainwindow.cpp
+ * @brief 主窗口类实现
+ * @details 该类是应用程序的主窗口，负责管理海图显示、工具栏、状态栏、插件系统和各种对话框。
+ *          主要功能包括海图初始化、平台控制、事件历史显示、显示设置等。
+ * @date 2026-07-28
+ */
+
 #include <QMenuBar>
 #include <QMenu>
 #include <QToolBar>
@@ -29,6 +37,10 @@
 #include "datamanager.h"
 #include "common/logger.h"
 
+/**
+ * @brief 主窗口构造函数
+ * @param parent 父窗口指针
+ */
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       ui(new Ui::MainWindow),
@@ -68,6 +80,9 @@ MainWindow::MainWindow(QWidget *parent)
     init();
 }
 
+/**
+ * @brief 主窗口析构函数
+ */
 MainWindow::~MainWindow()
 {
     // Logger::info("MainWindow destructor called");
@@ -82,12 +97,21 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+/**
+ * @brief 显示事件处理
+ * @param event 显示事件
+ */
 void MainWindow::showEvent(QShowEvent *event)
 {
     QMainWindow::showEvent(event);
     // Logger::info("MainWindow showEvent called");
 }
 
+/**
+ * @brief 检查Enclib许可证是否过期
+ * @param enclibPath Enclib库路径
+ * @return 过期返回true，有效返回false
+ */
 bool MainWindow::checkLicenseExpired(const QString &enclibPath)
 {
     QString licPath = enclibPath + "/lic.dat";
@@ -129,6 +153,10 @@ bool MainWindow::checkLicenseExpired(const QString &enclibPath)
     return false;
 }
 
+/**
+ * @brief 初始化主窗口
+ * @details 初始化Enclib海图库、视图组件、数据管理器和插件系统
+ */
 void MainWindow::init()
 {
     // Logger::info("MainWindow::init started");
@@ -203,6 +231,10 @@ void MainWindow::init()
     loadPlugins();
 }
 
+/**
+ * @brief 加载插件
+ * @details 从应用程序目录下的plugins文件夹加载所有插件
+ */
 void MainWindow::loadPlugins()
 {
     QString pluginDir = QCoreApplication::applicationDirPath() + "/plugins";
@@ -210,12 +242,22 @@ void MainWindow::loadPlugins()
     m_pluginManager->loadPlugins(pluginDir);
 }
 
+/**
+ * @brief 插件加载完成处理
+ * @param plugin 加载完成的插件
+ */
 void MainWindow::onPluginLoaded(IPlugin *plugin)
 {
     // Logger::info("MainWindow::onPluginLoaded - %s", plugin->pluginName().toStdString().c_str());
     registerPluginButton(plugin->pluginId(), plugin->pluginName());
 }
 
+/**
+ * @brief 注册插件按钮到工具栏
+ * @param pluginId 插件ID
+ * @param buttonText 按钮显示文本
+ * @return 注册成功返回true
+ */
 bool MainWindow::registerPluginButton(const QString &pluginId, const QString &buttonText)
 {
     QAction *action = new QAction(buttonText, this);
@@ -229,6 +271,10 @@ bool MainWindow::registerPluginButton(const QString &pluginId, const QString &bu
     return true;
 }
 
+/**
+ * @brief 注销插件按钮
+ * @param pluginId 插件ID
+ */
 void MainWindow::unregisterPluginButton(const QString &pluginId)
 {
     QAction *action = m_pluginActions.take(pluginId);
@@ -237,6 +283,10 @@ void MainWindow::unregisterPluginButton(const QString &pluginId)
     }
 }
 
+/**
+ * @brief 插件按钮点击处理
+ * @details 切换插件界面和海图视图的显示
+ */
 void MainWindow::onPluginActionTriggered()
 {
     QAction *action = qobject_cast<QAction*>(sender());
@@ -258,6 +308,10 @@ void MainWindow::onPluginActionTriggered()
     }
 }
 
+/**
+ * @brief 显示插件界面
+ * @param plugin 要显示的插件
+ */
 void MainWindow::showPluginWidget(IPlugin *plugin)
 {
     // Logger::info("MainWindow::showPluginWidget - %s", plugin->pluginName().toStdString().c_str());
@@ -283,6 +337,11 @@ void MainWindow::showPluginWidget(IPlugin *plugin)
     m_currentPlugin = plugin;
 }
 
+/**
+ * @brief 设置活动插件界面
+ * @param widget 插件界面组件
+ * @return 设置成功返回true
+ */
 bool MainWindow::setActiveWidget(QWidget *widget)
 {
     for (auto it = m_pluginWidgets.constBegin(); it != m_pluginWidgets.constEnd(); ++it) {
@@ -298,6 +357,10 @@ bool MainWindow::setActiveWidget(QWidget *widget)
     return false;
 }
 
+/**
+ * @brief 显示海图视图
+ * @details 隐藏插件界面，显示海图
+ */
 void MainWindow::showMapView()
 {
     for (auto action : m_pluginActions.values()) {
@@ -307,36 +370,63 @@ void MainWindow::showMapView()
     m_currentPlugin = nullptr;
 }
 
+/**
+ * @brief 获取数据管理器
+ * @return DataManager单例指针
+ */
 DataManager* MainWindow::getDataManager()
 {
     return DataManager::instance();
 }
 
+/**
+ * @brief 获取应用程序版本号
+ * @return 版本号字符串
+ */
 QString MainWindow::getAppVersion() const
 {
     return QString("1.0.0");
 }
 
+/**
+ * @brief 获取应用程序路径
+ * @return 应用程序运行目录路径
+ */
 QString MainWindow::getAppPath() const
 {
     return QCoreApplication::applicationDirPath();
 }
 
+/**
+ * @brief 显示状态栏消息
+ * @param message 消息内容
+ */
 void MainWindow::showStatusMessage(const QString &message)
 {
     ui->statusBar->showMessage(message);
 }
 
+/**
+ * @brief 显示通知对话框
+ * @param title 对话框标题
+ * @param message 消息内容
+ */
 void MainWindow::showNotification(const QString &title, const QString &message)
 {
     QMessageBox::information(this, title, message);
 }
 
+/**
+ * @brief 创建状态栏
+ */
 void MainWindow::createStatusBar()
 {
     statusBar()->showMessage(tr("CPSS v1.0 - Ready"));
 }
 
+/**
+ * @brief 放大视图
+ */
 void MainWindow::zoomIn()
 {
     if (m_viewWidget) {
@@ -344,6 +434,9 @@ void MainWindow::zoomIn()
     }
 }
 
+/**
+ * @brief 缩小视图
+ */
 void MainWindow::zoomOut()
 {
     if (m_viewWidget) {
@@ -351,6 +444,9 @@ void MainWindow::zoomOut()
     }
 }
 
+/**
+ * @brief 重置视图到默认位置
+ */
 void MainWindow::resetView()
 {
     if (m_viewWidget) {
@@ -358,6 +454,10 @@ void MainWindow::resetView()
     }
 }
 
+/**
+ * @brief 更新地理坐标显示
+ * @param pos 鼠标位置
+ */
 void MainWindow::updateGeoPosition(QPoint pos)
 {
     if (!m_viewWidget || !m_viewWidget->isEnclibReady()) {
@@ -371,6 +471,10 @@ void MainWindow::updateGeoPosition(QPoint pos)
     statusBar()->showMessage(tr("Lon: %1 Lat: %2 Scale: %3").arg(lon, 0, 'f', 6).arg(lat, 0, 'f', 6).arg(scale, 0, 'f', 0));
 }
 
+/**
+ * @brief 显示事件图例对话框
+ * @details 显示各类事件和阵营的颜色、图标说明
+ */
 void MainWindow::showEventLegend()
 {
     QString legendText = 
@@ -409,6 +513,9 @@ void MainWindow::showEventLegend()
     QMessageBox::information(this, tr("Event Legend"), legendText);
 }
 
+/**
+ * @brief 显示海图显示设置对话框
+ */
 void MainWindow::showDisplaySetting()
 {
     QDialog* dialog = new QDialog(this);
@@ -432,6 +539,9 @@ void MainWindow::showDisplaySetting()
     dialog->show();
 }
 
+/**
+ * @brief 显示水深和等深线设置对话框
+ */
 void MainWindow::showDepthAndContour()
 {
     WaterDepthSetting* depthAndContour = new WaterDepthSetting(this);
@@ -440,6 +550,9 @@ void MainWindow::showDepthAndContour()
     depthAndContour->setAttribute(Qt::WA_DeleteOnClose);
 }
 
+/**
+ * @brief 显示事件历史对话框
+ */
 void MainWindow::showEventHistory()
 {
     EventHistoryDialog *dialog = new EventHistoryDialog(this);
@@ -448,6 +561,9 @@ void MainWindow::showEventHistory()
     dialog->show();
 }
 
+/**
+ * @brief 显示平台控制面板
+ */
 void MainWindow::showPlatformControl()
 {
     PlatformControlPanel *panel = new PlatformControlPanel(this);

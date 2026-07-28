@@ -1,3 +1,11 @@
+/**
+ * @file eventhistorydialog.cpp
+ * @brief 事件历史对话框实现
+ * @details 该类提供事件历史记录的可视化展示，以表格形式显示所有事件的详细信息，
+ *          包括时间、ID、类型、名称、目标、来源、位置和描述等字段。
+ * @date 2026-07-28
+ */
+
 #include "eventhistorydialog.h"
 #include <QVBoxLayout>
 #include <QHeaderView>
@@ -5,6 +13,10 @@
 #include <QTableWidgetItem>
 #include <QScrollBar>
 
+/**
+ * @brief 构造函数
+ * @param parent 父窗口
+ */
 EventHistoryDialog::EventHistoryDialog(QWidget *parent)
     : QDialog(parent)
 {
@@ -25,10 +37,18 @@ EventHistoryDialog::EventHistoryDialog(QWidget *parent)
     layout->addWidget(m_tableWidget);
 }
 
+/**
+ * @brief 析构函数
+ */
 EventHistoryDialog::~EventHistoryDialog()
 {
 }
 
+/**
+ * @brief 事件类型转字符串
+ * @param type 事件类型
+ * @return 事件类型字符串
+ */
 QString EventHistoryDialog::eventTypeToString(SpecialEventType type)
 {
     switch (type) {
@@ -46,6 +66,11 @@ QString EventHistoryDialog::eventTypeToString(SpecialEventType type)
     }
 }
 
+/**
+ * @brief 事件类型对应的颜色
+ * @param type 事件类型
+ * @return 颜色
+ */
 QColor EventHistoryDialog::eventTypeColor(SpecialEventType type)
 {
     switch (type) {
@@ -63,6 +88,10 @@ QColor EventHistoryDialog::eventTypeColor(SpecialEventType type)
     }
 }
 
+/**
+ * @brief 更新历史记录
+ * @param events 事件列表
+ */
 void EventHistoryDialog::updateHistory(const QList<SpecialEvent> &events)
 {
     m_tableWidget->setRowCount(0);

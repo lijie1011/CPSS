@@ -1,33 +1,33 @@
 <RCC>
     <qresource prefix="/">
         <file alias="group70.png">resource/组 70.png</file>
-        <file alias="pru/group26.png">resource/pru/组 26.png</file>
-        <file alias="pru/group27.png">resource/pru/组 27.png</file>
-        <file alias="pru/group28.png">resource/pru/组 28.png</file>
-        <file alias="pru/group29.png">resource/pru/组 29.png</file>
-        <file alias="pru/group30.png">resource/pru/组 30.png</file>
-        <file alias="pru/group31.png">resource/pru/组 31.png</file>
-        <file alias="pru/group32.png">resource/pru/组 32.png</file>
-        <file alias="pru/group33.png">resource/pru/组 33.png</file>
-        <file alias="pru/group34.png">resource/pru/组 34.png</file>
-        <file alias="pru/group35.png">resource/pru/组 35.png</file>
-        <file alias="pru/group36.png">resource/pru/组 36.png</file>
-        <file alias="pru/group37.png">resource/pru/组 37.png</file>
-        <file alias="pru/group38.png">resource/pru/组 38.png</file>
-        <file alias="pru/group39.png">resource/pru/组 39.png</file>
-        <file alias="pru/group40.png">resource/pru/组 40.png</file>
-        <file alias="pru/group41.png">resource/pru/组 41.png</file>
-        <file alias="pru/group42.png">resource/pru/组 42.png</file>
-        <file alias="pru/group43.png">resource/pru/组 43.png</file>
-        <file alias="pru/group44.png">resource/pru/组 44.png</file>
-        <file alias="pru/group45.png">resource/pru/组 45.png</file>
-        <file alias="pru/group46.png">resource/pru/组 46.png</file>
-        <file alias="pru/group47.png">resource/pru/组 47.png</file>
-        <file alias="pru/path114.png">resource/pru/路径 114.png</file>
-        <file alias="pru/path271.png">resource/pru/路径 271.png</file>
         <file alias="purple/boat.png">resource/purple/boat.png</file>
         <file alias="purple/plane.png">resource/purple/plane.png</file>
-        <file alias="red/group4.png">resource/red/组 4.png</file>
+        <file alias="purple/group26.png">resource/purple/组 26.png</file>
+        <file alias="purple/group27.png">resource/purple/组 27.png</file>
+        <file alias="purple/group28.png">resource/purple/组 28.png</file>
+        <file alias="purple/group29.png">resource/purple/组 29.png</file>
+        <file alias="purple/group30.png">resource/purple/组 30.png</file>
+        <file alias="purple/group31.png">resource/purple/组 31.png</file>
+        <file alias="purple/group32.png">resource/purple/组 32.png</file>
+        <file alias="purple/group33.png">resource/purple/组 33.png</file>
+        <file alias="purple/group34.png">resource/purple/组 34.png</file>
+        <file alias="purple/group35.png">resource/purple/组 35.png</file>
+        <file alias="purple/group36.png">resource/purple/组 36.png</file>
+        <file alias="purple/group37.png">resource/purple/组 37.png</file>
+        <file alias="purple/group39.png">resource/purple/组 39.png</file>
+        <file alias="purple/group40.png">resource/purple/组 40.png</file>
+        <file alias="purple/group41.png">resource/purple/组 41.png</file>
+        <file alias="purple/group42.png">resource/purple/组 42.png</file>
+        <file alias="purple/group43.png">resource/purple/组 43.png</file>
+        <file alias="purple/group44.png">resource/purple/组 44.png</file>
+        <file alias="purple/group45.png">resource/purple/组 45.png</file>
+        <file alias="purple/group47.png">resource/purple/组 47.png</file>
+        <file alias="purple/path114.png">resource/purple/路径 114.png</file>
+        <file alias="purple/path271.png">resource/purple/路径 271.png</file>
+        <file alias="red/boat.png">resource/red/boat.png</file>
+        <file alias="red/plane.png">resource/red/plane.png</file>
+        <file alias="red/fighter.png">resource/red/fighter.png</file>
         <file alias="red/group5.png">resource/red/组 5.png</file>
         <file alias="red/group6.png">resource/red/组 6.png</file>
         <file alias="red/group7.png">resource/red/组 7.png</file>
@@ -42,7 +42,6 @@
         <file alias="red/group16.png">resource/red/组 16.png</file>
         <file alias="red/group17.png">resource/red/组 17.png</file>
         <file alias="red/group18.png">resource/red/组 18.png</file>
-        <file alias="red/group19.png">resource/red/组 19.png</file>
         <file alias="red/group20.png">resource/red/组 20.png</file>
         <file alias="red/group21.png">resource/red/组 21.png</file>
         <file alias="red/group22.png">resource/red/组 22.png</file>
@@ -51,8 +50,6 @@
         <file alias="red/group25.png">resource/red/组 25.png</file>
         <file alias="red/path114.png">resource/red/路径 114.png</file>
         <file alias="red/path116.png">resource/red/路径 116.png</file>
-        <file alias="red/boat.png">resource/red/boat.png</file>
-        <file alias="red/plane.png">resource/red/plane.png</file>
         <file alias="unknow/group48.png">resource/unknow/组 48.png</file>
         <file alias="unknow/group49.png">resource/unknow/组 49.png</file>
         <file alias="unknow/group50.png">resource/unknow/组 50.png</file>
@@ -77,5 +74,9 @@
         <file alias="unknow/group69.png">resource/unknow/组 69.png</file>
         <file alias="unknow/path114.png">resource/unknow/路径 114.png</file>
         <file alias="unknow/path272.png">resource/unknow/路径 272.png</file>
+    </qresource>
+    <qresource prefix="/icons">
+        <file alias="settings.png">resource/images/settings64x64t.png</file>
+        <file alias="ruler.png">resource/images/ruler.png</file>
     </qresource>
 </RCC>

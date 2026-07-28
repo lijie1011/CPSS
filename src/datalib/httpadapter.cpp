@@ -1,3 +1,11 @@
+/**
+ * @file httpadapter.cpp
+ * @brief HTTP协议适配器实现
+ * @details 负责通过HTTP协议从服务器获取数据，解析JSON格式的平台和事件数据，
+ *          并将解析结果通过信号发送给数据管理器。支持GET、POST、PUT等请求方式。
+ * @date 2026-07-28
+ */
+
 #include "httpadapter.h"
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -5,6 +13,10 @@
 #include <QUrl>
 #include "logger.h"
 
+/**
+ * @brief 构造函数
+ * @param parent 父对象指针
+ */
 HttpAdapter::HttpAdapter(QObject *parent)
     : IProtocolAdapter(parent),
       m_manager(nullptr),
@@ -14,11 +26,18 @@ HttpAdapter::HttpAdapter(QObject *parent)
 {
 }
 
+/**
+ * @brief 析构函数
+ */
 HttpAdapter::~HttpAdapter()
 {
     stop();
 }
 
+/**
+ * @brief 启动HTTP适配器
+ * @return 启动成功返回true，失败返回false
+ */
 bool HttpAdapter::start()
 {
     if (m_status == Running)
@@ -41,11 +60,13 @@ bool HttpAdapter::start()
 
     m_status = Running;
     emit statusChanged(m_status);
-    // Logger::info("HTTP Adapter started, url: %s, interval: %dms",
-                 // m_requestUrl.toStdString().c_str(), m_requestInterval);
     return true;
 }
 
+/**
+ * @brief 停止HTTP适配器
+ * @return 停止成功返回true，失败返回false
+ */
 bool HttpAdapter::stop()
 {
     if (m_status == Stopped)
@@ -61,35 +82,56 @@ bool HttpAdapter::stop()
 
     m_status = Stopped;
     emit statusChanged(m_status);
-    // Logger::info("HTTP Adapter stopped");
     return true;
 }
 
+/**
+ * @brief 设置请求URL
+ * @param url HTTP请求的目标URL
+ */
 void HttpAdapter::setRequestUrl(const QString &url)
 {
     m_requestUrl = url;
 }
 
+/**
+ * @brief 设置请求间隔时间
+ * @param ms 间隔时间（毫秒）
+ */
 void HttpAdapter::setRequestInterval(int ms)
 {
     m_requestInterval = ms;
 }
 
+/**
+ * @brief 设置请求类型
+ * @param type 请求类型（GET/POST/PUT）
+ */
 void HttpAdapter::setRequestType(const QString &type)
 {
     m_requestType = type;
 }
 
+/**
+ * @brief 设置请求数据
+ * @param data POST/PUT请求时发送的数据
+ */
 void HttpAdapter::setRequestData(const QByteArray &data)
 {
     m_requestData = data;
 }
 
+/**
+ * @brief 请求超时处理函数
+ */
 void HttpAdapter::onRequestTimeout()
 {
     sendRequest();
 }
 
+/**
+ * @brief 发送HTTP请求
+ */
 void HttpAdapter::sendRequest()
 {
     if (!m_manager || m_requestUrl.isEmpty())
@@ -116,6 +158,10 @@ void HttpAdapter::sendRequest()
             this, &HttpAdapter::onReplyError);
 }
 
+/**
+ * @brief 处理HTTP响应完成
+ * @param reply 网络响应对象
+ */
 void HttpAdapter::onReplyFinished(QNetworkReply *reply)
 {
     if (!reply)
@@ -128,7 +174,6 @@ void HttpAdapter::onReplyFinished(QNetworkReply *reply)
         QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
 
         if (parseError.error != QJsonParseError::NoError) {
-            // Logger::warn("HTTP Adapter invalid JSON: %s", parseError.errorString().toStdString().c_str());
         } else if (doc.isObject()) {
             parseAndUpdate(doc.object(), protocolType());
         } else if (doc.isArray()) {
@@ -142,17 +187,25 @@ void HttpAdapter::onReplyFinished(QNetworkReply *reply)
     reply->deleteLater();
 }
 
+/**
+ * @brief 处理HTTP响应错误
+ * @param error 网络错误类型
+ */
 void HttpAdapter::onReplyError(QNetworkReply::NetworkError error)
 {
     Q_UNUSED(error);
     QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
     if (reply) {
         m_lastError = reply->errorString();
-        // Logger::error("HTTP Adapter error: %s", m_lastError.toStdString().c_str());
         reply->deleteLater();
     }
 }
 
+/**
+ * @brief 解析并更新数据
+ * @param data JSON格式的数据对象
+ * @param source 数据来源协议类型
+ */
 void HttpAdapter::parseAndUpdate(const QJsonObject &data, ProtocolType source)
 {
     QString type = data["type"].toString();
@@ -177,6 +230,12 @@ void HttpAdapter::parseAndUpdate(const QJsonObject &data, ProtocolType source)
     }
 }
 
+/**
+ * @brief 解析平台数据
+ * @param obj JSON格式的平台对象
+ * @param source 数据来源协议类型
+ * @return 解析后的PlatformData对象
+ */
 PlatformData HttpAdapter::parsePlatform(const QJsonObject &obj, ProtocolType source)
 {
     PlatformData platform;
@@ -229,6 +288,11 @@ PlatformData HttpAdapter::parsePlatform(const QJsonObject &obj, ProtocolType sou
     return platform;
 }
 
+/**
+ * @brief 解析事件数据
+ * @param obj JSON格式的事件对象
+ * @return 解析后的SpecialEvent对象
+ */
 SpecialEvent HttpAdapter::parseEvent(const QJsonObject &obj)
 {
     SpecialEvent event;

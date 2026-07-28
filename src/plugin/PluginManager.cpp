@@ -1,14 +1,29 @@
+/**
+ * @file PluginManager.cpp
+ * @brief 插件管理器类实现
+ * @details 该类负责从指定目录加载插件DLL/SO文件，管理插件生命周期，并提供插件访问接口。
+ * @date 2026-07-28
+ */
+
 #include "PluginManager.h"
 #include <QDir>
 #include <QFileInfo>
 #include "common/logger.h"
 
+/**
+ * @brief 构造函数
+ * @param parent 父对象指针
+ */
 PluginManager::PluginManager(QObject *parent)
     : QObject(parent),
       m_host(nullptr)
 {
 }
 
+/**
+ * @brief 析构函数
+ * @details 卸载所有已加载的插件并释放资源
+ */
 PluginManager::~PluginManager()
 {
     for (auto loader : m_loaders.values()) {
@@ -17,11 +32,20 @@ PluginManager::~PluginManager()
     }
 }
 
+/**
+ * @brief 设置插件宿主
+ * @param host 插件宿主接口指针
+ */
 void PluginManager::setPluginHost(IPluginHost *host)
 {
     m_host = host;
 }
 
+/**
+ * @brief 从指定目录加载所有插件
+ * @param pluginDir 插件目录路径
+ * @return 加载成功返回true
+ */
 bool PluginManager::loadPlugins(const QString &pluginDir)
 {
     // Logger::info("PluginManager::loadPlugins - loading plugins from: %s", pluginDir.toStdString().c_str());
@@ -83,11 +107,20 @@ bool PluginManager::loadPlugins(const QString &pluginDir)
     return true;
 }
 
+/**
+ * @brief 获取所有已加载的插件
+ * @return 插件指针列表
+ */
 QList<IPlugin*> PluginManager::getLoadedPlugins() const
 {
     return m_plugins.values();
 }
 
+/**
+ * @brief 根据插件ID获取插件
+ * @param pluginId 插件ID
+ * @return 插件指针，不存在返回nullptr
+ */
 IPlugin* PluginManager::getPlugin(const QString &pluginId) const
 {
     return m_plugins.value(pluginId, nullptr);

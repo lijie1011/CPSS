@@ -1,8 +1,25 @@
+/**
+ * @file platformitem.cpp
+ * @brief 平台图元类实现
+ * @details 该类继承自QGraphicsItem，负责在QGraphicsScene中绘制单个平台（舰船、飞机等）。
+ *          支持根据平台类型和阵营显示不同的图标，同时处理航迹点和显示状态。
+ * @date 2026-07-28
+ */
+
 #include "platformitem.h"
 #include <QPainter>
 #include <QFont>
 #include <QPolygonF>
 
+/**
+ * @brief 构造函数
+ * @param platform 平台数据
+ * @param redBoatIcon 红方舰船图标
+ * @param redPlaneIcon 红方飞机图标
+ * @param purpleBoatIcon 紫方舰船图标
+ * @param purplePlaneIcon 紫方飞机图标
+ * @param parent 父图元
+ */
 PlatformItem::PlatformItem(const PlatformData &platform, const QImage &redBoatIcon,
                            const QImage &redPlaneIcon, const QImage &purpleBoatIcon,
                            const QImage &purplePlaneIcon, QGraphicsItem *parent)
@@ -30,6 +47,10 @@ PlatformItem::PlatformItem(const PlatformData &platform, const QImage &redBoatIc
     }
 }
 
+/**
+ * @brief 更新图标
+ * @details 根据平台类型和阵营选择合适的显示图标
+ */
 void PlatformItem::updateIcon()
 {
     m_isMissile = (m_platform.type == "missile");
@@ -58,6 +79,10 @@ void PlatformItem::updateIcon()
     }
 }
 
+/**
+ * @brief 更新边界矩形
+ * @details 根据平台类型和图标大小计算图元的边界矩形
+ */
 void PlatformItem::updateBoundingRect()
 {
     int textHeight = 15;
@@ -71,6 +96,10 @@ void PlatformItem::updateBoundingRect()
     }
 }
 
+/**
+ * @brief 更新平台数据
+ * @param platform 新的平台数据
+ */
 void PlatformItem::updateData(const PlatformData &platform)
 {
     bool needUpdate = false;
@@ -100,17 +129,31 @@ void PlatformItem::updateData(const PlatformData &platform)
     }
 }
 
+/**
+ * @brief 更新显示状态
+ * @param state 显示状态
+ */
 void PlatformItem::updateDisplayState(const PlatformDisplayState &state)
 {
     m_displayState = state;
     update();
 }
 
+/**
+ * @brief 获取边界矩形
+ * @return 图元的边界矩形
+ */
 QRectF PlatformItem::boundingRect() const
 {
     return m_boundingRect;
 }
 
+/**
+ * @brief 绘制图元
+ * @param painter 绘制器
+ * @param option 样式选项
+ * @param widget 父窗口部件
+ */
 void PlatformItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
     Q_UNUSED(option);

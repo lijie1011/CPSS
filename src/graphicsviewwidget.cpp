@@ -1,3 +1,11 @@
+/**
+ * @file graphicsviewwidget.cpp
+ * @brief 图形视图组件实现
+ * @details 该类是基于QGraphicsView的海图显示组件，负责绘制平台、传感器/武器范围、航迹、事件标记等动态元素。
+ *          支持与Enclib海图库的集成，提供地图缩放、平移、鹰眼图等功能。
+ * @date 2026-07-28
+ */
+
 #include "graphicsviewwidget.h"
 #include <QPainter>
 #include <QApplication>
@@ -15,6 +23,10 @@
 #include "encl.h"
 #include "common/logger.h"
 
+/**
+ * @brief 构造函数
+ * @param parent 父组件
+ */
 GraphicsViewWidget::GraphicsViewWidget(QWidget *parent)
     : QGraphicsView(parent),
       m_enclibReady(false),
@@ -31,6 +43,9 @@ GraphicsViewWidget::GraphicsViewWidget(QWidget *parent)
     loadIcons();
 }
 
+/**
+ * @brief 加载平台图标资源
+ */
 void GraphicsViewWidget::loadIcons()
 {
     QString resourcePath = QCoreApplication::applicationDirPath() + "/../resource";
@@ -41,6 +56,9 @@ void GraphicsViewWidget::loadIcons()
     m_purplePlaneIcon = QImage(resourcePath + "/purple/plane.png");
 }
 
+/**
+ * @brief 析构函数
+ */
 GraphicsViewWidget::~GraphicsViewWidget()
 {
     for (auto item : m_platformItems.values()) {
@@ -84,11 +102,19 @@ GraphicsViewWidget::~GraphicsViewWidget()
     delete m_scene;
 }
 
+/**
+ * @brief 设置Enclib海图库就绪状态
+ * @param ready 就绪标志
+ */
 void GraphicsViewWidget::setEnclibReady(bool ready)
 {
     m_enclibReady = ready;
 }
 
+/**
+ * @brief 更新动态数据
+ * @param data 动态对象数据
+ */
 void GraphicsViewWidget::updateDynamicData(const DynamicObjects &data)
 {
     m_dynamicData = data;
@@ -129,7 +155,7 @@ void GraphicsViewWidget::updateDynamicData(const DynamicObjects &data)
             }
 
             box->label->setText(
-                QString("Property\nName: %1\nID: %2\nCamp: %3\nLongitude: %4\nLatitude: %5\nHeading: %6°\nSpeed: %7 kn%8")
+                QString("Property\nName: %1\nID: %2\nCamp: %3\nLongitude: %4\nLatitude: %5\nHeading: %6\nSpeed: %7 kn%8")
                     .arg(platform.name)
                     .arg(platform.id)
                     .arg(campStr)
@@ -150,6 +176,9 @@ void GraphicsViewWidget::updateDynamicData(const DynamicObjects &data)
     updateAllConnectingLines();
 }
 
+/**
+ * @brief 更新地图背景
+ */
 void GraphicsViewWidget::updateMapBackground()
 {
     if (!m_enclibReady) {
@@ -173,6 +202,9 @@ void GraphicsViewWidget::updateMapBackground()
     }
 }
 
+/**
+ * @brief 更新平台图元
+ */
 void GraphicsViewWidget::updatePlatformItems()
 {
     QSet<QString> currentPlatformIds;
@@ -223,6 +255,9 @@ void GraphicsViewWidget::updatePlatformItems()
     }
 }
 
+/**
+ * @brief 更新传感器和武器范围
+ */
 void GraphicsViewWidget::updateSensorWeaponRanges()
 {
     QSet<QString> currentPlatformIds;
@@ -427,6 +462,9 @@ void GraphicsViewWidget::updateSensorWeaponRanges()
     }
 }
 
+/**
+ * @brief 更新航迹
+ */
 void GraphicsViewWidget::updateTracks()
 {
     QSet<QString> currentPlatformIds;
@@ -496,6 +534,9 @@ void GraphicsViewWidget::updateTracks()
     }
 }
 
+/**
+ * @brief 更新事件标记
+ */
 void GraphicsViewWidget::updateEventMarkers()
 {
     QSet<QString> currentPlatformIds;
@@ -568,7 +609,10 @@ void GraphicsViewWidget::updateEventMarkers()
 
                 QGraphicsTextItem *text = static_cast<QGraphicsTextItem*>(items[1]);
                 text->setPlainText(iconText);
-                text->setPos(x + 20 - 4, y - 15 - 6);
+                QFont font("Arial", 9, QFont::Bold);
+                text->setFont(font);
+                text->setDefaultTextColor(Qt::white);
+                text->setPos(x + 20 - 4, y - 15 - 5);
                 text->setVisible(true);
             }
         } else {
@@ -579,9 +623,10 @@ void GraphicsViewWidget::updateEventMarkers()
             m_eventMarkerItems[platform.id].append(rect);
 
             QGraphicsTextItem *text = new QGraphicsTextItem(iconText);
-            text->setPos(x + 20 - 4, y - 15 - 6);
+            QFont font("Arial", 9, QFont::Bold);
+            text->setFont(font);
             text->setDefaultTextColor(Qt::white);
-            text->setFont(QFont("Arial", 10, QFont::Bold));
+            text->setPos(x + 20 - 4, y - 15 - 5);
             m_scene->addItem(text);
             m_eventMarkerItems[platform.id].append(text);
         }

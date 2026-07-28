@@ -1,3 +1,11 @@
+/**
+ * @file viewinggroupdialog.cpp
+ * @brief 显示分组对话框实现
+ * @details 该类提供海图显示分组的配置界面，支持基本/标准/其他三个分组类别的设置，
+ *          通过XML配置文件加载分组信息。
+ * @date 2026-07-28
+ */
+
 #include "encl.h"
 #include "viewinggroupdialog.h"
 #include "ui_viewinggroupdialog.h"
@@ -7,7 +15,10 @@
 #include <QTreeWidgetItem>
 #include <QCoreApplication>
 
-
+/**
+ * @brief 构造函数
+ * @param parent 父窗口
+ */
 ViewingGroupDialog::ViewingGroupDialog(QWidget *parent) :
     QDialog(parent),
     firstLoad(true),
@@ -23,11 +34,18 @@ ViewingGroupDialog::ViewingGroupDialog(QWidget *parent) :
     ui->baseTreeWidget->setEnabled(false);
 }
 
+/**
+ * @brief 析构函数
+ */
 ViewingGroupDialog::~ViewingGroupDialog()
 {
     delete ui;
 }
 
+/**
+ * @brief 初始化界面
+ * @details 从XML配置文件加载显示分组信息并构建树形控件
+ */
 void ViewingGroupDialog::init()
 {
     QDomDocument domDoc;
@@ -115,6 +133,9 @@ void ViewingGroupDialog::init()
     ui->otherTreeWidget->setHeaderLabel(QString::fromLocal8Bit("其他显示分组"));
 }
 
+/**
+ * @brief 更新UI界面
+ */
 void ViewingGroupDialog::updateUI()
 {
     if(true == firstLoad)
@@ -146,8 +167,15 @@ void ViewingGroupDialog::updateUI()
     }
 }
 
+/**
+ * @brief 树形项点击处理
+ * @param item 被点击的树形项
+ * @param column 列索引
+ */
 void ViewingGroupDialog::treeItemChanged(QTreeWidgetItem *item, int column)
 {
+    Q_UNUSED(column);
+
     EnclDisplayCategory disCategory = EnclDrawGetDisplayCategory();
     if(ENCL_CUSTOM != disCategory )
        EnclDrawSetDisplayCategory(ENCL_CUSTOM);
@@ -214,6 +242,10 @@ void ViewingGroupDialog::treeItemChanged(QTreeWidgetItem *item, int column)
     emit updateChartView();
 }
 
+/**
+ * @brief 更新分组项状态
+ * @param secondaryitem 分组项
+ */
 void ViewingGroupDialog::updateGroupIem(QTreeWidgetItem * secondaryitem)
 {
     if(NULL == secondaryitem)

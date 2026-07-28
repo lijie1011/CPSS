@@ -1,7 +1,18 @@
+/**
+ * @file platformcontrolpanel.cpp
+ * @brief 平台控制面板实现
+ * @details 该类提供平台显示状态的可视化控制界面，允许用户勾选/取消勾选各平台的显示选项。
+ * @date 2026-07-28
+ */
+
 #include "platformcontrolpanel.h"
 
 #include <QApplication>
 
+/**
+ * @brief 构造函数
+ * @param parent 父窗口
+ */
 PlatformControlPanel::PlatformControlPanel(QWidget *parent)
     : QDialog(parent),
       m_updatingCheckState(false)
@@ -11,10 +22,16 @@ PlatformControlPanel::PlatformControlPanel(QWidget *parent)
     initUI();
 }
 
+/**
+ * @brief 析构函数
+ */
 PlatformControlPanel::~PlatformControlPanel()
 {
 }
 
+/**
+ * @brief 初始化用户界面
+ */
 void PlatformControlPanel::initUI()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
@@ -51,12 +68,22 @@ void PlatformControlPanel::initUI()
     mainLayout->addLayout(btnLayout);
 }
 
+/**
+ * @brief 用数据初始化面板
+ * @param data 动态对象数据
+ * @param currentStates 当前显示状态
+ */
 void PlatformControlPanel::initWithData(const DynamicObjects &data, const DisplayStateMap &currentStates)
 {
     m_currentData = data;
     populateTree(data, currentStates);
 }
 
+/**
+ * @brief 填充树形控件
+ * @param data 动态对象数据
+ * @param currentStates 当前显示状态
+ */
 void PlatformControlPanel::populateTree(const DynamicObjects &data, const DisplayStateMap &currentStates)
 {
     m_treeWidget->clear();
@@ -88,7 +115,7 @@ void PlatformControlPanel::populateTree(const DynamicObjects &data, const Displa
             } else {
                 state.showShip = true;
                 state.showName = true;
-                state.showTrack = true;
+                state.showTrack = false;
                 state.showSensors = false;
                 state.showWeapons = false;
                 state.showEvents = true;
@@ -100,6 +127,12 @@ void PlatformControlPanel::populateTree(const DynamicObjects &data, const Displa
     m_treeWidget->expandAll();
 }
 
+/**
+ * @brief 添加平台节点到树形控件
+ * @param campItem 阵营父节点
+ * @param platform 平台数据
+ * @param state 显示状态
+ */
 void PlatformControlPanel::addPlatformNode(QTreeWidgetItem *campItem, const PlatformData &platform, const PlatformDisplayState &state)
 {
     QTreeWidgetItem *platformItem = new QTreeWidgetItem(campItem);
@@ -136,7 +169,15 @@ void PlatformControlPanel::addPlatformNode(QTreeWidgetItem *campItem, const Plat
             QTreeWidgetItem *sensorItem = new QTreeWidgetItem(sensorsItem);
             sensorItem->setText(0, QString("%1 (%2nm)").arg(sensor.type).arg(sensor.range));
             sensorItem->setFlags(sensorItem->flags() | Qt::ItemIsUserCheckable);
-            sensorItem->setCheckState(0, Qt::Checked);
+            
+            bool sensorEnabled = false;
+            for (const ComponentState &cs : state.sensors) {
+                if (cs.componentName == sensor.type) {
+                    sensorEnabled = cs.enabled;
+                    break;
+                }
+            }
+            sensorItem->setCheckState(0, sensorEnabled ? Qt::Checked : Qt::Unchecked);
         }
     }
 
@@ -150,7 +191,15 @@ void PlatformControlPanel::addPlatformNode(QTreeWidgetItem *campItem, const Plat
             QTreeWidgetItem *weaponItem = new QTreeWidgetItem(weaponsItem);
             weaponItem->setText(0, QString("%1 (%2nm)").arg(weapon.type).arg(weapon.range));
             weaponItem->setFlags(weaponItem->flags() | Qt::ItemIsUserCheckable);
-            weaponItem->setCheckState(0, Qt::Checked);
+            
+            bool weaponEnabled = false;
+            for (const ComponentState &cs : state.weapons) {
+                if (cs.componentName == weapon.type) {
+                    weaponEnabled = cs.enabled;
+                    break;
+                }
+            }
+            weaponItem->setCheckState(0, weaponEnabled ? Qt::Checked : Qt::Unchecked);
         }
     }
 
@@ -160,6 +209,9 @@ void PlatformControlPanel::addPlatformNode(QTreeWidgetItem *campItem, const Plat
     eventsItem->setCheckState(0, state.showEvents ? Qt::Checked : Qt::Unchecked);
 }
 
+/**
+ * @brief 应用按钮点击处理
+ */
 void PlatformControlPanel::onApplyClicked()
 {
     DisplayStateMap stateMap;
@@ -167,6 +219,9 @@ void PlatformControlPanel::onApplyClicked()
     emit displayStateChanged(stateMap);
 }
 
+/**
+ * @brief 重置按钮点击处理
+ */
 void PlatformControlPanel::onResetClicked()
 {
     m_updatingCheckState = true;
@@ -200,6 +255,9 @@ void PlatformControlPanel::onResetClicked()
     emit displayStateChanged(stateMap);
 }
 
+/**
+ * @brief 关闭按钮点击处理
+ */
 void PlatformControlPanel::onCloseClicked()
 {
     DisplayStateMap stateMap;
@@ -208,6 +266,10 @@ void PlatformControlPanel::onCloseClicked()
     close();
 }
 
+/**
+ * @brief 搜索文本变化处理
+ * @param text 搜索文本
+ */
 void PlatformControlPanel::onSearchTextChanged(const QString &text)
 {
     for (int i = 0; i < m_treeWidget->topLevelItemCount(); i++) {
@@ -348,7 +410,7 @@ void PlatformControlPanel::collectStates(DisplayStateMap &stateMap)
 
             if (!hasShip) state.showShip = true;
             if (!hasName) state.showName = true;
-            if (!hasTrack) state.showTrack = true;
+            if (!hasTrack) state.showTrack = false;
             if (!hasSensors) state.showSensors = false;
             if (!hasWeapons) state.showWeapons = false;
             if (!hasEvents) state.showEvents = true;

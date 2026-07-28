@@ -1,12 +1,25 @@
+/**
+ * @file logger.cpp
+ * @brief 日志系统实现
+ * @details 提供线程安全的日志记录功能，支持 DEBUG、INFO、WARN、ERROR 四个级别，
+ *          日志可输出到文件或标准错误流。
+ * @date 2026-07-28
+ */
+
 #include "logger.h"
 #include <QDateTime>
 #include <cstdarg>
 #include <cstdio>
 
+// 静态成员变量初始化
 QMutex Logger::s_mutex;
 QFile Logger::s_file;
 QTextStream Logger::s_stream;
 
+/**
+ * @brief 初始化日志系统
+ * @param filename 日志文件路径
+ */
 void Logger::init(const QString &filename)
 {
     s_file.setFileName(filename);
@@ -21,11 +34,19 @@ void Logger::init(const QString &filename)
     }
 }
 
+/**
+ * @brief 清理日志系统资源
+ */
 void Logger::cleanup()
 {
     s_file.close();
 }
 
+/**
+ * @brief 记录DEBUG级别日志
+ * @param format 格式化字符串
+ * @param ... 可变参数
+ */
 void Logger::debug(const char *format, ...)
 {
     QMutexLocker locker(&s_mutex);
@@ -46,6 +67,11 @@ void Logger::debug(const char *format, ...)
     }
 }
 
+/**
+ * @brief 记录INFO级别日志
+ * @param format 格式化字符串
+ * @param ... 可变参数
+ */
 void Logger::info(const char *format, ...)
 {
     QMutexLocker locker(&s_mutex);
@@ -66,6 +92,11 @@ void Logger::info(const char *format, ...)
     }
 }
 
+/**
+ * @brief 记录WARN级别日志
+ * @param format 格式化字符串
+ * @param ... 可变参数
+ */
 void Logger::warn(const char *format, ...)
 {
     QMutexLocker locker(&s_mutex);
@@ -86,6 +117,11 @@ void Logger::warn(const char *format, ...)
     }
 }
 
+/**
+ * @brief 记录ERROR级别日志
+ * @param format 格式化字符串
+ * @param ... 可变参数
+ */
 void Logger::error(const char *format, ...)
 {
     QMutexLocker locker(&s_mutex);

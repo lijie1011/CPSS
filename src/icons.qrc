@@ -1,6 +1,0 @@
-<RCC>
-    <qresource prefix="/icons">
-        <file>images/settings64x64t.png</file>
-        <file>images/ruler.png</file>
-    </qresource>
-</RCC>
