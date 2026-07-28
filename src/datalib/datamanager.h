@@ -109,41 +109,37 @@ public:
      * @param id 平台ID
      * @return 平台数据
      */
-    PlatformData getPlatform(const QString &id) {
-        return DataCache::instance()->getPlatform(id);
-    }
+    PlatformData getPlatform(const QString &id) const;
     
     /**
      * @brief 获取所有平台数据
      * @return 平台数据列表
      */
-    QList<PlatformData> getAllPlatforms() {
-        return DataCache::instance()->getAllPlatforms();
-    }
+    QList<PlatformData> getAllPlatforms() const;
     
     /**
      * @brief 获取有效的平台数据
      * @return 有效平台数据列表
      */
-    QList<PlatformData> getValidPlatforms() {
-        return DataCache::instance()->getValidPlatforms();
-    }
+    QList<PlatformData> getValidPlatforms() const;
     
     /**
      * @brief 获取所有数据
      * @return 动态对象集合
      */
-    DynamicObjects getAllData() {
-        return DataCache::instance()->getAllData();
-    }
+    DynamicObjects getAllData() const;
+    
+    /**
+     * @brief 获取所有事件
+     * @return 事件列表
+     */
+    QList<SpecialEvent> getAllEvents() const;
     
     /**
      * @brief 获取事件历史
      * @return 事件列表
      */
-    QList<SpecialEvent> getEventHistory() {
-        return DataCache::instance()->getEventHistory();
-    }
+    QList<SpecialEvent> getEventHistory() const;
 
     /**
      * @brief 数据推送回调类型
@@ -177,16 +173,12 @@ public:
      * @brief 启动测试数据定时器
      * @param intervalMs 间隔（毫秒）
      */
-    void startTestDataTimer(int intervalMs = 1000) {
-        DataCache::instance()->startTestDataTimer(intervalMs);
-    }
+    void startTestDataTimer(int intervalMs = 1000);
     
     /**
      * @brief 停止测试数据定时器
      */
-    void stopTestDataTimer() {
-        DataCache::instance()->stopTestDataTimer();
-    }
+    void stopTestDataTimer();
 
     /**
      * @brief 注册平台更新回调
