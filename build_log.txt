@@ -1,5 +1,5 @@
 ======================================== 
-[周五 2026/08/07 22:57:45.15] cmake configure 
+[周五 2026/08/07 23:46:49.22] cmake configure 
 ======================================== 
 -- Selecting Windows SDK version 10.0.19041.0 to target Windows 10.0.19045.
 -- Building CPSS for platform: windows
@@ -8,7 +8,7 @@
 -- Generating done (0.5s)
 -- Build files have been written to: D:/ZCHH/CPSS/src/build
 ======================================== 
-[周五 2026/08/07 22:57:45.95] cmake build 
+[周五 2026/08/07 23:46:50.22] cmake build 
 ======================================== 
 用于 .NET Framework 的 Microsoft (R) 生成引擎版本 16.11.6+a918ceb31
 版权所有(C) Microsoft Corporation。保留所有权利。
@@ -45,4 +45,4 @@
   'pwsh.exe' 不是内部或外部命令，也不是可运行的程序
   或批处理文件。
 ======================================== 
-[周五 2026/08/07 22:58:20.15] build complete 
+[周五 2026/08/07 23:47:27.47] build complete 

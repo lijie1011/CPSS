@@ -18,6 +18,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonParseError>
 #include <QKeyEvent>
 #include <QLineF>
 #include <QLineEdit>
@@ -325,6 +326,71 @@ bool NodeFlowWidget::exportJson(const QString &fileName) const
         return false;
     }
     file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    return true;
+}
+
+/**
+ * @brief 从 JSON 文件导入图
+ * @param fileName JSON 文件路径
+ * @return 读取成功返回 true
+ */
+bool NodeFlowWidget::importJson(const QString &fileName)
+{
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly)) return false;
+    QByteArray data = file.readAll();
+    file.close();
+
+    QJsonParseError err;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject()) return false;
+
+    QJsonObject root = doc.object();
+
+    // 解析节点数组
+    QVector<Node> nodes;
+    int maxId = 0;
+    QJsonArray nodeArray = root.value(QStringLiteral("nodes")).toArray();
+    for (const QJsonValue &val : nodeArray) {
+        QJsonObject obj = val.toObject();
+        Node node;
+        node.id = obj.value(QStringLiteral("id")).toInt(0);
+        node.title = obj.value(QStringLiteral("title")).toString();
+        node.subtitle = obj.value(QStringLiteral("subtitle")).toString();
+        node.color = QColor(obj.value(QStringLiteral("color")).toString("#2E7DD1"));
+        if (!node.color.isValid()) node.color = QColor("#2E7DD1");
+        double x = obj.value(QStringLiteral("x")).toDouble(0);
+        double y = obj.value(QStringLiteral("y")).toDouble(0);
+        double w = obj.value(QStringLiteral("width")).toDouble(NodeWidth);
+        double h = obj.value(QStringLiteral("height")).toDouble(NodeHeight);
+        node.rect = QRectF(x, y, w, h);
+        nodes.push_back(node);
+        maxId = std::max(maxId, node.id);
+    }
+
+    // 解析边数组
+    QVector<Edge> edges;
+    QJsonArray edgeArray = root.value(QStringLiteral("edges")).toArray();
+    for (const QJsonValue &val : edgeArray) {
+        QJsonObject obj = val.toObject();
+        Edge edge;
+        edge.from = obj.value(QStringLiteral("from")).toInt(0);
+        edge.to = obj.value(QStringLiteral("to")).toInt(0);
+        edge.label = obj.value(QStringLiteral("label")).toString();
+        edges.push_back(edge);
+    }
+
+    // 替换当前画布
+    m_nodes = nodes;
+    m_edges = edges;
+    m_nextNodeId = maxId + 1;
+    m_selectedNodeId = -1;
+    m_selectedEdgeIndex = -1;
+    m_activeNodeIds.clear();
+    m_activeEdgeIndices.clear();
+    m_needInitialFit = true;
+    emitGraphChanged();
+    update();
     return true;
 }
 

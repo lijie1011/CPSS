@@ -14,9 +14,11 @@
 
 #include <QCheckBox>
 #include <QComboBox>
+#include <QFileDialog>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSplitter>
 #include <QVBoxLayout>
@@ -203,6 +205,21 @@ void DataFlowWidget::createUI()
     layout->addWidget(m_modeCombo);
     layout->addWidget(gridCheck);
     layout->addLayout(zoomLayout);
+
+    auto *importButton = new QPushButton(QStringLiteral("导入 JSON"), panel);
+    importButton->setMinimumHeight(32);
+    importButton->setStyleSheet(
+        "QPushButton{background:#6F7FA6;color:white;border:none;border-radius:4px;font-weight:bold;}"
+        "QPushButton:hover{background:#5C6A8C;}");
+
+    auto *exportButton = new QPushButton(QStringLiteral("导出 JSON"), panel);
+    exportButton->setMinimumHeight(32);
+    exportButton->setStyleSheet(
+        "QPushButton{background:#2E7DD1;color:white;border:none;border-radius:4px;font-weight:bold;}"
+        "QPushButton:hover{background:#256DB8;}");
+
+    layout->addWidget(importButton);
+    layout->addWidget(exportButton);
     layout->addStretch(1);
 
     connect(m_modeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -211,6 +228,29 @@ void DataFlowWidget::createUI()
     connect(fitButton, &QPushButton::clicked, m_flow, &NodeFlowWidget::fitToView);
     connect(zoomInButton, &QPushButton::clicked, m_flow, &NodeFlowWidget::zoomIn);
     connect(zoomOutButton, &QPushButton::clicked, m_flow, &NodeFlowWidget::zoomOut);
+    connect(exportButton, &QPushButton::clicked, this, [this]() {
+        QString fileName = QFileDialog::getSaveFileName(
+            this, QStringLiteral("导出图为 JSON"),
+            QString(), QStringLiteral("JSON 文件 (*.json)"));
+        if (fileName.isEmpty()) return;
+        if (!fileName.endsWith(".json", Qt::CaseInsensitive)) fileName += ".json";
+        bool ok = m_flow->exportJson(fileName);
+        if (!ok) {
+            QMessageBox::warning(this, QStringLiteral("导出失败"),
+                                 QStringLiteral("无法写入文件：%1").arg(fileName));
+        }
+    });
+    connect(importButton, &QPushButton::clicked, this, [this]() {
+        QString fileName = QFileDialog::getOpenFileName(
+            this, QStringLiteral("从 JSON 导入图"),
+            QString(), QStringLiteral("JSON 文件 (*.json)"));
+        if (fileName.isEmpty()) return;
+        bool ok = m_flow->importJson(fileName);
+        if (!ok) {
+            QMessageBox::warning(this, QStringLiteral("导入失败"),
+                                 QStringLiteral("文件格式无效或无法读取：%1").arg(fileName));
+        }
+    });
 
     splitter->addWidget(panel);
     splitter->setStretchFactor(0, 1);

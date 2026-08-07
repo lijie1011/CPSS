@@ -187,6 +187,15 @@ public:
      */
     bool exportJson(const QString &fileName) const;
 
+    /**
+     * @brief 从 JSON 文件导入图
+     * @param fileName JSON 文件的绝对或相对路径。
+     * @return 读取成功返回 @c true；文件无法打开或解析失败返回 @c false。
+     * @details 期望的 JSON 结构与 exportJson 输出一致。导入会清空当前画布
+     *          并替换为文件中的节点和边。缺失字段使用默认值。
+     */
+    bool importJson(const QString &fileName);
+
     /** @return 当前选中节点的 ID，若无可选中项则返回 -1。 */
     int selectedNodeId() const;
 
