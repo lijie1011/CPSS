@@ -1,6 +1,0 @@
-2026-07-22 16:01:45.015 [INFO]  UDP Adapter started on port 12347
-2026-07-22 16:01:45.434 [INFO]  Data push callback registered, total callbacks: 1
-2026-07-22 16:01:45.435 [INFO]  Data push started with interval: 100 ms
-2026-07-22 16:01:45.948 [INFO]  Data push stopped
-2026-07-22 16:01:45.948 [INFO]  Data push callback unregistered, total callbacks: 0
-2026-07-22 16:01:45.948 [INFO]  UDP Adapter stopped
