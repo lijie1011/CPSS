@@ -13,7 +13,11 @@
 #include "common/logger.h"
 
 #include <QContextMenuEvent>
+#include <QFile>
 #include <QInputDialog>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QKeyEvent>
 #include <QLineF>
 #include <QLineEdit>
@@ -282,6 +286,48 @@ void NodeFlowWidget::clearHighlights()
     update();
 }
 
+/**
+ * @brief 将当前图导出为 JSON 文件
+ * @param fileName 输出文件路径
+ * @return 写入成功返回 true
+ */
+bool NodeFlowWidget::exportJson(const QString &fileName) const
+{
+    QJsonArray nodes;
+    for (const Node &node : m_nodes) {
+        QJsonObject item;
+        item.insert(QStringLiteral("id"), node.id);
+        item.insert(QStringLiteral("title"), node.title);
+        item.insert(QStringLiteral("subtitle"), node.subtitle);
+        item.insert(QStringLiteral("color"), node.color.name(QColor::HexRgb).toUpper());
+        item.insert(QStringLiteral("x"), node.rect.x());
+        item.insert(QStringLiteral("y"), node.rect.y());
+        item.insert(QStringLiteral("width"), node.rect.width());
+        item.insert(QStringLiteral("height"), node.rect.height());
+        nodes.append(item);
+    }
+
+    QJsonArray edges;
+    for (const Edge &edge : m_edges) {
+        QJsonObject item;
+        item.insert(QStringLiteral("from"), edge.from);
+        item.insert(QStringLiteral("to"), edge.to);
+        item.insert(QStringLiteral("label"), edge.label);
+        edges.append(item);
+    }
+
+    QJsonObject root;
+    root.insert(QStringLiteral("nodes"), nodes);
+    root.insert(QStringLiteral("edges"), edges);
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        return false;
+    }
+    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    return true;
+}
+
 /** @brief 返回当前选中的节点 ID（-1 表示无选中） */
 int NodeFlowWidget::selectedNodeId() const { return m_selectedNodeId; }
 /** @brief 返回图中节点数量 */
@@ -327,30 +373,45 @@ void NodeFlowWidget::contextMenuEvent(QContextMenuEvent *event)
     const QPointF scenePoint = widgetToScene(event->pos());
     const int nodeId = hitNode(scenePoint);
     QMenu menu(this);
+    menu.setStyleSheet(
+        "QMenu { background-color: #FFFFFF; border: 1px solid #D0D7DE; padding: 4px 0px; }"
+        "QMenu::item { padding: 6px 24px; color: #1F2933; }"
+        "QMenu::item:selected { background-color: #2E7DD1; color: #FFFFFF; }"
+        "QMenu::separator { height: 1px; background: #E4E9EF; margin: 4px 8px; }"
+    );
     if (nodeId >= 0) {
         setSelectedNode(nodeId);
-        QAction *renameAction = menu.addAction(QStringLiteral("Rename Node"));
-        QAction *deleteAction = menu.addAction(QStringLiteral("Delete Node"));
+        QAction *renameAction = menu.addAction(QStringLiteral("重命名节点"));
+        QAction *connectAction = menu.addAction(QStringLiteral("从此节点开始连线"));
+        QAction *deleteAction = menu.addAction(QStringLiteral("删除节点"));
         const QAction *chosen = menu.exec(event->globalPos());
-        if (chosen == renameAction) editNodeTitle(nodeId);
-        else if (chosen == deleteAction) removeSelectedNode();
+        if (chosen == renameAction) {
+            editNodeTitle(nodeId);
+        } else if (chosen == connectAction) {
+            m_connecting = true;
+            m_connectionFromId = nodeId;
+            m_connectionEnd = scenePoint;
+            update();
+        } else if (chosen == deleteAction) {
+            removeSelectedNode();
+        }
         return;
     }
     const int edgeIndex = hitEdge(scenePoint);
     if (edgeIndex >= 0) {
         setSelectedEdge(edgeIndex);
-        QAction *editAction = menu.addAction(QStringLiteral("Edit Edge Label"));
-        QAction *deleteAction = menu.addAction(QStringLiteral("Delete Edge"));
+        QAction *editAction = menu.addAction(QStringLiteral("编辑连线标签"));
+        QAction *deleteAction = menu.addAction(QStringLiteral("删除连线"));
         const QAction *chosen = menu.exec(event->globalPos());
         if (chosen == editAction) editEdgeLabel(edgeIndex);
         else if (chosen == deleteAction) removeSelectedEdge();
         return;
     }
-    QAction *addAction = menu.addAction(QStringLiteral("Add Node Here"));
-    QAction *fitAction = menu.addAction(QStringLiteral("Fit to View"));
+    QAction *addAction = menu.addAction(QStringLiteral("在此处添加节点"));
+    QAction *fitAction = menu.addAction(QStringLiteral("适应窗口"));
     const QAction *chosen = menu.exec(event->globalPos());
     if (chosen == addAction) {
-        addNode(QStringLiteral("Node %1").arg(m_nextNodeId), QStringLiteral("Right-click to add"),
+        addNode(QStringLiteral("节点 %1").arg(m_nextNodeId), QStringLiteral("右键添加"),
                 QColor("#2E7DD1"), scenePoint - QPointF(NodeWidth / 2.0, NodeHeight / 2.0));
     } else if (chosen == fitAction) {
         fitToView();
@@ -371,7 +432,10 @@ void NodeFlowWidget::mouseDoubleClickEvent(QMouseEvent *event)
 }
 
 /**
- * @brief 开始平移（Alt 或中键）、节点拖拽或在空白处点击时清除选择
+ * @brief 开始平移（Alt 或中键）、节点拖拽、连线完成或选择
+ * @details 当 m_connecting 为 true 时（右键菜单触发的单次连线模式）：
+ *          左键点目标节点 → 完成连线并重置状态；
+ *          左键点空白处或起点自身 → 取消连线。
  */
 void NodeFlowWidget::mousePressEvent(QMouseEvent *event)
 {
@@ -384,6 +448,18 @@ void NodeFlowWidget::mousePressEvent(QMouseEvent *event)
         return;
     }
     if (event->button() == Qt::LeftButton) {
+        // 单次连线模式中：左键决定连线终点或取消
+        if (m_connecting) {
+            const int id = hitNode(m_lastScenePos);
+            if (id >= 0 && id != m_connectionFromId) {
+                addEdge(m_connectionFromId, id, QStringLiteral("next"));
+                setSelectedNode(id);
+            }
+            m_connecting = false;
+            m_connectionFromId = -1;
+            update();
+            return;
+        }
         const int id = hitNode(m_lastScenePos);
         if (id >= 0) {
             m_draggingNode = true;
@@ -397,7 +473,8 @@ void NodeFlowWidget::mousePressEvent(QMouseEvent *event)
 }
 
 /**
- * @brief 平移时按控件空间增量平移 m_panOffset；节点拖拽时按场景空间增量平移节点矩形
+ * @brief 平移时按控件空间增量平移 m_panOffset；节点拖拽时按场景空间增量平移节点矩形；
+ *        连线模式下实时更新预览终点坐标
  */
 void NodeFlowWidget::mouseMoveEvent(QMouseEvent *event)
 {
@@ -414,6 +491,9 @@ void NodeFlowWidget::mouseMoveEvent(QMouseEvent *event)
             node->rect = node->rect.translated(delta);
             update();
         }
+    } else if (m_connecting) {
+        m_connectionEnd = scenePos;
+        update();
     }
     m_lastWidgetPos = widgetPos;
     m_lastScenePos = scenePos;
@@ -448,12 +528,18 @@ void NodeFlowWidget::wheelEvent(QWheelEvent *event)
 }
 
 /**
- * @brief 处理 Delete 和 Backspace 键以移除选中项
+ * @brief 处理 Delete 和 Backspace 键删除选中项，Esc 键取消连线模式
  */
 void NodeFlowWidget::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
         removeSelectedItem();
+    } else if (event->key() == Qt::Key_Escape) {
+        if (m_connecting) {
+            m_connecting = false;
+            m_connectionFromId = -1;
+            update();
+        }
     }
 }
 

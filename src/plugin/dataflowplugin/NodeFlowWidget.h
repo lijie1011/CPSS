@@ -178,6 +178,15 @@ public:
      */
     void clearHighlights();
 
+    /**
+     * @brief 将当前图导出为 JSON 文件
+     * @param fileName 输出文件的绝对或相对路径。
+     * @return 写入成功返回 @c true；文件无法打开返回 @c false。
+     * @details JSON 结构为 {"nodes": [{id,title,subtitle,color,x,y,width,height}, ...],
+     *          "edges": [{from,to,label}, ...]}。颜色以十六进制 "#RRGGBB" 格式输出。
+     */
+    bool exportJson(const QString &fileName) const;
+
     /** @return 当前选中节点的 ID，若无可选中项则返回 -1。 */
     int selectedNodeId() const;
 
