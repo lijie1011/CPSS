@@ -1,9 +1,8 @@
 /**
  * @file displaycategory.cpp
- * @brief 显示分类设置对话框实现
- * @details 该类提供海图显示分类的配置界面，支持基础/标准/自定义等多种显示模式，
- *          以及配色方案、着色模式等设置。
- * @date 2026-07-28
+ * @brief 显示类别设置对话框实现
+ * @details 本类提供海图显示类别的配置界面，支持基础/标准/自定义等多种显示模式，
+ *          以及配色方案和着色模式的设置。
  */
 
 #include "displaycategory.h"
@@ -12,7 +11,7 @@
 
 /**
  * @brief 构造函数
- * @param parent 父窗口
+ * @param parent 父界面
  */
 DisplayCategory::DisplayCategory(QWidget *parent)
 	: QDialog(parent)
@@ -116,7 +115,7 @@ DisplayCategory::~DisplayCategory()
 }
 
 /**
- * @brief OK按钮点击处理
+ * @brief 确定按钮点击处理
  */
 void DisplayCategory::slot_pbOK()
 {
@@ -127,7 +126,7 @@ void DisplayCategory::slot_pbOK()
 }
 
 /**
- * @brief Cancel按钮点击处理
+ * @brief 取消按钮点击处理
  */
 void DisplayCategory::slot_pbCancel()
 {
@@ -135,7 +134,7 @@ void DisplayCategory::slot_pbCancel()
 }
 
 /**
- * @brief Apply按钮点击处理
+ * @brief 应用按钮点击处理
  */
 void DisplayCategory::slot_pbApplay()
 {
@@ -146,7 +145,7 @@ void DisplayCategory::slot_pbApplay()
 
 /**
  * @brief 更新复选框组状态
- * @details 根据选中的显示模式更新各复选框的勾选状态
+ * @details 根据选定的显示模式更新各复选框的勾选状态
  */
 void DisplayCategory::updateCheckBoxGroup()
 {  

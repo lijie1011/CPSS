@@ -2,7 +2,7 @@
  * @file httpadapter.cpp
  * @brief HTTP协议适配器实现
  * @details 负责通过HTTP协议从服务器获取数据，解析JSON格式的平台和事件数据，
- *          并将解析结果通过信号发送给数据管理器。支持GET、POST、PUT等请求方式。
+ *          并通过信号将解析结果发送给数据管理器。支持GET、POST、PUT等请求方法。
  * @date 2026-07-28
  */
 
@@ -36,7 +36,7 @@ HttpAdapter::~HttpAdapter()
 
 /**
  * @brief 启动HTTP适配器
- * @return 启动成功返回true，失败返回false
+ * @return true 表示启动成功，false 表示失败
  */
 bool HttpAdapter::start()
 {
@@ -65,7 +65,7 @@ bool HttpAdapter::start()
 
 /**
  * @brief 停止HTTP适配器
- * @return 停止成功返回true，失败返回false
+ * @return true 表示停止成功，false 表示失败
  */
 bool HttpAdapter::stop()
 {
@@ -143,6 +143,7 @@ void HttpAdapter::sendRequest()
 
     QNetworkReply *reply = nullptr;
 
+    // 根据请求类型选择对应的HTTP方法
     if (m_requestType.toUpper() == "POST") {
         reply = m_manager->post(req, m_requestData);
     } else if (m_requestType.toUpper() == "PUT") {
@@ -151,6 +152,7 @@ void HttpAdapter::sendRequest()
         reply = m_manager->get(req);
     }
 
+    // 连接完成和错误信号
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         onReplyFinished(reply);
     });
@@ -203,7 +205,7 @@ void HttpAdapter::onReplyError(QNetworkReply::NetworkError error)
 
 /**
  * @brief 解析并更新数据
- * @param data JSON格式的数据对象
+ * @param data JSON格式数据对象
  * @param source 数据来源协议类型
  */
 void HttpAdapter::parseAndUpdate(const QJsonObject &data, ProtocolType source)
@@ -232,7 +234,7 @@ void HttpAdapter::parseAndUpdate(const QJsonObject &data, ProtocolType source)
 
 /**
  * @brief 解析平台数据
- * @param obj JSON格式的平台对象
+ * @param obj JSON格式平台对象
  * @param source 数据来源协议类型
  * @return 解析后的PlatformData对象
  */
@@ -251,6 +253,7 @@ PlatformData HttpAdapter::parsePlatform(const QJsonObject &obj, ProtocolType sou
     }
     platform.category = obj["category"].toString();
     
+    // 阵营字符串转枚举
     QString campStr = obj["camp"].toString().toLower();
     if (campStr == "friendly") {
         platform.camp = Camp_Friendly;
@@ -262,6 +265,7 @@ PlatformData HttpAdapter::parsePlatform(const QJsonObject &obj, ProtocolType sou
         platform.camp = Camp_Unknown;
     }
 
+    // 解析武器列表
     QJsonArray weaponsArray = obj["weapons"].toArray();
     for (const auto &weapon : weaponsArray) {
         QJsonObject weaponObj = weapon.toObject();
@@ -271,6 +275,7 @@ PlatformData HttpAdapter::parsePlatform(const QJsonObject &obj, ProtocolType sou
         platform.weapons.append(wi);
     }
 
+    // 解析传感器列表
     QJsonArray sensorsArray = obj["sensors"].toArray();
     for (const auto &sensor : sensorsArray) {
         QJsonObject sensorObj = sensor.toObject();
@@ -290,7 +295,7 @@ PlatformData HttpAdapter::parsePlatform(const QJsonObject &obj, ProtocolType sou
 
 /**
  * @brief 解析事件数据
- * @param obj JSON格式的事件对象
+ * @param obj JSON格式事件对象
  * @return 解析后的SpecialEvent对象
  */
 SpecialEvent HttpAdapter::parseEvent(const QJsonObject &obj)
@@ -298,6 +303,7 @@ SpecialEvent HttpAdapter::parseEvent(const QJsonObject &obj)
     SpecialEvent event;
     event.eventId = obj["eventId"].toString();
     
+    // 事件类型字符串转枚举
     QString eventTypeStr = obj["eventType"].toString().toLower();
     if (eventTypeStr == "attack") {
         event.eventType = Event_Attack;

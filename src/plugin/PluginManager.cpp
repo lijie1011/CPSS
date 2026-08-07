@@ -1,18 +1,28 @@
 /**
  * @file PluginManager.cpp
- * @brief 插件管理器类实现
- * @details 该类负责从指定目录加载插件DLL/SO文件，管理插件生命周期，并提供插件访问接口。
+ * @brief 插件管理器实现
+ * @details 负责从指定目录动态加载插件 DLL、注册内置插件、管理插件的生命周期。
+ *          支持通过 qt_plugin_instance 符号解析插件实例，并将其转换为 IPlugin 接口。
  * @date 2026-07-28
  */
 
 #include "PluginManager.h"
+#include "common/logger.h"
 #include <QDir>
 #include <QFileInfo>
-#include "common/logger.h"
+#include <QLibrary>
+
+// 日志辅助函数：通过 Logger 输出信息级别日志
+static inline void logInfo(const QString &msg) {
+    Logger::info("%s", msg.toUtf8().constData());
+}
+
+// 插件实例工厂函数类型：无参数、返回 QObject*
+typedef QObject* (*InstanceFunc)();
 
 /**
  * @brief 构造函数
- * @param parent 父对象指针
+ * @param parent 父对象
  */
 PluginManager::PluginManager(QObject *parent)
     : QObject(parent),
@@ -22,19 +32,19 @@ PluginManager::PluginManager(QObject *parent)
 
 /**
  * @brief 析构函数
- * @details 卸载所有已加载的插件并释放资源
+ * @details 卸载所有已加载的插件 DLL 并释放资源
  */
 PluginManager::~PluginManager()
 {
-    for (auto loader : m_loaders.values()) {
-        loader->unload();
-        delete loader;
+    for (auto lib : m_libraries.values()) {
+        lib->unload();
+        delete lib;
     }
 }
 
 /**
- * @brief 设置插件宿主
- * @param host 插件宿主接口指针
+ * @brief 设置插件宿主接口
+ * @param host 插件宿主接口指针，用于插件与主程序通信
  */
 void PluginManager::setPluginHost(IPluginHost *host)
 {
@@ -43,21 +53,21 @@ void PluginManager::setPluginHost(IPluginHost *host)
 
 /**
  * @brief 从指定目录加载所有插件
- * @param pluginDir 插件目录路径
- * @return 加载成功返回true
+ * @param pluginDir 插件目录路径，扫描其中的 .dll / .so 文件
+ * @return 只要有插件成功加载即返回 true；若全部失败返回 false
  */
 bool PluginManager::loadPlugins(const QString &pluginDir)
 {
-    // Logger::info("PluginManager::loadPlugins - loading plugins from: %s", pluginDir.toStdString().c_str());
+    logInfo("PluginManager::loadPlugins enter");
 
     if (!m_host) {
-        // Logger::error("PluginManager::loadPlugins - no host set");
+        logInfo("PluginManager: ERROR no host set");
         return false;
     }
 
     QDir dir(pluginDir);
     if (!dir.exists()) {
-        // Logger::warn("Plugin directory does not exist: %s", pluginDir.toStdString().c_str());
+        logInfo("PluginManager: ERROR dir not exist: " + pluginDir);
         return false;
     }
 
@@ -66,44 +76,90 @@ bool PluginManager::loadPlugins(const QString &pluginDir)
     dir.setNameFilters(filters);
 
     QFileInfoList files = dir.entryInfoList(QDir::Files);
-    // Logger::info("Found %d potential plugin files", files.size());
+    logInfo(QString("PluginManager: found %1 files").arg(files.size()));
 
     for (const QFileInfo &file : files) {
-        QPluginLoader *loader = new QPluginLoader(file.absoluteFilePath(), this);
-        QObject *pluginObj = loader->instance();
+        QString absPath = file.absoluteFilePath();
+        logInfo("PluginManager: trying " + file.fileName());
 
-        if (pluginObj) {
-            IPlugin *plugin = qobject_cast<IPlugin*>(pluginObj);
-            if (plugin) {
-                bool initSuccess = plugin->init(m_host);
-                if (initSuccess) {
-                    m_plugins[plugin->pluginId()] = plugin;
-                    m_loaders[plugin->pluginId()] = loader;
-                    // Logger::info("Loaded plugin: %s (%s) v%s", 
-                                 // plugin->pluginName().toStdString().c_str(),
-                                 // plugin->pluginId().toStdString().c_str(),
-                                 // plugin->pluginVersion().toStdString().c_str());
-                    emit pluginLoaded(plugin);
-                } else {
-                    // Logger::warn("Plugin init failed: %s", plugin->pluginName().toStdString().c_str());
-                    loader->unload();
-                    delete loader;
-                }
-            } else {
-                // Logger::warn("Plugin file does not implement IPlugin interface: %s", 
-                            // file.fileName().toStdString().c_str());
-                loader->unload();
-                delete loader;
-            }
-        } else {
-            // Logger::warn("Failed to load plugin: %s - %s", 
-            //             file.fileName().toStdString().c_str(),
-            //             loader->errorString().toStdString().c_str());
-            delete loader;
+        QLibrary *lib = new QLibrary(absPath);
+        if (!lib->load()) {
+            logInfo("PluginManager: QLibrary load FAILED: " + lib->errorString());
+            delete lib;
+            continue;
         }
+
+        InstanceFunc instFunc = (InstanceFunc)lib->resolve("qt_plugin_instance");
+        if (!instFunc) {
+            logInfo("PluginManager: resolve qt_plugin_instance FAILED");
+            lib->unload();
+            delete lib;
+            continue;
+        }
+
+        QObject *pluginObj = instFunc();
+        if (!pluginObj) {
+            logInfo("PluginManager: qt_plugin_instance returned NULL");
+            lib->unload();
+            delete lib;
+            continue;
+        }
+
+        IPlugin *plugin = qobject_cast<IPlugin*>(pluginObj);
+        if (!plugin) {
+            logInfo("PluginManager: not IPlugin interface: " + file.fileName());
+            delete pluginObj;
+            lib->unload();
+            delete lib;
+            continue;
+        }
+
+        if (!plugin->init(m_host)) {
+            logInfo("PluginManager: init FAILED: " + plugin->pluginName());
+            delete pluginObj;
+            lib->unload();
+            delete lib;
+            continue;
+        }
+
+        m_plugins[plugin->pluginId()] = plugin;
+        m_libraries[plugin->pluginId()] = lib;
+        logInfo(QString("PluginManager: LOADED %1 id=%2")
+                .arg(plugin->pluginName()).arg(plugin->pluginId()));
+        emit pluginLoaded(plugin);
     }
 
-    // Logger::info("Total loaded plugins: %d", m_plugins.size());
+    logInfo(QString("PluginManager: total loaded=%1").arg(m_plugins.size()));
+    return true;
+}
+
+/**
+ * @brief 注册内置插件（直接实例化，非 DLL 加载）
+ * @param plugin 插件实例
+ * @return 注册成功返回 true
+ */
+bool PluginManager::registerPlugin(IPlugin *plugin)
+{
+    if (!plugin) {
+        logInfo("PluginManager: registerPlugin got null");
+        return false;
+    }
+    if (!m_host) {
+        logInfo("PluginManager: registerPlugin ERROR no host");
+        return false;
+    }
+    if (m_plugins.contains(plugin->pluginId())) {
+        logInfo("PluginManager: registerPlugin duplicate id=" + plugin->pluginId());
+        return false;
+    }
+    if (!plugin->init(m_host)) {
+        logInfo("PluginManager: registerPlugin init FAILED: " + plugin->pluginName());
+        return false;
+    }
+    m_plugins[plugin->pluginId()] = plugin;
+    logInfo(QString("PluginManager: REGISTERED %1 id=%2 (built-in)")
+            .arg(plugin->pluginName()).arg(plugin->pluginId()));
+    emit pluginLoaded(plugin);
     return true;
 }
 
@@ -117,9 +173,9 @@ QList<IPlugin*> PluginManager::getLoadedPlugins() const
 }
 
 /**
- * @brief 根据插件ID获取插件
- * @param pluginId 插件ID
- * @return 插件指针，不存在返回nullptr
+ * @brief 根据 ID 获取插件
+ * @param pluginId 插件 ID
+ * @return 插件指针，未找到返回 nullptr
  */
 IPlugin* PluginManager::getPlugin(const QString &pluginId) const
 {

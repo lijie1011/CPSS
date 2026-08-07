@@ -1,8 +1,8 @@
 /**
  * @file platformcontrolpanel.cpp
  * @brief 平台控制面板实现
- * @details 该类提供平台显示状态的可视化控制界面，允许用户勾选/取消勾选各平台的显示选项。
- * @date 2026-07-28
+ * @details 本类提供平台显示状态的可视化控制界面，允许用户勾选/取消勾选
+ *          每个平台的显示选项。
  */
 
 #include "platformcontrolpanel.h"
@@ -69,8 +69,8 @@ void PlatformControlPanel::initUI()
 }
 
 /**
- * @brief 用数据初始化面板
- * @param data 动态对象数据
+ * @brief 使用数据初始化面板
+ * @param data 动态目标数据
  * @param currentStates 当前显示状态
  */
 void PlatformControlPanel::initWithData(const DynamicObjects &data, const DisplayStateMap &currentStates)
@@ -80,8 +80,8 @@ void PlatformControlPanel::initWithData(const DynamicObjects &data, const Displa
 }
 
 /**
- * @brief 填充树形控件
- * @param data 动态对象数据
+ * @brief 填充树控件
+ * @param data 动态目标数据
  * @param currentStates 当前显示状态
  */
 void PlatformControlPanel::populateTree(const DynamicObjects &data, const DisplayStateMap &currentStates)
@@ -128,7 +128,7 @@ void PlatformControlPanel::populateTree(const DynamicObjects &data, const Displa
 }
 
 /**
- * @brief 添加平台节点到树形控件
+ * @brief 向树控件添加平台节点
  * @param campItem 阵营父节点
  * @param platform 平台数据
  * @param state 显示状态
@@ -210,7 +210,7 @@ void PlatformControlPanel::addPlatformNode(QTreeWidgetItem *campItem, const Plat
 }
 
 /**
- * @brief 应用按钮点击处理
+ * @brief 应用按钮点击处理函数
  */
 void PlatformControlPanel::onApplyClicked()
 {
@@ -220,7 +220,7 @@ void PlatformControlPanel::onApplyClicked()
 }
 
 /**
- * @brief 重置按钮点击处理
+ * @brief 重置按钮点击处理函数
  */
 void PlatformControlPanel::onResetClicked()
 {
@@ -256,7 +256,7 @@ void PlatformControlPanel::onResetClicked()
 }
 
 /**
- * @brief 关闭按钮点击处理
+ * @brief 关闭按钮点击处理函数
  */
 void PlatformControlPanel::onCloseClicked()
 {
@@ -267,7 +267,7 @@ void PlatformControlPanel::onCloseClicked()
 }
 
 /**
- * @brief 搜索文本变化处理
+ * @brief 搜索文本变化处理函数
  * @param text 搜索文本
  */
 void PlatformControlPanel::onSearchTextChanged(const QString &text)
@@ -288,6 +288,11 @@ void PlatformControlPanel::onSearchTextChanged(const QString &text)
     }
 }
 
+/**
+ * @brief 树控件项点击处理，联动更新父子节点勾选状态
+ * @param item 被点击的树控件项
+ * @param column 列索引
+ */
 void PlatformControlPanel::onTreeItemClicked(QTreeWidgetItem *item, int column)
 {
     if (m_updatingCheckState) {
@@ -340,6 +345,10 @@ void PlatformControlPanel::onTreeItemClicked(QTreeWidgetItem *item, int column)
     m_updatingCheckState = false;
 }
 
+/**
+ * @brief 从树控件收集所有平台的显示状态
+ * @param stateMap 输出的显示状态映射表
+ */
 void PlatformControlPanel::collectStates(DisplayStateMap &stateMap)
 {
     for (int i = 0; i < m_treeWidget->topLevelItemCount(); i++) {
@@ -420,6 +429,11 @@ void PlatformControlPanel::collectStates(DisplayStateMap &stateMap)
     }
 }
 
+/**
+ * @brief 阵营类型转字符串
+ * @param camp 阵营类型
+ * @return 阵营名称字符串
+ */
 QString PlatformControlPanel::campToString(CampType camp)
 {
     switch (camp) {

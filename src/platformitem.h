@@ -1,8 +1,8 @@
 /**
  * @file platformitem.h
  * @brief 平台图元类定义
- * @details 该类定义了在QGraphicsScene中显示的平台图元，负责绘制平台图标、名称标签等。
- * @date 2026-07-28
+ * @details 本类定义了在QGraphicsScene中显示的平台图元，
+ *          负责绘制平台图标、名称标签等。
  */
 
 #ifndef PLATFORMITEM_H
@@ -59,7 +59,7 @@ public:
      * @brief 绘制图元
      * @param painter 绘制器
      * @param option 样式选项
-     * @param widget 父窗口部件
+     * @param widget 父界面
      */
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
@@ -70,7 +70,7 @@ public:
     QString id() const { return m_platform.id; }
 
     /**
-     * @brief 检查平台是否过期
+     * @brief 检查平台是否已过期
      * @return 过期返回true
      */
     bool isExpired() const { return m_platform.isExpired(); }

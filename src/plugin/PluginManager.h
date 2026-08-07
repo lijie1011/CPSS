@@ -10,7 +10,7 @@
 
 #include <QObject>
 #include <QMap>
-#include <QPluginLoader>
+#include <QLibrary>
 #include "IPlugin.h"
 
 /**
@@ -46,6 +46,13 @@ public:
      * @return 加载成功返回true
      */
     bool loadPlugins(const QString &pluginDir);
+
+    /**
+     * @brief 注册内置插件（非 DLL 加载，直接实例化）
+     * @param plugin 插件实例（PluginManager 接管所有权）
+     * @return 注册成功返回true
+     */
+    bool registerPlugin(IPlugin *plugin);
     
     /**
      * @brief 获取所有已加载的插件
@@ -75,8 +82,8 @@ signals:
 
 private:
     IPluginHost *m_host;                          ///< 插件宿主接口
-    QMap<QString, QPluginLoader*> m_loaders;      ///< 插件加载器映射
-    QMap<QString, IPlugin*> m_plugins;           ///< 插件实例映射
+    QMap<QString, QLibrary*> m_libraries;         ///< 插件库映射
+    QMap<QString, IPlugin*> m_plugins;            ///< 插件实例映射
 };
 
 #endif

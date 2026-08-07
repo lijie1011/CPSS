@@ -1,9 +1,9 @@
 /**
  * @file platformitem.cpp
  * @brief 平台图元类实现
- * @details 该类继承自QGraphicsItem，负责在QGraphicsScene中绘制单个平台（舰船、飞机等）。
- *          支持根据平台类型和阵营显示不同的图标，同时处理航迹点和显示状态。
- * @date 2026-07-28
+ * @details 本类继承自QGraphicsItem，负责在QGraphicsScene中绘制单个平台
+ *          （舰船、飞机等）。支持根据平台类型和阵营显示不同图标，
+ *          同时处理航迹点和显示状态。
  */
 
 #include "platformitem.h"
@@ -81,7 +81,7 @@ void PlatformItem::updateIcon()
 
 /**
  * @brief 更新边界矩形
- * @details 根据平台类型和图标大小计算图元的边界矩形
+ * @details 根据平台类型和图标尺寸计算图元的边界矩形
  */
 void PlatformItem::updateBoundingRect()
 {
@@ -149,10 +149,10 @@ QRectF PlatformItem::boundingRect() const
 }
 
 /**
- * @brief 绘制图元
+ * @brief 绘制平台图元（图标/形状及名称）
  * @param painter 绘制器
  * @param option 样式选项
- * @param widget 父窗口部件
+ * @param widget 父界面
  */
 void PlatformItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {

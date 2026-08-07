@@ -1,27 +1,27 @@
 /**
  * @file mainwindow.cpp
  * @brief 主窗口类实现
- * @details 该类是应用程序的主窗口，负责管理海图显示、工具栏、状态栏、插件系统和各种对话框。
- *          主要功能包括海图初始化、平台控制、事件历史显示、显示设置等。
- * @date 2026-07-28
+ * @details 顶层窗口初始化、工具栏信号连接、插件 Dock 管理、海图视图创建。
+ *          海图功能和 Enclib 初始化委托给内置 ChartPlugin，插件系统通过
+ *          PluginManager 统一管理，每个插件包装为 QDockWidget 嵌入布局。
  */
 
 #include <QMenuBar>
 #include <QMenu>
 #include <QToolBar>
 #include <QStatusBar>
+#include <QDockWidget>
 #include <QAction>
 #include <QIcon>
 #include <QLabel>
 #include <QMessageBox>
 #include <QCoreApplication>
-#include <QFile>
-#include <QTextStream>
 #include <QDateTime>
 #include <QDir>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QPushButton>
+#include <QTabWidget>
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -31,33 +31,45 @@
 #include "viewinggroupdialog.h"
 #include "waterdepthsetting.h"
 #include "platformcontrolpanel.h"
+#include "eventhistorydialog.h"
+#include "plugin/chartplugin/ChartPlugin.h"
+#include "graphicsviewwidget.h"
 
 #include <QApplication>
-#include "dynamicdata.h"
-#include "datamanager.h"
 #include "common/logger.h"
+#include "common/xmlconfig.h"
+
+/// 便捷日志宏，统一输出到 cpss.log
+static inline void logInfo(const QString &msg) {
+    Logger::info("%s", msg.toUtf8().constData());
+}
 
 /**
- * @brief 主窗口构造函数
- * @param parent 父窗口指针
+ * @brief 构造函数
+ * @details 执行 UI 初始化、Dock 布局设置、工具栏信号连接、插件管理器创建，
+ *          注册 ChartPlugin（内置），加载外部 DLL 插件，最后初始化状态栏。
  */
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       ui(new Ui::MainWindow),
-      m_viewWidget(nullptr),
       m_pluginManager(nullptr),
       m_currentPlugin(nullptr)
 {
-    // Logger::info("MainWindow constructor: entering");
     ui->setupUi(this);
 
-    QVBoxLayout *mapLayout = new QVBoxLayout(ui->mapArea);
-    mapLayout->setContentsMargins(0, 0, 0, 0);
+    setDockNestingEnabled(true);
 
-    m_viewWidget = new GraphicsViewWidget(this);
-    mapLayout->addWidget(m_viewWidget);
-    // Logger::info("MainWindow constructor: GraphicsViewWidget created");
+    // 占位 centralWidget，使 QMainWindow splitter 正常工作；
+    // 实际内容全部放在 DockWidget 中
+    QWidget *dummyCenter = new QWidget(this);
+    dummyCenter->setVisible(false);
+    setCentralWidget(dummyCenter);
 
+    // 所有 Dock 区域的 tab 按钮置于顶部，使用扁平文档模式
+    setTabPosition(Qt::AllDockWidgetAreas, QTabWidget::North);
+    setDocumentMode(true);
+
+    // 工具栏按钮信号连接
     connect(ui->actionZoomIn, &QAction::triggered, this, &MainWindow::zoomIn);
     connect(ui->actionZoomOut, &QAction::triggered, this, &MainWindow::zoomOut);
     connect(ui->actionReset, &QAction::triggered, this, &MainWindow::resetView);
@@ -65,201 +77,183 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionEventHistory, &QAction::triggered, this, &MainWindow::showEventHistory);
     connect(ui->actionPlatformControl, &QAction::triggered, this, &MainWindow::showPlatformControl);
     connect(ui->actionHelp, &QAction::triggered, this, &MainWindow::showEventLegend);
-    // Logger::info("MainWindow constructor: actions connected");
 
+    // 插件管理器：先注册内置 ChartPlugin，再扫描 plugins/ 目录加载外部 DLL 插件
     m_pluginManager = new PluginManager(this);
     m_pluginManager->setPluginHost(this);
     connect(m_pluginManager, &PluginManager::pluginLoaded,
             this, &MainWindow::onPluginLoaded);
 
+    m_pluginManager->registerPlugin(new ChartPlugin());
+
+    createChartDock();
+
+    loadPlugins();
+
     addToolBar(Qt::LeftToolBarArea, ui->toolBar);
     addToolBar(Qt::BottomToolBarArea, ui->pluginToolBar);
     createStatusBar();
-    // Logger::info("MainWindow constructor: createStatusBar done");
-    // Logger::info("MainWindow constructor: exiting");
-    init();
+
+    XmlConfig::instance();
+
+    logInfo("init() done, all subsystems ready");
 }
 
 /**
- * @brief 主窗口析构函数
+ * @brief 析构函数
+ * @details 依次删除所有 Dock、工具栏按钮 Action、UI 对象
  */
 MainWindow::~MainWindow()
 {
-    // Logger::info("MainWindow destructor called");
-
+    logInfo("MainWindow destructor enter");
+    for (auto dock : m_pluginDocks.values()) {
+        delete dock;
+    }
     for (auto action : m_pluginActions.values()) {
         delete action;
     }
-    for (auto widget : m_pluginWidgets.values()) {
-        delete widget;
-    }
-
     delete ui;
+    logInfo("MainWindow destructor exit");
 }
 
 /**
- * @brief 显示事件处理
+ * @brief 首次显示事件
  * @param event 显示事件
  */
 void MainWindow::showEvent(QShowEvent *event)
 {
     QMainWindow::showEvent(event);
-    // Logger::info("MainWindow showEvent called");
+    logInfo("MainWindow showEvent");
 }
 
 /**
- * @brief 检查Enclib许可证是否过期
- * @param enclibPath Enclib库路径
- * @return 过期返回true，有效返回false
+ * @brief 关闭事件
+ * @param event 关闭事件，直接接受关闭
  */
-bool MainWindow::checkLicenseExpired(const QString &enclibPath)
+void MainWindow::closeEvent(QCloseEvent *event)
 {
-    QString licPath = enclibPath + "/lic.dat";
-    QFile licFile(licPath);
-    
-    if (!licFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        // Logger::warn("Cannot open license file: %s", licPath.toStdString().c_str());
-        return true;
-    }
-    
-    QTextStream in(&licFile);
-    QString content = in.readAll();
-    licFile.close();
-    
-    int pos = content.indexOf("Expires at:");
-    if (pos == -1) {
-        // Logger::warn("Cannot find expiration date in license file");
-        return true;
-    }
-    
-    QString dateStr = content.mid(pos + 11).trimmed();
-    dateStr = dateStr.left(10);
-    
-    QDateTime expireDate = QDateTime::fromString(dateStr, "yyyy-MM-dd");
-    if (!expireDate.isValid()) {
-        // Logger::warn("Invalid expiration date format: %s", dateStr.toStdString().c_str());
-        return true;
-    }
-    
-    QDateTime now = QDateTime::currentDateTime();
-    if (now > expireDate) {
-        // Logger::warn("License expired at: %s, current time: %s", 
-                     // dateStr.toStdString().c_str(), 
-                     // now.toString("yyyy-MM-dd").toStdString().c_str());
-        return true;
-    }
-    
-    // Logger::info("License valid, expires at: %s", dateStr.toStdString().c_str());
-    return false;
+    logInfo("MainWindow closeEvent received");
+    event->accept();
 }
 
 /**
- * @brief 初始化主窗口
- * @details 初始化Enclib海图库、视图组件、数据管理器和插件系统
+ * @brief 创建海图 Dock 并初始化信号连接
+ * @details 从 PluginManager 获取 ChartPlugin，调用其 createWidget() 创建
+ *          GraphicsViewWidget，包装为 QDockWidget 停靠到左侧区域，
+ *          并将 ChartPlugin::geoPositionUpdated 信号连接到状态栏更新槽。
  */
-void MainWindow::init()
+void MainWindow::createChartDock()
 {
-    // Logger::info("MainWindow::init started");
-    
-    QString enclibPath = QCoreApplication::applicationDirPath() + "/3dParty/Enclib";
-    // Logger::info("Enclib path: %s", enclibPath.toLocal8Bit().constData());
-
-    bool enclibUsable = false;
-    
-    // Logger::info("Current dir before EnclSENCInit: %s", QDir::currentPath().toLocal8Bit().constData());
-    QDir::setCurrent(enclibPath);
-    // Logger::info("Current dir after setCurrent: %s", QDir::currentPath().toLocal8Bit().constData());
-
-    bool licenseExpired = checkLicenseExpired(enclibPath);
-    if (licenseExpired) {
-        // Logger::warn("License expired, but still trying EnclSENCInit to display chart");
+    ChartPlugin *cp = chartPlugin();
+    if (!cp) {
+        logInfo("[Chart] chartPlugin not registered");
+        return;
     }
 
-    try {
-        bool ret = EnclSENCInit(enclibPath.toLocal8Bit().constData());
-        // Logger::info("EnclSENCInit returned: %d", ret);
-
-        if (!ret) {
-            // Logger::warn("EnclSENCInit failed with path: %s", enclibPath.toStdString().c_str());
-        } else {
-            // Logger::info("EnclSENCInit succeeded with path: %s", enclibPath.toStdString().c_str());
-
-            EnclViewSetScale(4000000);
-            EnclViewCenter(121.5, 31.2);
-
-            EnclDrawSetLoadMode(ENCL_LOAD_MODE_AUTO);
-            EnclDrawSetShowAccuracy(false);
-            EnclDrawSetUseAutoScamin(true);
-            EnclDrawSetTextGroupLayer(NULL, 0, ENCL_TGA_SET_ALL);
-            EnclDrawSetDisplayNationalLanguage(true);
-            EnclDrawSetDisplayChineseLanguage(true);
-            EnclDrawSetDisplayCategory(ENCL_BASE);
-            EnclDrawSetShowChartBoundary(false);
-            EnclDrawSetDisplayCategory(ENCL_CUSTOM);
-            EnclDrawSetShowIsolatedDangerObjects(false);
-
-            unsigned char *testPixBuf = EnclDrawChart();
-            if (testPixBuf) {
-                enclibUsable = true;
-                // Logger::info("EnclDrawChart test succeeded, enclib is usable");
-            } else {
-                // Logger::warn("EnclDrawChart test failed, enclib may have license issues");
-            }
-        }
-    } catch (...) {
-        // Logger::error("Exception occurred during EnclSENCInit, license may be expired");
-    }
-    
-    m_viewWidget->setEnclibReady(enclibUsable);
-    m_viewWidget->updateChart();
-    // Logger::info("Enclib settings applied, enclibUsable: %d", enclibUsable);
-
-    if (!enclibUsable) {
-        // Logger::warn("Enclib may have license issues! Path: %s. Map display will show placeholder.", enclibPath.toStdString().c_str());
+    QWidget *chartWidget = cp->createWidget(this);
+    if (!chartWidget) {
+        logInfo("[Chart] createWidget returned null");
+        return;
     }
 
-    connect(m_viewWidget, &GraphicsViewWidget::updateGeoPosition,
+    QDockWidget *dock = new QDockWidget(tr("Chart"), this);
+    dock->setObjectName("Dock_chart.plugin");
+    dock->setWidget(chartWidget);
+    dock->setFeatures(QDockWidget::DockWidgetMovable |
+                      QDockWidget::DockWidgetFloatable |
+                      QDockWidget::DockWidgetClosable);
+    dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea |
+                          Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
+    dock->setMinimumWidth(400);
+    addDockWidget(Qt::LeftDockWidgetArea, dock);
+
+    // 同步 Dock 映射表（与外部插件保持一致）
+    m_pluginDocks["chart.plugin"] = dock;
+    m_pluginWidgets["chart.plugin"] = chartWidget;
+
+    // 连接 ChartPlugin 的地理坐标更新信号 → 主窗口状态栏槽
+    connect(cp, &ChartPlugin::geoPositionUpdated,
             this, &MainWindow::updateGeoPosition);
-    // Logger::info("GraphicsViewWidget signals connected");
 
-    DataManager *dataManager = DataManager::instance();
-    connect(dataManager, &DataManager::dynamicDataChanged,
-            m_viewWidget, &GraphicsViewWidget::updateDynamicData);
-    dataManager->startTestDataTimer(100);
-    // Logger::info("DataManager initialized and test data timer started");
+    // 工具栏按钮 checked 状态与 Dock 可见性双向同步
+    QAction *action = m_pluginActions.value("chart.plugin", nullptr);
+    if (action) {
+        action->setChecked(true);
+        connect(dock, &QDockWidget::visibilityChanged, this,
+                [action](bool visible) {
+                    if (action && action->isChecked() != visible) {
+                        action->blockSignals(true);
+                        action->setChecked(visible);
+                        action->blockSignals(false);
+                    }
+                });
+    }
 
-    loadPlugins();
+    logInfo("[Chart] dock created and shown");
 }
 
 /**
- * @brief 加载插件
- * @details 从应用程序目录下的plugins文件夹加载所有插件
+ * @brief 便捷方法：从 PluginManager 获取内置 ChartPlugin 实例
+ * @return ChartPlugin 指针，未注册则返回 nullptr
+ */
+ChartPlugin* MainWindow::chartPlugin() const
+{
+    IPlugin *p = m_pluginManager->getPlugin("chart.plugin");
+    return dynamic_cast<ChartPlugin*>(p);
+}
+
+/**
+ * @brief 加载外部 DLL 插件
+ * @details 扫描可执行文件同级 plugins/ 目录，通过 PluginManager::loadPlugins()
+ *          动态加载所有 .dll 文件，加载完成后更新 cpss.xml 插件清单。
  */
 void MainWindow::loadPlugins()
 {
     QString pluginDir = QCoreApplication::applicationDirPath() + "/plugins";
-    // Logger::info("Loading plugins from: %s", pluginDir.toStdString().c_str());
+    logInfo("loadPlugins() dir=" + pluginDir);
+
+    QDir d(pluginDir);
+    logInfo("dir exists=" + QString::number(d.exists()));
+    if (d.exists()) {
+        auto files = d.entryInfoList(QStringList() << "*.dll", QDir::Files);
+        logInfo("dll count=" + QString::number(files.size()));
+        for (auto &f : files) {
+            logInfo("  found: " + f.fileName());
+        }
+    }
+
     m_pluginManager->loadPlugins(pluginDir);
+
+    // 将已加载插件的元数据写入 cpss.xml 清单
+    QList<XmlConfig::PluginInfo> manifest;
+    for (IPlugin *plugin : m_pluginManager->getLoadedPlugins()) {
+        manifest.append({plugin->pluginId(), plugin->pluginName(), plugin->pluginVersion()});
+    }
+    XmlConfig::instance().updatePluginManifest(manifest);
 }
 
 /**
- * @brief 插件加载完成处理
- * @param plugin 加载完成的插件
+ * @brief 插件加载完成回调
+ * @param plugin 已加载的插件实例
+ * @details 由 PluginManager::pluginLoaded 信号触发，为该插件注册工具栏按钮
  */
 void MainWindow::onPluginLoaded(IPlugin *plugin)
 {
-    // Logger::info("MainWindow::onPluginLoaded - %s", plugin->pluginName().toStdString().c_str());
+    logInfo("onPluginLoaded: " + plugin->pluginName() + " id=" + plugin->pluginId());
     registerPluginButton(plugin->pluginId(), plugin->pluginName());
 }
 
 /**
- * @brief 注册插件按钮到工具栏
- * @param pluginId 插件ID
+ * @brief 向宿主注册插件工具栏按钮
+ * @param pluginId 插件唯一标识符
  * @param buttonText 按钮显示文本
- * @return 注册成功返回true
+ * @return 注册成功返回 true
+ * @details 创建一个可选中的 QAction 添加到 pluginToolBar，
+ *          点击时触发 onPluginActionTriggered 槽切换插件 Dock 显隐。
  */
 bool MainWindow::registerPluginButton(const QString &pluginId, const QString &buttonText)
 {
+    logInfo("registerPluginButton id=" + pluginId + " text=" + buttonText);
     QAction *action = new QAction(buttonText, this);
     action->setObjectName("action_" + pluginId);
     action->setProperty("pluginId", pluginId);
@@ -268,12 +262,14 @@ bool MainWindow::registerPluginButton(const QString &pluginId, const QString &bu
 
     ui->pluginToolBar->addAction(action);
     m_pluginActions[pluginId] = action;
+    logInfo("pluginToolBar action count=" + QString::number(ui->pluginToolBar->actions().size()));
     return true;
 }
 
 /**
- * @brief 注销插件按钮
- * @param pluginId 插件ID
+ * @brief 注销插件工具栏按钮
+ * @param pluginId 插件唯一标识符
+ * @details 从 pluginToolBar 移除并删除对应的 QAction
  */
 void MainWindow::unregisterPluginButton(const QString &pluginId)
 {
@@ -284,8 +280,11 @@ void MainWindow::unregisterPluginButton(const QString &pluginId)
 }
 
 /**
- * @brief 插件按钮点击处理
- * @details 切换插件界面和海图视图的显示
+ * @brief 插件工具栏按钮点击处理
+ * @details 根据 cpss.xml 中配置的 closeMode 决定行为：
+ *          - closeMode=1（隐藏模式）：已显示则隐藏，已隐藏则显示
+ *          - closeMode=2（删除模式）：Dock 不存在则创建，关闭时自动删除
+ *          chart.plugin 停靠在左侧，其他插件停靠在右侧。
  */
 void MainWindow::onPluginActionTriggered()
 {
@@ -294,62 +293,152 @@ void MainWindow::onPluginActionTriggered()
 
     QString pluginId = action->property("pluginId").toString();
     IPlugin *plugin = m_pluginManager->getPlugin(pluginId);
-    if (plugin) {
-        if (m_currentPlugin == plugin && ui->pluginStack->isVisible()) {
+    if (!plugin) {
+        action->setChecked(false);
+        return;
+    }
+
+    // chart.plugin 停靠左侧，其他插件停靠右侧
+    Qt::DockWidgetArea dockArea = (pluginId == "chart.plugin")
+                                   ? Qt::LeftDockWidgetArea
+                                   : Qt::RightDockWidgetArea;
+
+    int closeMode = XmlConfig::instance().pluginCloseMode(pluginId);
+    QDockWidget *dock = m_pluginDocks.value(pluginId, nullptr);
+
+    if (closeMode == 2) {
+        // 删除模式：按需创建 Dock，关闭时由 Qt::WA_DeleteOnClose 自动删除
+        if (!dock) {
+            dock = createPluginDock(plugin);
+            if (!dock) { action->setChecked(false); return; }
+        }
+        if (dock->isFloating()) dock->setFloating(false);
+        addDockWidget(dockArea, dock);
+        dock->show(); dock->raise(); dock->setFocus();
+        action->setChecked(true);
+        m_currentPlugin = plugin;
+    } else {
+        // 隐藏模式：切换可见性
+        if (!dock) {
+            dock = createPluginDock(plugin);
+            if (!dock) { action->setChecked(false); return; }
+        }
+        if (dock->isVisible()) {
+            dock->hide();
             action->setChecked(false);
-            showMapView();
+            if (m_currentPlugin == plugin) m_currentPlugin = nullptr;
         } else {
-            for (auto act : m_pluginActions.values()) {
-                act->setChecked(false);
-            }
+            if (dock->isFloating()) dock->setFloating(false);
+            addDockWidget(dockArea, dock);
+            dock->show(); dock->raise(); dock->setFocus();
             action->setChecked(true);
-            showPluginWidget(plugin);
+            m_currentPlugin = plugin;
         }
     }
 }
 
 /**
- * @brief 显示插件界面
- * @param plugin 要显示的插件
+ * @brief 将插件包装为 QDockWidget
+ * @param plugin 要包装的插件实例
+ * @return 创建的 Dock 指针，失败返回 nullptr
+ * @details 调用 plugin->createWidget() 创建界面，包装为可移动/浮动/关闭的
+ *          QDockWidget，并根据 closeMode 设置不同的关闭行为。
+ *          删除模式下设置 WA_DeleteOnClose，隐藏模式下同步可见性信号。
+ */
+QDockWidget* MainWindow::createPluginDock(IPlugin *plugin)
+{
+    QString pluginId = plugin->pluginId();
+    QWidget *widget = plugin->createWidget(this);
+    if (!widget) {
+        logInfo("createPluginDock: plugin returned null widget for " + pluginId);
+        return nullptr;
+    }
+
+    m_pluginWidgets[pluginId] = widget;
+
+    QDockWidget *dock = new QDockWidget(plugin->pluginName(), this);
+    dock->setObjectName("Dock_" + pluginId);
+    dock->setWidget(widget);
+    dock->setFeatures(QDockWidget::DockWidgetMovable |
+                      QDockWidget::DockWidgetFloatable |
+                      QDockWidget::DockWidgetClosable);
+    dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea |
+                          Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
+    dock->setMinimumWidth(320);
+
+    m_pluginDocks[pluginId] = dock;
+
+    QAction *action = m_pluginActions.value(pluginId, nullptr);
+    int closeMode = XmlConfig::instance().pluginCloseMode(pluginId);
+
+    if (closeMode == 2) {
+        // 删除模式：Dock 关闭时自动析构，destroyed 信号清理映射表
+        dock->setAttribute(Qt::WA_DeleteOnClose);
+        connect(dock, &QObject::destroyed, this,
+                [this, pluginId, action]() {
+                    m_pluginDocks.remove(pluginId);
+                    m_pluginWidgets.remove(pluginId);
+                    if (action) {
+                        action->blockSignals(true);
+                        action->setChecked(false);
+                        action->blockSignals(false);
+                    }
+                    if (m_currentPlugin && m_currentPlugin->pluginId() == pluginId) {
+                        m_currentPlugin = nullptr;
+                    }
+                });
+    } else {
+        // 隐藏模式：Dock 关闭时仅隐藏，visibilityChanged 同步按钮状态
+        connect(dock, &QDockWidget::visibilityChanged, this,
+                [this, pluginId, action](bool visible) {
+                    if (action && action->isChecked() != visible) {
+                        action->blockSignals(true);
+                        action->setChecked(visible);
+                        action->blockSignals(false);
+                    }
+                    if (!visible && m_currentPlugin && m_currentPlugin->pluginId() == pluginId) {
+                        m_currentPlugin = nullptr;
+                    }
+                });
+    }
+
+    return dock;
+}
+
+/**
+ * @brief 显示指定插件的界面（内部方法）
+ * @param plugin 目标插件
+ * @details 若 Dock 不存在则创建，否则取消浮动并停靠到右侧区域后显示
  */
 void MainWindow::showPluginWidget(IPlugin *plugin)
 {
-    // Logger::info("MainWindow::showPluginWidget - %s", plugin->pluginName().toStdString().c_str());
-
     QString pluginId = plugin->pluginId();
-    QWidget *widget = m_pluginWidgets.value(pluginId, nullptr);
-
-    if (!widget) {
-        widget = plugin->createWidget(this);
-        m_pluginWidgets[pluginId] = widget;
-
-        QWidget *page = new QWidget(ui->pluginStack);
-        int pageIndex = ui->pluginStack->addWidget(page);
-        m_pluginPageIndices[pluginId] = pageIndex;
-
-        QVBoxLayout *layout = new QVBoxLayout(page);
-        layout->addWidget(widget);
-        layout->setContentsMargins(0, 0, 0, 0);
+    QDockWidget *dock = m_pluginDocks.value(pluginId, nullptr);
+    if (!dock) {
+        dock = createPluginDock(plugin);
+        if (!dock) return;
     }
-
-    ui->pluginStack->setCurrentIndex(m_pluginPageIndices[pluginId]);
-    ui->pluginStack->setVisible(true);
+    if (dock->isFloating()) dock->setFloating(false);
+    addDockWidget(Qt::RightDockWidgetArea, dock);
+    dock->show(); dock->raise(); dock->setFocus();
     m_currentPlugin = plugin;
 }
 
 /**
- * @brief 设置活动插件界面
- * @param widget 插件界面组件
- * @return 设置成功返回true
+ * @brief 激活指定部件（IPluginHost 接口实现）
+ * @param widget 要激活的插件界面部件
+ * @return 找到了对应 Dock 并成功激活返回 true
  */
 bool MainWindow::setActiveWidget(QWidget *widget)
 {
     for (auto it = m_pluginWidgets.constBegin(); it != m_pluginWidgets.constEnd(); ++it) {
         if (it.value() == widget) {
-            int pageIndex = m_pluginPageIndices.value(it.key(), -1);
-            if (pageIndex >= 0) {
-                ui->pluginStack->setCurrentIndex(pageIndex);
-                ui->pluginStack->setVisible(true);
+            QDockWidget *dock = m_pluginDocks.value(it.key(), nullptr);
+            if (dock) {
+                dock->show(); dock->raise(); dock->setFocus();
+                if (m_pluginActions.contains(it.key())) {
+                    m_pluginActions[it.key()]->setChecked(true);
+                }
                 return true;
             }
         }
@@ -358,21 +447,37 @@ bool MainWindow::setActiveWidget(QWidget *widget)
 }
 
 /**
- * @brief 显示海图视图
- * @details 隐藏插件界面，显示海图
+ * @brief 隐藏所有插件界面，仅显示海图（IPluginHost 接口实现）
  */
 void MainWindow::showMapView()
 {
+    for (auto dock : m_pluginDocks.values()) {
+        dock->hide();
+    }
     for (auto action : m_pluginActions.values()) {
         action->setChecked(false);
     }
-    ui->pluginStack->setVisible(false);
     m_currentPlugin = nullptr;
+    // 单独重新显示海图 Dock
+    QDockWidget *chartDock = m_pluginDocks.value("chart.plugin", nullptr);
+    if (chartDock) chartDock->show();
+    QAction *chartAction = m_pluginActions.value("chart.plugin", nullptr);
+    if (chartAction) chartAction->setChecked(true);
 }
 
 /**
- * @brief 获取数据管理器
- * @return DataManager单例指针
+ * @brief 获取海图视图部件（IPluginHost 接口实现）
+ * @return ChartPlugin 内部的 GraphicsViewWidget 指针
+ */
+QWidget* MainWindow::getViewWidget() const
+{
+    ChartPlugin *cp = chartPlugin();
+    return cp ? cp->chartWidget() : nullptr;
+}
+
+/**
+ * @brief 获取数据管理器单例（IPluginHost 接口实现）
+ * @return DataManager 指针
  */
 DataManager* MainWindow::getDataManager()
 {
@@ -380,8 +485,8 @@ DataManager* MainWindow::getDataManager()
 }
 
 /**
- * @brief 获取应用程序版本号
- * @return 版本号字符串
+ * @brief 获取应用版本号（IPluginHost 接口实现）
+ * @return 版本字符串
  */
 QString MainWindow::getAppVersion() const
 {
@@ -389,8 +494,8 @@ QString MainWindow::getAppVersion() const
 }
 
 /**
- * @brief 获取应用程序路径
- * @return 应用程序运行目录路径
+ * @brief 获取应用所在目录（IPluginHost 接口实现）
+ * @return 可执行文件所在目录的绝对路径
  */
 QString MainWindow::getAppPath() const
 {
@@ -398,7 +503,7 @@ QString MainWindow::getAppPath() const
 }
 
 /**
- * @brief 显示状态栏消息
+ * @brief 在状态栏显示消息（IPluginHost 接口实现）
  * @param message 消息内容
  */
 void MainWindow::showStatusMessage(const QString &message)
@@ -407,9 +512,9 @@ void MainWindow::showStatusMessage(const QString &message)
 }
 
 /**
- * @brief 显示通知对话框
- * @param title 对话框标题
- * @param message 消息内容
+ * @brief 弹出通知对话框（IPluginHost 接口实现）
+ * @param title 通知标题
+ * @param message 通知内容
  */
 void MainWindow::showNotification(const QString &title, const QString &message)
 {
@@ -417,91 +522,80 @@ void MainWindow::showNotification(const QString &title, const QString &message)
 }
 
 /**
- * @brief 创建状态栏
+ * @brief 创建状态栏并显示初始就绪消息
  */
 void MainWindow::createStatusBar()
 {
     statusBar()->showMessage(tr("CPSS v1.0 - Ready"));
 }
 
-/**
- * @brief 放大视图
- */
+/** @brief 放大海图，委托给 ChartPlugin */
 void MainWindow::zoomIn()
 {
-    if (m_viewWidget) {
-        m_viewWidget->zoomIn();
-    }
+    ChartPlugin *cp = chartPlugin();
+    if (cp) cp->zoomIn();
 }
 
-/**
- * @brief 缩小视图
- */
+/** @brief 缩小海图，委托给 ChartPlugin */
 void MainWindow::zoomOut()
 {
-    if (m_viewWidget) {
-        m_viewWidget->zoomOut();
-    }
+    ChartPlugin *cp = chartPlugin();
+    if (cp) cp->zoomOut();
 }
 
-/**
- * @brief 重置视图到默认位置
- */
+/** @brief 重置海图视图，委托给 ChartPlugin */
 void MainWindow::resetView()
 {
-    if (m_viewWidget) {
-        m_viewWidget->setChartCenter(121.5, 31.2);
-    }
+    ChartPlugin *cp = chartPlugin();
+    if (cp) cp->resetView();
 }
 
 /**
- * @brief 更新地理坐标显示
- * @param pos 鼠标位置
+ * @brief 状态栏地理坐标更新槽
+ * @param pos 鼠标在海图视图上的屏幕坐标
+ * @details 调用 ChartPlugin::screenToGeo 转换为经纬度，
+ *          连同当前比例尺一起显示在状态栏右侧。
  */
 void MainWindow::updateGeoPosition(QPoint pos)
 {
-    if (!m_viewWidget || !m_viewWidget->isEnclibReady()) {
+    ChartPlugin *cp = chartPlugin();
+    if (!cp || !cp->isEnclibReady()) {
         statusBar()->showMessage(tr("Map not initialized"));
         return;
     }
-    
     double lon, lat;
-    EnclTransformScrnToGeo(pos.x(), pos.y(), &lon, &lat);
-    double scale = EnclViewGetScale();
-    statusBar()->showMessage(tr("Lon: %1 Lat: %2 Scale: %3").arg(lon, 0, 'f', 6).arg(lat, 0, 'f', 6).arg(scale, 0, 'f', 0));
+    if (cp->screenToGeo(pos.x(), pos.y(), lon, lat)) {
+        double scale = cp->currentScale();
+        statusBar()->showMessage(tr("Lon: %1 Lat: %2 Scale: %3")
+                                 .arg(lon, 0, 'f', 6)
+                                 .arg(lat, 0, 'f', 6)
+                                 .arg(scale, 0, 'f', 0));
+    }
 }
 
 /**
  * @brief 显示事件图例对话框
- * @details 显示各类事件和阵营的颜色、图标说明
+ * @details 以 HTML 表格形式展示阵营颜色、事件图标含义及操作提示
  */
 void MainWindow::showEventLegend()
 {
-    QString legendText = 
-        "<h2>Event Legend</h2>"
-        "<hr/>"
+    QString legendText =
+        "<h2>Event Legend</h2><hr/>"
         "<h3>Camp Colors:</h3>"
         "<table border=\"0\" cellpadding=\"5\">"
         "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FF00;border:1px solid black;\"></span></td><td> Friendly (Green)</td></tr>"
         "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF0000;border:1px solid black;\"></span></td><td> Enemy (Red)</td></tr>"
         "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFFF00;border:1px solid black;\"></span></td><td> Neutral (Yellow)</td></tr>"
         "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#808080;border:1px solid black;\"></span></td><td> Unknown (Gray)</td></tr>"
-        "</table>"
-        "<hr/>"
+        "</table><hr/>"
         "<h3>Event Icons:</h3>"
         "<table border=\"0\" cellpadding=\"5\">"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">!</span></td><td> Alert - Warning event</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#8B0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">A</span></td><td> Attack - Attack event</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#0000FF;color:white;text-align:center;font-weight:bold;border:1px solid black;\">D</span></td><td> Defense - Defense event</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FFFF;color:black;text-align:center;font-weight:bold;border:1px solid black;\">C</span></td><td> Contact - Contact event</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFA500;color:white;text-align:center;font-weight:bold;border:1px solid black;\">X</span></td><td> Damage - Damage event</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FF00;color:black;text-align:center;font-weight:bold;border:1px solid black;\">M</span></td><td> Mission Start - Mission started</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#808080;color:white;text-align:center;font-weight:bold;border:1px solid black;\">E</span></td><td> Mission End - Mission ended</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF00FF;color:white;text-align:center;font-weight:bold;border:1px solid black;\">?</span></td><td> Lost - Target lost</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#90EE90;color:black;text-align:center;font-weight:bold;border:1px solid black;\">R</span></td><td> Repair - Repair event</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFFF00;color:black;text-align:center;font-weight:bold;border:1px solid black;\">*</span></td><td> Custom - Custom event</td></tr>"
-        "</table>"
-        "<hr/>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">!</span></td><td> Alert</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#8B0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">A</span></td><td> Attack</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#0000FF;color:white;text-align:center;font-weight:bold;border:1px solid black;\">D</span></td><td> Defense</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FFFF;color:black;text-align:center;font-weight:bold;border:1px solid black;\">C</span></td><td> Contact</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFA500;color:white;text-align:center;font-weight:bold;border:1px solid black;\">X</span></td><td> Damage</td></tr>"
+        "</table><hr/>"
         "<h3>How to use:</h3>"
         "<ul>"
         "<li>Click on a target to show property box</li>"
@@ -509,15 +603,19 @@ void MainWindow::showEventLegend()
         "<li>Drag property box to reposition</li>"
         "<li>Click on blank area to hide all property boxes</li>"
         "</ul>";
-
     QMessageBox::information(this, tr("Event Legend"), legendText);
 }
 
 /**
  * @brief 显示海图显示设置对话框
+ * @details 包含"显示模式"和"显示分组"两个 Tab 页，
+ *          所做修改通过 updateChartView 信号实时刷新海图
  */
 void MainWindow::showDisplaySetting()
 {
+    ChartPlugin *cp = chartPlugin();
+    GraphicsViewWidget *view = cp ? cp->chartWidget() : nullptr;
+
     QDialog* dialog = new QDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setModal(true);
@@ -529,29 +627,33 @@ void MainWindow::showDisplaySetting()
     gridLayout->addWidget(tabWidget);
 
     DisplayCategory* pDcd = new DisplayCategory(this);
-    connect(pDcd, SIGNAL(updateChartView()), m_viewWidget, SLOT(updateChart()));
+    if (view) connect(pDcd, SIGNAL(updateChartView()), view, SLOT(updateChart()));
     tabWidget->addTab(pDcd, QString::fromUtf8("显示模式"));
 
     ViewingGroupDialog* pVgd = new ViewingGroupDialog(this);
-    connect(pVgd, SIGNAL(updateChartView()), m_viewWidget, SLOT(updateChart()));
+    if (view) connect(pVgd, SIGNAL(updateChartView()), view, SLOT(updateChart()));
     tabWidget->addTab(pVgd, QString::fromUtf8("显示分组"));
 
     dialog->show();
 }
 
 /**
- * @brief 显示水深和等深线设置对话框
+ * @brief 显示水深/等高线设置对话框
  */
 void MainWindow::showDepthAndContour()
 {
+    ChartPlugin *cp = chartPlugin();
+    GraphicsViewWidget *view = cp ? cp->chartWidget() : nullptr;
+
     WaterDepthSetting* depthAndContour = new WaterDepthSetting(this);
-    connect(depthAndContour, SIGNAL(updatChartView()), m_viewWidget, SLOT(updateChart()));
+    if (view) connect(depthAndContour, SIGNAL(updatChartView()), view, SLOT(updateChart()));
     depthAndContour->show();
     depthAndContour->setAttribute(Qt::WA_DeleteOnClose);
 }
 
 /**
  * @brief 显示事件历史对话框
+ * @details 从 DataManager 获取完整事件历史并填充到对话框
  */
 void MainWindow::showEventHistory()
 {
@@ -563,13 +665,20 @@ void MainWindow::showEventHistory()
 
 /**
  * @brief 显示平台控制面板
+ * @details 初始加载海图视图中的平台数据和显示状态，
+ *          用户修改后通过 displayStateChanged 信号实时刷新海图
  */
 void MainWindow::showPlatformControl()
 {
+    ChartPlugin *cp = chartPlugin();
+    GraphicsViewWidget *view = cp ? cp->chartWidget() : nullptr;
+
     PlatformControlPanel *panel = new PlatformControlPanel(this);
     panel->setAttribute(Qt::WA_DeleteOnClose);
-    panel->initWithData(m_viewWidget->getDynamicData(), m_viewWidget->getDisplayStates());
-    connect(panel, &PlatformControlPanel::displayStateChanged,
-            m_viewWidget, &GraphicsViewWidget::updateDisplayState);
+    if (view) {
+        panel->initWithData(view->getDynamicData(), view->getDisplayStates());
+        connect(panel, &PlatformControlPanel::displayStateChanged,
+                view, &GraphicsViewWidget::updateDisplayState);
+    }
     panel->show();
 }

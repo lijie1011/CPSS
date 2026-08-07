@@ -1,7 +1,7 @@
 /**
  * @file httpadapter.h
  * @brief HTTP协议适配器类定义
- * @details 该类实现了HTTP协议的数据获取功能，通过定时向指定URL发送请求获取动态数据。
+ * @details 本类实现HTTP协议数据获取功能，通过周期性向指定URL发送请求来获取动态数据。
  * @date 2026-07-28
  */
 
@@ -18,7 +18,7 @@
 /**
  * @class HttpAdapter
  * @brief HTTP协议适配器类
- * @details 继承自IProtocolAdapter，实现HTTP客户端功能，定时从服务端获取数据
+ * @details 继承自IProtocolAdapter，实现HTTP客户端功能，周期性从服务器获取数据
  */
 class HttpAdapter : public IProtocolAdapter
 {
@@ -50,13 +50,13 @@ public:
 
     /**
      * @brief 启动适配器
-     * @return 启动成功返回true
+     * @return true 表示启动成功
      */
     bool start() override;
     
     /**
      * @brief 停止适配器
-     * @return 停止成功返回true
+     * @return true 表示停止成功
      */
     bool stop() override;
     
@@ -67,7 +67,7 @@ public:
     AdapterStatus status() const override { return m_status; }
     
     /**
-     * @brief 获取最后错误信息
+     * @brief 获取最后一个错误信息
      * @return 错误信息字符串
      */
     QString lastError() const override { return m_lastError; }
@@ -122,18 +122,18 @@ public:
 
 private slots:
     /**
-     * @brief 请求超时处理
+     * @brief 请求超时处理函数
      */
     void onRequestTimeout();
     
     /**
-     * @brief 响应完成处理
+     * @brief 响应完成处理函数
      * @param reply 网络响应对象
      */
     void onReplyFinished(QNetworkReply *reply);
     
     /**
-     * @brief 响应错误处理
+     * @brief 响应错误处理函数
      * @param error 网络错误类型
      */
     void onReplyError(QNetworkReply::NetworkError error);
@@ -155,14 +155,14 @@ private:
      * @brief 解析平台数据
      * @param obj JSON对象
      * @param source 数据来源协议类型
-     * @return 平台数据结构
+     * @return 平台数据结构体
      */
     PlatformData parsePlatform(const QJsonObject &obj, ProtocolType source);
     
     /**
      * @brief 解析事件数据
      * @param obj JSON对象
-     * @return 事件数据结构
+     * @return 事件数据结构体
      */
     SpecialEvent parseEvent(const QJsonObject &obj);
 

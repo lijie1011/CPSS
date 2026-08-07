@@ -63,11 +63,16 @@ int main(int argc, char *argv[])
         }
 
         // 进入主事件循环
+        Logger::info("[main] about to exec()");
         int ret = app->exec();
+        Logger::info("[main] exec() returned ret=%d", ret);
 
         // 清理资源
+        Logger::info("[main] deleting mainwin");
         delete mainwin;
+        Logger::info("[main] deleting app");
         delete app;
+        Logger::info("[main] about to exit, process ID=%d", QCoreApplication::applicationPid());
 
         Logger::cleanup();
 

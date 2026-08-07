@@ -4,3 +4,4 @@ cmake --build .\CPSS\src\build\ --config debug
 
 d:\ZCHH\CPSS\src\build\bin\Debug\cpss.exe
 
+taskkill /F /IM cpss.exe

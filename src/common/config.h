@@ -2,7 +2,6 @@
  * @file config.h
  * @brief 配置管理器类定义
  * @details 提供应用程序配置的单例管理，支持配置项的读取和保存。
- * @date 2026-07-28
  */
 
 #ifndef CONFIG_H
@@ -14,7 +13,7 @@
 /**
  * @class Config
  * @brief 配置管理器类
- * @details 采用单例模式，管理应用程序的配置项，使用QSettings进行配置的持久化存储
+ * @details 使用单例模式管理应用程序配置项，通过QSettings实现配置的持久化存储。
  */
 class Config
 {
@@ -26,19 +25,19 @@ public:
     static Config& instance();
 
     /**
-     * @brief 获取海图路径
-     * @return 海图目录路径
+     * @brief 获取ENC海图路径
+     * @return ENC海图目录路径
      */
     QString getChartPath() const;
     
     /**
-     * @brief 设置海图路径
-     * @param path 海图目录路径
+     * @brief 设置ENC海图路径
+     * @param path ENC海图目录路径
      */
     void setChartPath(const QString &path);
 
     /**
-     * @brief 获取Web服务端口
+     * @brief获取Web服务端口
      * @return 端口号
      */
     int getWebPort() const;
@@ -50,13 +49,13 @@ public:
     void setWebPort(int port);
 
     /**
-     * @brief 获取是否自动加载海图
-     * @return 自动加载返回true
+     * @brief 获取是否自动加载ENC海图
+     * @return 启用自动加载返回true
      */
     bool getAutoLoadCharts() const;
     
     /**
-     * @brief 设置是否自动加载海图
+     * @brief 设置是否自动加载ENC海图
      * @param enabled 是否启用自动加载
      */
     void setAutoLoadCharts(bool enabled);

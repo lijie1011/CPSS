@@ -1,8 +1,7 @@
 /**
  * @file waterdepthsetting.h
  * @brief 水深设置对话框
- * @details 该对话框用于配置海图水深显示相关的参数设置。
- * @date 2026-07-28
+ * @details 本对话框用于配置海图水深显示相关参数。
  */
 
 #ifndef WATERDEPTHSETTING_H
@@ -23,7 +22,7 @@ class WaterDepthSetting : public QDialog
 public:
     /**
      * @brief 构造函数
-     * @param parent 父窗口指针
+     * @param parent 父界面指针
      */
 	WaterDepthSetting(QWidget *parent = 0);
 	
@@ -41,7 +40,7 @@ signals:
 
 private slots:
     /**
-     * @brief 将设置值更新到Enclib
+     * @brief 更新设置值到Enclib
      * @details 将界面上的水深设置应用到Enclib海图库
      */
 	void updateValueToEncl();

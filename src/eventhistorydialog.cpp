@@ -1,9 +1,8 @@
 /**
  * @file eventhistorydialog.cpp
  * @brief 事件历史对话框实现
- * @details 该类提供事件历史记录的可视化展示，以表格形式显示所有事件的详细信息，
- *          包括时间、ID、类型、名称、目标、来源、位置和描述等字段。
- * @date 2026-07-28
+ * @details 本类提供事件历史记录的可视化显示，以表格形式展示所有事件的
+ *          详细信息，包括时间、ID、类型、名称、目标、来源、位置和描述。
  */
 
 #include "eventhistorydialog.h"
@@ -67,9 +66,9 @@ QString EventHistoryDialog::eventTypeToString(SpecialEventType type)
 }
 
 /**
- * @brief 事件类型对应的颜色
+ * @brief 获取事件类型对应的显示颜色
  * @param type 事件类型
- * @return 颜色
+ * @return 用于表格单元格背景的颜色值
  */
 QColor EventHistoryDialog::eventTypeColor(SpecialEventType type)
 {

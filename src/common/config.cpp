@@ -1,9 +1,8 @@
 /**
  * @file config.cpp
- * @brief 配置管理类实现
- * @details 该类采用单例模式，负责管理应用程序的配置参数，支持从配置文件读取和保存配置。
- *          配置文件格式为INI，存储在应用程序运行目录下的cpss.ini文件中。
- * @date 2026-07-28
+ * @brief 配置管理器类实现
+ * @details 本类使用单例模式管理应用程序配置参数，支持从配置文件读取和保存。
+ *          配置文件格式为INI，存放在应用程序运行目录下的cpss.ini。
  */
 
 #include "config.h"
@@ -40,8 +39,8 @@ Config& Config::instance()
 }
 
 /**
- * @brief 获取海图数据路径
- * @return 海图数据路径字符串
+ * @brief 获取ENC海图数据路径
+ * @return ENC海图数据路径字符串
  */
 QString Config::getChartPath() const
 {
@@ -49,8 +48,8 @@ QString Config::getChartPath() const
 }
 
 /**
- * @brief 设置海图数据路径
- * @param path 海图数据路径
+ * @brief 设置ENC海图数据路径
+ * @param path ENC海图数据路径
  */
 void Config::setChartPath(const QString &path)
 {
@@ -76,8 +75,8 @@ void Config::setWebPort(int port)
 }
 
 /**
- * @brief 获取是否自动加载海图
- * @return true表示自动加载，false表示手动加载
+ * @brief 获取是否自动加载ENC海图
+ * @return 自动加载返回true，手动加载返回false
  */
 bool Config::getAutoLoadCharts() const
 {
@@ -85,8 +84,8 @@ bool Config::getAutoLoadCharts() const
 }
 
 /**
- * @brief 设置是否自动加载海图
- * @param enabled true表示自动加载，false表示手动加载
+ * @brief 设置是否自动加载ENC海图
+ * @param enabled 自动加载为true，手动加载为false
  */
 void Config::setAutoLoadCharts(bool enabled)
 {
@@ -95,7 +94,7 @@ void Config::setAutoLoadCharts(bool enabled)
 
 /**
  * @brief 获取配色方案
- * @return 配色方案名称(DAY/NIGHT)
+ * @return 配色方案名称（DAY/NIGHT）
  */
 QString Config::getColorScheme() const
 {
@@ -104,7 +103,7 @@ QString Config::getColorScheme() const
 
 /**
  * @brief 设置配色方案
- * @param scheme 配色方案名称(DAY/NIGHT)
+ * @param scheme 配色方案名称（DAY/NIGHT）
  */
 void Config::setColorScheme(const QString &scheme)
 {
@@ -112,8 +111,8 @@ void Config::setColorScheme(const QString &scheme)
 }
 
 /**
- * @brief 获取显示分类
- * @return 显示分类名称
+ * @brief 获取显示类别
+ * @return 显示类别名称
  */
 QString Config::getDisplayCategory() const
 {
@@ -121,8 +120,8 @@ QString Config::getDisplayCategory() const
 }
 
 /**
- * @brief 设置显示分类
- * @param category 显示分类名称
+ * @brief 设置显示类别
+ * @param category 显示类别名称
  */
 void Config::setDisplayCategory(const QString &category)
 {

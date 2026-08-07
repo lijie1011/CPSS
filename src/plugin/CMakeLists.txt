@@ -7,16 +7,6 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-if(WIN32)
-    set(Qt5_DIR "E:/Qt5.12.11/5.12.11/msvc2017_64/lib/cmake/Qt5")
-endif()
-
-find_package(Qt5 5.12 REQUIRED COMPONENTS
-    Widgets
-    Gui
-    Core
-)
-
 set(FRAMEWORK_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(SOURCES
@@ -30,6 +20,10 @@ set(HEADERS
 )
 
 add_library(cpss_plugin_framework STATIC ${SOURCES} ${HEADERS})
+
+if(WIN32)
+    target_compile_options(cpss_plugin_framework PRIVATE /utf-8)
+endif()
 
 target_include_directories(cpss_plugin_framework PUBLIC
     ${FRAMEWORK_INCLUDE_DIR}
@@ -52,3 +46,4 @@ set_target_properties(cpss_plugin_framework PROPERTIES
 
 add_subdirectory(sampleplugin)
 add_subdirectory(helloplugin)
+add_subdirectory(dataflowplugin)

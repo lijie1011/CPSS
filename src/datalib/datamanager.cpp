@@ -1,8 +1,9 @@
 /**
  * @file datamanager.cpp
  * @brief 数据管理器类实现
- * @details 该类采用单例模式，作为数据层的核心管理组件，负责管理多个协议适配器，
- *          接收和分发平台、事件数据，提供统一的数据访问接口，并支持回调机制。
+ * @details 本类实现单例模式，作为数据层的核心管理组件。
+ *          它管理多个协议适配器，接收和分发平台及事件数据，
+ *          提供统一的数据访问接口，并支持回调机制。
  * @date 2026-07-28
  */
 
@@ -111,7 +112,7 @@ void DataManager::unregisterPlatformExpiredCallback()
 }
 
 /**
- * @brief 平台过期处理
+ * @brief 平台过期处理函数
  * @param id 过期平台的ID
  */
 void DataManager::onPlatformExpired(const QString &id)
@@ -268,7 +269,7 @@ void DataManager::stopDataPush()
 
 /**
  * @brief 处理接收到的数据
- * @param data JSON格式的数据
+ * @param data JSON格式数据
  * @param source 数据来源协议类型
  */
 void DataManager::onDataReceived(const QJsonObject &data, ProtocolType source)
@@ -295,7 +296,7 @@ void DataManager::pushData()
 
 /**
  * @brief 解析并更新数据
- * @param data JSON格式的数据
+ * @param data JSON格式数据
  * @param source 数据来源协议类型
  */
 void DataManager::parseAndUpdate(const QJsonObject &data, ProtocolType source)
@@ -318,7 +319,7 @@ void DataManager::parseAndUpdate(const QJsonObject &data, ProtocolType source)
 
 /**
  * @brief 更新平台数据
- * @param obj JSON格式的平台对象
+ * @param obj JSON格式平台对象
  * @param source 数据来源协议类型
  */
 void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
@@ -386,7 +387,7 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
 
 /**
  * @brief 更新事件数据
- * @param obj JSON格式的事件对象
+ * @param obj JSON格式事件对象
  * @param source 数据来源协议类型
  */
 void DataManager::updateEvent(const QJsonObject &obj, ProtocolType source)
@@ -477,7 +478,7 @@ QList<SpecialEvent> DataManager::getAllEvents() const
 }
 
 /**
- * @brief 获取事件历史
+ * @brief 获取事件历史记录
  * @return 事件历史列表
  */
 QList<SpecialEvent> DataManager::getEventHistory() const

@@ -1,9 +1,8 @@
 /**
  * @file waterdepthsetting.cpp
  * @brief 水深设置对话框实现
- * @details 该类提供水深和等深线参数的配置界面，支持安全水深、安全等深线、
- *          深水等深线和浅水等深线的设置。
- * @date 2026-07-28
+ * @details 本类提供水深和等深线参数的配置界面，支持安全水深、安全等深线、
+ *          深度等深线和浅水等深线的设置。
  */
 
 #include "waterdepthsetting.h"
@@ -15,7 +14,7 @@
 
 /**
  * @brief 构造函数
- * @param parent 父窗口
+ * @param parent 父界面
  */
 WaterDepthSetting::WaterDepthSetting(QWidget *parent)
 	: QDialog(parent)

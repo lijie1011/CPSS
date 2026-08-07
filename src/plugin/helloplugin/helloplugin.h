@@ -1,8 +1,7 @@
 /**
  * @file helloplugin.h
  * @brief Hello插件类定义
- * @details 该插件是一个简单的演示插件，显示"Hello"消息。
- * @date 2026-07-28
+ * @details 本插件是一个简单的演示插件，用于显示"Hello"消息。
  */
 
 #ifndef HELLOPLUGIN_H
@@ -36,13 +35,13 @@ public:
 
     /**
      * @brief 获取插件名称
-     * @return 插件显示名称
+     * @return 插件的显示名称
      */
     QString pluginName() const override;
     
     /**
      * @brief 获取插件ID
-     * @return 插件唯一标识符
+     * @return 插件的唯一标识符
      */
     QString pluginId() const override;
     
@@ -67,8 +66,8 @@ public:
 
     /**
      * @brief 创建插件界面
-     * @param parent 父窗口部件
-     * @return 插件界面部件
+     * @param parent 父界面
+     * @return 插件界面
      */
     QWidget* createWidget(QWidget *parent = nullptr) override;
     

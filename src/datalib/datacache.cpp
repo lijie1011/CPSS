@@ -1,9 +1,9 @@
 /**
  * @file datacache.cpp
  * @brief 数据缓存类实现
- * @details 该类采用单例模式，负责缓存所有动态数据（平台、事件等），
- *          提供线程安全的数据访问接口，并在数据变化时发出信号通知。
- *          同时支持测试数据生成和过期数据清理功能。
+ * @details 本类实现单例模式，负责缓存所有动态数据（平台、事件等）。
+ *          它提供线程安全的数据访问接口，并在数据变更时发射信号通知。
+ *          同时支持测试数据生成和过期数据清理。
  * @date 2026-07-28
  */
 
@@ -60,7 +60,7 @@ DataCache::~DataCache()
 /**
  * @brief 更新平台数据
  * @param data 平台数据
- * @return 更新成功返回true
+ * @return true 表示更新成功
  */
 bool DataCache::updatePlatform(const PlatformData &data)
 {
@@ -68,8 +68,10 @@ bool DataCache::updatePlatform(const PlatformData &data)
     
     PlatformData newData = data;
     if (m_dynamicData.platforms.contains(data.id)) {
+        // 保留已有航迹点
         PlatformData existing = m_dynamicData.platforms[data.id];
         newData.trackPoints = existing.trackPoints;
+        // 若位置发生变化，则追加旧位置到航迹
         if (existing.lon != data.lon || existing.lat != data.lat) {
             newData.addTrackPoint(existing.lon, existing.lat);
         }
@@ -88,7 +90,7 @@ bool DataCache::updatePlatform(const PlatformData &data)
 /**
  * @brief 移除平台
  * @param id 平台ID
- * @return 移除成功返回true，不存在返回false
+ * @return true 表示已移除，false 表示未找到
  */
 bool DataCache::removePlatform(const QString &id)
 {
@@ -145,7 +147,7 @@ QList<PlatformData> DataCache::getValidPlatforms() const
 /**
  * @brief 添加事件
  * @param event 事件数据
- * @return 添加成功返回true
+ * @return true 表示已添加
  */
 bool DataCache::addEvent(const SpecialEvent &event)
 {
@@ -166,7 +168,7 @@ bool DataCache::addEvent(const SpecialEvent &event)
 /**
  * @brief 移除事件
  * @param eventId 事件ID
- * @return 移除成功返回true，不存在返回false
+ * @return true 表示已移除，false 表示未找到
  */
 bool DataCache::removeEvent(const QString &eventId)
 {
@@ -208,7 +210,7 @@ QList<SpecialEvent> DataCache::getAllEvents() const
 }
 
 /**
- * @brief 获取事件历史
+ * @brief 获取事件历史记录
  * @return 事件历史列表
  */
 QList<SpecialEvent> DataCache::getEventHistory() const
@@ -218,7 +220,7 @@ QList<SpecialEvent> DataCache::getEventHistory() const
 }
 
 /**
- * @brief 清空事件历史
+ * @brief 清空事件历史记录
  */
 void DataCache::clearEventHistory()
 {
@@ -227,8 +229,8 @@ void DataCache::clearEventHistory()
 }
 
 /**
- * @brief 获取最大历史记录数
- * @return 最大历史记录数
+ * @brief 获取最大历史记录数量
+ * @return 最大历史大小
  */
 int DataCache::getMaxHistorySize() const
 {
@@ -236,8 +238,8 @@ int DataCache::getMaxHistorySize() const
 }
 
 /**
- * @brief 设置最大历史记录数
- * @param size 最大历史记录数
+ * @brief 设置最大历史记录数量
+ * @param size 最大历史大小
  */
 void DataCache::setMaxHistorySize(int size)
 {
@@ -266,7 +268,9 @@ void DataCache::invalidateExpiredData()
     QWriteLocker locker(&m_dataLock);
     qint64 now = QDateTime::currentMSecsSinceEpoch();
     QStringList expiredIds;
+    // 遍历所有平台，标记已过期的平台
     for (auto it = m_dynamicData.platforms.begin(); it != m_dynamicData.platforms.end(); ++it) {
+        // 正常状态、有有效期、且已超过有效期
         if (it.value().dataStatus == DataStatus_Normal && 
             it.value().validUntil > 0 && 
             it.value().validUntil < now) {
@@ -338,8 +342,8 @@ void DataCache::stopDataPush()
 }
 
 /**
- * @brief 检查推送是否运行
- * @return 运行中返回true
+ * @brief 检查推送是否正在运行
+ * @return true 表示正在运行
  */
 bool DataCache::isPushRunning() const
 {

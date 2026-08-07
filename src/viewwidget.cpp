@@ -124,7 +124,7 @@ void ViewWidget::updateDynamicData(const DynamicObjects &data)
 }
 
 /**
- * @brief 绘制事件
+ * @brief 绘制海图及所有动态元素
  * @param event 绘制事件
  */
 void ViewWidget::paintEvent(QPaintEvent *event)
@@ -183,7 +183,7 @@ void ViewWidget::resizeEvent(QResizeEvent *event)
 }
 
 /**
- * @brief 鼠标按下事件
+ * @brief 鼠标按下事件，记录拖拽起点
  * @param event 鼠标事件
  */
 void ViewWidget::mousePressEvent(QMouseEvent *event)
@@ -199,7 +199,7 @@ void ViewWidget::mousePressEvent(QMouseEvent *event)
 }
 
 /**
- * @brief 鼠标移动事件
+ * @brief 鼠标移动事件，支持拖拽平移海图
  * @param event 鼠标事件
  */
 void ViewWidget::mouseMoveEvent(QMouseEvent *event)
@@ -216,7 +216,7 @@ void ViewWidget::mouseMoveEvent(QMouseEvent *event)
 }
 
 /**
- * @brief 鼠标释放事件
+ * @brief 鼠标释放事件，处理点击选择平台或事件
  * @param event 鼠标事件
  */
 void ViewWidget::mouseReleaseEvent(QMouseEvent *event)
@@ -275,7 +275,7 @@ void ViewWidget::mouseReleaseEvent(QMouseEvent *event)
 }
 
 /**
- * @brief 滚轮事件
+ * @brief 滚轮缩放海图
  * @param event 滚轮事件
  */
 void ViewWidget::wheelEvent(QWheelEvent *event)

@@ -1,8 +1,7 @@
 /**
  * @file displaycategory.h
  * @brief 显示类别设置对话框
- * @details 该对话框用于配置海图显示的各类别选项，与Enclib库交互实现显示控制。
- * @date 2026-07-28
+ * @details 本对话框用于配置海图显示的各种类别选项，与Enclib库交互以控制显示。
  */
 
 #ifndef DISPLAYSETTING_H
@@ -29,7 +28,7 @@ class DisplayCategory : public QDialog
 public:
     /**
      * @brief 构造函数
-     * @param parent 父窗口指针
+     * @param parent 父界面指针
      */
     DisplayCategory(QWidget *parent = 0);
     
@@ -59,13 +58,13 @@ public slots:
       
     /**
      * @brief 更新复选框组
-     * @details 从Enclib读取当前显示设置并更新UI
+     * @details 从Enclib读取当前显示设置并更新界面
      */
 	void updateCheckBoxGroup();
     
     /**
      * @brief 更新Enclib设置
-     * @details 将UI设置同步到Enclib库
+     * @details 将界面设置同步到Enclib库
      */
 	void updateEncoreSetting();
 
@@ -84,7 +83,7 @@ Q_SIGNALS:
 
 private:
     Ui::DisplayCategory*  ui;                  ///< UI设计器生成的界面对象
-	std::string          m_currentColorSchema; ///< 当前颜色方案
+	std::string          m_currentColorSchema; ///< 当前配色方案
 	EnclDisplayCategory  m_displayCategory;    ///< Enclib显示类别对象
     std::vector<QCheckBox *> m_custumCheckBox; ///< 自定义复选框列表
 };

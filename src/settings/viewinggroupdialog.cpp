@@ -1,9 +1,8 @@
 /**
  * @file viewinggroupdialog.cpp
  * @brief 显示分组对话框实现
- * @details 该类提供海图显示分组的配置界面，支持基本/标准/其他三个分组类别的设置，
+ * @details 本类提供海图显示分组的配置界面，支持基础/标准/其他三种分组类别的设置，
  *          通过XML配置文件加载分组信息。
- * @date 2026-07-28
  */
 
 #include "encl.h"
@@ -17,7 +16,7 @@
 
 /**
  * @brief 构造函数
- * @param parent 父窗口
+ * @param parent 父界面
  */
 ViewingGroupDialog::ViewingGroupDialog(QWidget *parent) :
     QDialog(parent),
@@ -44,7 +43,7 @@ ViewingGroupDialog::~ViewingGroupDialog()
 
 /**
  * @brief 初始化界面
- * @details 从XML配置文件加载显示分组信息并构建树形控件
+ * @details 从XML配置文件加载显示分组信息并构建树控件
  */
 void ViewingGroupDialog::init()
 {
@@ -168,8 +167,8 @@ void ViewingGroupDialog::updateUI()
 }
 
 /**
- * @brief 树形项点击处理
- * @param item 被点击的树形项
+ * @brief 树节点点击处理
+ * @param item 被点击的树节点
  * @param column 列索引
  */
 void ViewingGroupDialog::treeItemChanged(QTreeWidgetItem *item, int column)

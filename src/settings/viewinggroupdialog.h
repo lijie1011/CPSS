@@ -1,8 +1,7 @@
 /**
  * @file viewinggroupdialog.h
- * @brief 视图组设置对话框
- * @details 该对话框用于配置海图视图组的显示设置，支持基础/标准/其他三种视图组类型。
- * @date 2026-07-28
+ * @brief 显示分组设置对话框
+ * @details 本对话框用于配置海图显示分组的显示设置，支持基础/标准/其他三种显示分组类型。
  */
 
 #ifndef VIEWINGGROUPDIALOG_H
@@ -19,8 +18,8 @@ class ViewingGroupDialog;
 
 /**
  * @class ViewingGroupDialog
- * @brief 视图组设置对话框类
- * @details 继承自QDialog，提供视图组显示配置界面
+ * @brief 显示分组设置对话框类
+ * @details 继承自QDialog，提供显示分组显示配置界面
  */
 class ViewingGroupDialog : public QDialog
 {
@@ -29,7 +28,7 @@ class ViewingGroupDialog : public QDialog
 public:
     /**
      * @brief 构造函数
-     * @param parent 父窗口指针
+     * @param parent 父界面指针
      */
     explicit ViewingGroupDialog(QWidget *parent = NULL);
     
@@ -40,7 +39,7 @@ public:
 
     /**
      * @brief 初始化对话框
-     * @details 初始化UI和视图组数据
+     * @details 初始化界面和显示分组数据
      */
     void init();
 
@@ -52,14 +51,14 @@ public slots:
     void updateUI();
     
     /**
-     * @brief 更新组项目
-     * @param secondaryitem 子树项
+     * @brief 更新分组项
+     * @param secondaryitem 子树节点项
      */
     void updateGroupIem(QTreeWidgetItem* secondaryitem);
     
     /**
-     * @brief 树项状态变化处理
-     * @param item 变化的树项
+     * @brief 树节点状态变更处理
+     * @param item 变更的树节点
      * @param column 列索引
      */
     void treeItemChanged(QTreeWidgetItem* item, int column);
@@ -74,9 +73,9 @@ signals:
 private:
     Ui::ViewingGroupDialog *ui;  ///< UI设计器生成的界面对象
 
-    std::map<int,bool> baseViewGroup;      ///< 基础视图组状态映射
-    std::map<int,bool> standarViewGroup;   ///< 标准视图组状态映射
-    std::map<int,bool> otherViewGroup;     ///< 其他视图组状态映射
+    std::map<int,bool> baseViewGroup;      ///< 基础显示分组状态映射
+    std::map<int,bool> standarViewGroup;   ///< 标准显示分组状态映射
+    std::map<int,bool> otherViewGroup;     ///< 其他显示分组状态映射
 
     bool     firstLoad;  ///< 是否首次加载
 };

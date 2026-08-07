@@ -1,8 +1,8 @@
 /**
  * @file datamanager.h
  * @brief 数据管理器类定义
- * @details 该类是系统的数据管理核心，采用单例模式，负责协调多个协议适配器，
- *          处理数据的接收、解析、存储和分发。
+ * @details 本类是数据管理系统的核心，采用单例模式。
+ *          它协调多个协议适配器，负责数据的接收、解析、存储和分发。
  * @date 2026-07-28
  */
 
@@ -43,7 +43,7 @@ typedef std::function<void(const QString&)> PlatformExpiredCallback;
 /**
  * @class DataManager
  * @brief 数据管理器类
- * @details 继承自QObject，采用单例模式，负责数据的统一管理和分发
+ * @details 继承自QObject，实现单例模式，负责统一的数据管理与分发
  */
 class CPSS_DATA_API DataManager : public QObject
 {
@@ -105,7 +105,7 @@ public:
     qint64 defaultValidDuration() const;
 
     /**
-     * @brief 获取指定平台数据
+     * @brief 获取指定平台的数据
      * @param id 平台ID
      * @return 平台数据
      */
@@ -118,7 +118,7 @@ public:
     QList<PlatformData> getAllPlatforms() const;
     
     /**
-     * @brief 获取有效的平台数据
+     * @brief 获取有效平台数据
      * @return 有效平台数据列表
      */
     QList<PlatformData> getValidPlatforms() const;
@@ -136,7 +136,7 @@ public:
     QList<SpecialEvent> getAllEvents() const;
     
     /**
-     * @brief 获取事件历史
+     * @brief 获取事件历史记录
      * @return 事件列表
      */
     QList<SpecialEvent> getEventHistory() const;
@@ -244,7 +244,7 @@ signals:
     void platformsUpdated(const QList<PlatformData> &platforms);
     
     /**
-     * @brief 动态数据变化信号
+     * @brief 动态数据变更信号
      * @param data 动态对象集合
      */
     void dynamicDataChanged(const DynamicObjects &data);
@@ -257,7 +257,7 @@ signals:
     void dataExpired(const QString &id, ProtocolType source);
     
     /**
-     * @brief 数据推送信号
+     * @brief 数据已推送信号
      * @param data 动态对象集合
      */
     void dataPushed(const DynamicObjects &data);

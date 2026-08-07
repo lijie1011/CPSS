@@ -1,22 +1,19 @@
 /**
  * @file mainwindow.h
  * @brief 主窗口类定义
- * @details 该类是应用程序的主窗口，负责管理海图显示、工具栏、状态栏、插件系统和各种对话框。
- *          主要功能包括海图初始化、平台控制、事件历史显示、显示设置等。
- * @date 2026-07-28
+ * @details 顶层主窗口，负责菜单栏、工具栏、状态栏以及插件 Dock 管理。
+ *          海图功能由内置的 ChartPlugin 提供，主窗口通过 IPluginHost 接口
+ *          为已加载的插件提供宿主服务（获取数据管理器、显示状态消息等）。
  */
 
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QToolBar>
-#include <QHBoxLayout>
+#include <QDockWidget>
 #include <QMap>
 #include <QAction>
-#include "graphicsviewwidget.h"
-#include "dynamicdata.h"
-#include "eventhistorydialog.h"
+#include <QCloseEvent>
 #include "plugin/IPlugin.h"
 #include "plugin/IPluginHost.h"
 #include "plugin/PluginManager.h"
@@ -25,10 +22,15 @@ namespace Ui {
 class MainWindow;
 }
 
+class ChartPlugin;
+
 /**
  * @class MainWindow
- * @brief 主窗口类
- * @details 继承自QMainWindow和IPluginHost，作为应用程序的主界面和插件宿主
+ * @brief 主应用窗口类
+ * @details 继承自 QMainWindow 并实现 IPluginHost 接口。
+ *          内部维护插件管理器，将每个已加载插件包装为 QDockWidget
+ *          并添加到主窗口布局中。海图视图通过 ChartPlugin 创建，
+ *          默认停靠在左侧，其他插件默认停靠在右侧。
  */
 class MainWindow : public QMainWindow, public IPluginHost
 {
@@ -40,181 +42,178 @@ public:
      * @param parent 父窗口指针
      */
     explicit MainWindow(QWidget *parent = nullptr);
-    
+
     /**
      * @brief 析构函数
      */
     ~MainWindow();
 
+    // ---- IPluginHost 接口实现 ----
+
     /**
-     * @brief 获取视图部件
-     * @return 图形视图部件指针
+     * @brief 获取海图视图部件
+     * @return 海图视图指针，未创建则返回 nullptr
      */
-    QWidget* getViewWidget() const override { return m_viewWidget; }
-    
+    QWidget* getViewWidget() const override;
+
     /**
      * @brief 获取数据管理器
      * @return 数据管理器指针
      */
     DataManager* getDataManager() override;
-    
+
     /**
-     * @brief 获取应用程序版本号
-     * @return 版本号字符串
+     * @brief 获取应用版本号
+     * @return 版本字符串
      */
     QString getAppVersion() const override;
-    
+
     /**
-     * @brief 获取应用程序路径
-     * @return 应用程序运行目录路径
+     * @brief 获取应用所在目录
+     * @return 目录路径字符串
      */
     QString getAppPath() const override;
 
     /**
-     * @brief 显示状态栏消息
+     * @brief 在状态栏显示消息
      * @param message 消息内容
      */
     void showStatusMessage(const QString &message) override;
-    
+
     /**
-     * @brief 显示通知对话框
-     * @param title 对话框标题
-     * @param message 消息内容
+     * @brief 弹出通知
+     * @param title 通知标题
+     * @param message 通知内容
      */
     void showNotification(const QString &title, const QString &message) override;
 
     /**
-     * @brief 注册插件按钮到工具栏
-     * @param pluginId 插件ID
+     * @brief 向宿主注册插件工具栏按钮
+     * @param pluginId 插件唯一标识符
      * @param buttonText 按钮显示文本
-     * @return 注册成功返回true
+     * @return 注册成功返回 true
      */
     bool registerPluginButton(const QString &pluginId, const QString &buttonText) override;
-    
+
     /**
-     * @brief 注销插件按钮
-     * @param pluginId 插件ID
+     * @brief 注销插件工具栏按钮
+     * @param pluginId 插件唯一标识符
      */
     void unregisterPluginButton(const QString &pluginId) override;
 
     /**
-     * @brief 设置活动插件界面
-     * @param widget 插件界面组件
-     * @return 设置成功返回true
+     * @brief 激活指定部件
+     * @param widget 要激活的部件
+     * @return 激活成功返回 true
      */
     bool setActiveWidget(QWidget *widget) override;
-    
+
     /**
      * @brief 显示海图视图
-     * @details 隐藏插件界面，显示海图
      */
     void showMapView() override;
 
 private:
     /**
-     * @brief 初始化主窗口
-     * @details 初始化Enclib海图库、视图组件、数据管理器和插件系统
+     * @brief 初始化子系统
+     * @details 设置工具栏连接、创建插件管理器、注册 ChartPlugin、
+     *          加载外部 DLL 插件、添加工具栏和状态栏。
      */
     void init();
-    
+
     /**
      * @brief 创建状态栏
      */
     void createStatusBar();
-    
+
     /**
-     * @brief 加载插件
-     * @details 从应用程序目录下的plugins文件夹加载所有插件
+     * @brief 从 plugins/ 目录加载外部插件
      */
     void loadPlugins();
-    
+
     /**
-     * @brief 插件加载完成处理
-     * @param plugin 加载完成的插件
+     * @brief 插件加载完成回调
+     * @param plugin 已加载的插件
      */
     void onPluginLoaded(IPlugin *plugin);
-    
+
     /**
-     * @brief 显示插件界面
-     * @param plugin 要显示的插件
+     * @brief 将插件包装为 QDockWidget
+     * @param plugin 要包装的插件
+     * @return 创建的 Dock 指针，失败返回 nullptr
+     */
+    QDockWidget* createPluginDock(IPlugin *plugin);
+
+    /**
+     * @brief 显示指定插件的界面
+     * @param plugin 目标插件
      */
     void showPluginWidget(IPlugin *plugin);
-    
+
     /**
-     * @brief 检查Enclib许可证是否过期
-     * @param enclibPath Enclib库路径
-     * @return 过期返回true，有效返回false
+     * @brief 创建并显示海图 Dock
      */
-    bool checkLicenseExpired(const QString &enclibPath);
-    
+    void createChartDock();
+
     /**
-     * @brief 显示事件处理
+     * @brief 获取海图内置插件实例
+     * @return ChartPlugin 指针
+     */
+    ChartPlugin* chartPlugin() const;
+
+    /**
+     * @brief 首次显示事件处理
      * @param event 显示事件
      */
     void showEvent(QShowEvent *event) override;
 
+    /**
+     * @brief 关闭事件处理
+     * @param event 关闭事件
+     */
+    void closeEvent(QCloseEvent *event) override;
+
 private slots:
-    /**
-     * @brief 放大视图
-     */
+    /** @brief 放大海图 */
     void zoomIn();
-    
-    /**
-     * @brief 缩小视图
-     */
+
+    /** @brief 缩小海图 */
     void zoomOut();
-    
-    /**
-     * @brief 重置视图到默认位置
-     */
+
+    /** @brief 重置海图视图 */
     void resetView();
-    
+
     /**
-     * @brief 更新地理坐标显示
-     * @param pos 鼠标位置
+     * @brief 更新状态栏地理坐标
+     * @param pos 鼠标坐标点
      */
     void updateGeoPosition(QPoint pos);
-    
-    /**
-     * @brief 显示事件图例对话框
-     * @details 显示各类事件和阵营的颜色、图标说明
-     */
+
+    /** @brief 显示事件图例对话框 */
     void showEventLegend();
-    
-    /**
-     * @brief 插件按钮点击处理
-     * @details 切换插件界面和海图视图的显示
-     */
+
+    /** @brief 插件工具栏按钮点击处理 */
     void onPluginActionTriggered();
-    
-    /**
-     * @brief 显示海图显示设置对话框
-     */
+
+    /** @brief 显示海图显示设置对话框 */
     void showDisplaySetting();
-    
-    /**
-     * @brief 显示水深和等深线设置对话框
-     */
+
+    /** @brief 显示水深/等高线设置对话框 */
     void showDepthAndContour();
-    
-    /**
-     * @brief 显示事件历史对话框
-     */
+
+    /** @brief 显示事件历史对话框 */
     void showEventHistory();
-    
-    /**
-     * @brief 显示平台控制面板
-     */
+
+    /** @brief 显示平台控制面板 */
     void showPlatformControl();
 
 private:
-    Ui::MainWindow *ui;                        ///< UI界面指针
-    GraphicsViewWidget* m_viewWidget;          ///< 图形视图部件
-    PluginManager* m_pluginManager;            ///< 插件管理器
-    QMap<QString, QAction*> m_pluginActions;   ///< 插件动作映射
-    QMap<QString, QWidget*> m_pluginWidgets;   ///< 插件界面映射
-    QMap<QString, int> m_pluginPageIndices;    ///< 插件页面索引映射
-    IPlugin* m_currentPlugin;                  ///< 当前活动插件
+    Ui::MainWindow *ui;                    ///< Qt Designer 生成的 UI 对象
+    PluginManager* m_pluginManager;        ///< 插件管理器
+    QMap<QString, QAction*> m_pluginActions;   ///< 插件工具栏按钮映射（key=pluginId）
+    QMap<QString, QWidget*> m_pluginWidgets;  ///< 已创建的插件界面映射
+    QMap<QString, QDockWidget*> m_pluginDocks;   ///< 插件 Dock 映射（key=pluginId）
+    IPlugin* m_currentPlugin;             ///< 当前活跃的插件
 };
 
 #endif

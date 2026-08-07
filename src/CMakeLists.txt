@@ -62,6 +62,7 @@ set(SOURCES
     settings/viewinggroupdialog.ui
     settings/waterdepthsetting.cpp
     settings/waterdepthsetting.ui
+    plugin/chartplugin/ChartPlugin.cpp
 )
 
 set(HEADERS
@@ -74,6 +75,7 @@ set(HEADERS
     settings/displaycategory.h
     settings/viewinggroupdialog.h
     settings/waterdepthsetting.h
+    plugin/chartplugin/ChartPlugin.h
 )
 
 add_executable(cpss WIN32 ${SOURCES} ${HEADERS})
@@ -99,6 +101,7 @@ target_link_libraries(cpss PRIVATE
 )
 
 if(WIN32)
+    target_compile_options(cpss PRIVATE /utf-8)
     target_link_libraries(cpss PRIVATE
         ${ENCLIB_BIN_DIR}/enccore.lib
     )

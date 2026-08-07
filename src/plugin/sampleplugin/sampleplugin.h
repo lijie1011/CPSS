@@ -1,8 +1,7 @@
 /**
  * @file sampleplugin.h
  * @brief 示例插件类定义
- * @details 该插件是CPSS插件系统的示例实现，展示了如何创建一个完整的插件。
- * @date 2026-07-28
+ * @details 本插件是CPSS插件系统的一个示例实现，演示如何创建完整的插件。
  */
 
 #ifndef SAMPLEPLUGIN_H
@@ -36,13 +35,13 @@ public:
 
     /**
      * @brief 获取插件名称
-     * @return 插件显示名称
+     * @return 插件的显示名称
      */
     QString pluginName() const override;
     
     /**
      * @brief 获取插件ID
-     * @return 插件唯一标识符
+     * @return 插件的唯一标识符
      */
     QString pluginId() const override;
     
@@ -67,8 +66,8 @@ public:
 
     /**
      * @brief 创建插件界面
-     * @param parent 父窗口部件
-     * @return 插件界面部件
+     * @param parent 父界面
+     * @return 插件界面
      */
     QWidget* createWidget(QWidget *parent = nullptr) override;
     

@@ -1,7 +1,8 @@
 /**
  * @file protocoladapter.h
  * @brief 协议适配器接口定义
- * @details 定义了协议适配器的抽象接口，所有协议适配器（如HTTP适配器）必须实现此接口。
+ * @details 定义了协议适配器的抽象接口。所有协议适配器（如HTTP适配器）
+ *          必须实现此接口。
  * @date 2026-07-28
  */
 
@@ -49,6 +50,7 @@ public:
     /**
      * @enum AdapterStatus
      * @brief 适配器状态枚举
+     * @details 描述协议适配器的运行状态，用于外部查询和信号通知
      */
     enum AdapterStatus {
         Stopped,    ///< 已停止
@@ -59,13 +61,13 @@ public:
 
     /**
      * @brief 启动适配器
-     * @return 启动成功返回true
+     * @return true 表示启动成功
      */
     virtual bool start() = 0;
     
     /**
      * @brief 停止适配器
-     * @return 停止成功返回true
+     * @return true 表示停止成功
      */
     virtual bool stop() = 0;
     
@@ -76,7 +78,7 @@ public:
     virtual AdapterStatus status() const = 0;
     
     /**
-     * @brief 获取最后错误信息
+     * @brief 获取最后一个错误信息
      * @return 错误信息字符串
      */
     virtual QString lastError() const = 0;
@@ -102,8 +104,8 @@ signals:
     void dataReceived(const QJsonObject &data, ProtocolType source);
     
     /**
-     * @brief 状态变化信号
-     * @param status 新状态
+     * @brief 状态变更信号
+     * @param status 新的状态
      */
     void statusChanged(AdapterStatus status);
     

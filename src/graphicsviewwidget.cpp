@@ -1,9 +1,9 @@
 /**
  * @file graphicsviewwidget.cpp
- * @brief 图形视图组件实现
- * @details 该类是基于QGraphicsView的海图显示组件，负责绘制平台、传感器/武器范围、航迹、事件标记等动态元素。
- *          支持与Enclib海图库的集成，提供地图缩放、平移、鹰眼图等功能。
- * @date 2026-07-28
+ * @brief 海图视图部件实现
+ * @details 本类是基于 QGraphicsView 的海图显示部件，负责渲染平台、
+ *          传感器/武器作用范围、航迹、事件标记等动态元素。
+ *          支持与 Enclib 海图库集成，提供地图缩放、平移、鹰眼概览等功能。
  */
 
 #include "graphicsviewwidget.h"
@@ -25,7 +25,7 @@
 
 /**
  * @brief 构造函数
- * @param parent 父组件
+ * @param parent 父部件
  */
 GraphicsViewWidget::GraphicsViewWidget(QWidget *parent)
     : QGraphicsView(parent),
@@ -38,6 +38,8 @@ GraphicsViewWidget::GraphicsViewWidget(QWidget *parent)
     setMouseTracking(true);
     setInteractive(true);
     setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
+    setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     initOverviewMap();
     loadIcons();
@@ -103,7 +105,7 @@ GraphicsViewWidget::~GraphicsViewWidget()
 }
 
 /**
- * @brief 设置Enclib海图库就绪状态
+ * @brief 设置 Enclib 海图库就绪状态
  * @param ready 就绪标志
  */
 void GraphicsViewWidget::setEnclibReady(bool ready)
@@ -113,7 +115,7 @@ void GraphicsViewWidget::setEnclibReady(bool ready)
 
 /**
  * @brief 更新动态数据
- * @param data 动态对象数据
+ * @param data 动态目标数据
  */
 void GraphicsViewWidget::updateDynamicData(const DynamicObjects &data)
 {
@@ -256,7 +258,7 @@ void GraphicsViewWidget::updatePlatformItems()
 }
 
 /**
- * @brief 更新传感器和武器范围
+ * @brief 更新传感器和武器作用范围
  */
 void GraphicsViewWidget::updateSensorWeaponRanges()
 {
@@ -646,12 +648,20 @@ void GraphicsViewWidget::updateEventMarkers()
     }
 }
 
+/**
+ * @brief 绘制事件
+ * @param event 绘制事件指针
+ */
 void GraphicsViewWidget::paintEvent(QPaintEvent *event)
 {
     QGraphicsView::paintEvent(event);
     updateOverviewMap();
 }
 
+/**
+ * @brief 调整大小事件
+ * @param event 调整大小事件指针
+ */
 void GraphicsViewWidget::resizeEvent(QResizeEvent *event)
 {
     Q_UNUSED(event);
@@ -662,6 +672,10 @@ void GraphicsViewWidget::resizeEvent(QResizeEvent *event)
     updateChart();
 }
 
+/**
+ * @brief 鼠标按下事件
+ * @param event 鼠标事件指针
+ */
 void GraphicsViewWidget::mousePressEvent(QMouseEvent *event)
 {
     switch (event->button()) {
@@ -676,6 +690,10 @@ void GraphicsViewWidget::mousePressEvent(QMouseEvent *event)
     QGraphicsView::mousePressEvent(event);
 }
 
+/**
+ * @brief 鼠标移动事件
+ * @param event 鼠标事件指针
+ */
 void GraphicsViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
     QPoint currentMousePt = event->pos();
@@ -691,6 +709,10 @@ void GraphicsViewWidget::mouseMoveEvent(QMouseEvent *event)
     QGraphicsView::mouseMoveEvent(event);
 }
 
+/**
+ * @brief 鼠标释放事件
+ * @param event 鼠标事件指针
+ */
 void GraphicsViewWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     switch (event->button()) {
@@ -752,10 +774,15 @@ void GraphicsViewWidget::mouseReleaseEvent(QMouseEvent *event)
     QGraphicsView::mouseReleaseEvent(event);
 }
 
+/**
+ * @brief 滚轮缩放事件
+ * @param event 滚轮事件指针
+ */
 void GraphicsViewWidget::wheelEvent(QWheelEvent *event)
 {
     if (!m_enclibReady) {
         QGraphicsView::wheelEvent(event);
+        event->accept();
         return;
     }
 
@@ -770,8 +797,12 @@ void GraphicsViewWidget::wheelEvent(QWheelEvent *event)
     emit updateGeoPosition(event->pos());
 
     QGraphicsView::wheelEvent(event);
+    event->accept();
 }
 
+/**
+ * @brief 更新海图
+ */
 void GraphicsViewWidget::updateChart()
 {
     if (m_enclibReady) {
@@ -781,6 +812,9 @@ void GraphicsViewWidget::updateChart()
     update();
 }
 
+/**
+ * @brief 放大视图
+ */
 void GraphicsViewWidget::zoomIn()
 {
     if (!m_enclibReady) return;
@@ -789,6 +823,9 @@ void GraphicsViewWidget::zoomIn()
     updateChart();
 }
 
+/**
+ * @brief 缩小视图
+ */
 void GraphicsViewWidget::zoomOut()
 {
     if (!m_enclibReady) return;
@@ -797,6 +834,11 @@ void GraphicsViewWidget::zoomOut()
     updateChart();
 }
 
+/**
+ * @brief 设置海图中心
+ * @param lon 目标经度
+ * @param lat 目标纬度
+ */
 void GraphicsViewWidget::setChartCenter(double lon, double lat)
 {
     if (!m_enclibReady) return;
@@ -805,6 +847,10 @@ void GraphicsViewWidget::setChartCenter(double lon, double lat)
     updateChart();
 }
 
+/**
+ * @brief 更新全部显示状态
+ * @param stateMap 平台显示状态映射表
+ */
 void GraphicsViewWidget::updateDisplayState(const DisplayStateMap &stateMap)
 {
     m_displayStates = stateMap;
@@ -815,6 +861,10 @@ void GraphicsViewWidget::updateDisplayState(const DisplayStateMap &stateMap)
     update();
 }
 
+/**
+ * @brief 更新单个属性框的连接线
+ * @param box 属性框引用
+ */
 void GraphicsViewWidget::updateConnectingLine(PropertyBox &box)
 {
     if (!box.label || !box.label->isVisible()) {
@@ -850,6 +900,9 @@ void GraphicsViewWidget::updateConnectingLine(PropertyBox &box)
     }
 }
 
+/**
+ * @brief 更新所有属性框的连接线
+ */
 void GraphicsViewWidget::updateAllConnectingLines()
 {
     for (auto &box : m_propertyBoxes) {
@@ -857,6 +910,14 @@ void GraphicsViewWidget::updateAllConnectingLines()
     }
 }
 
+/**
+ * @brief 地理坐标转屏幕坐标
+ * @param lon 经度
+ * @param lat 纬度
+ * @param x 输出屏幕 X 坐标
+ * @param y 输出屏幕 Y 坐标
+ * @return 转换成功返回 true，否则返回 false
+ */
 bool GraphicsViewWidget::geoToScreen(double lon, double lat, int &x, int &y)
 {
     if (!m_enclibReady) {
@@ -872,6 +933,11 @@ bool GraphicsViewWidget::geoToScreen(double lon, double lat, int &x, int &y)
     return true;
 }
 
+/**
+ * @brief 通过标签指针查找属性框
+ * @param label 标签指针
+ * @return 找到返回属性框指针，否则返回 nullptr
+ */
 PropertyBox* GraphicsViewWidget::findPropertyBoxByLabel(QLabel *label)
 {
     for (auto &box : m_propertyBoxes) {
@@ -882,6 +948,12 @@ PropertyBox* GraphicsViewWidget::findPropertyBoxByLabel(QLabel *label)
     return nullptr;
 }
 
+/**
+ * @brief 通过平台 ID 查找属性框
+ * @param id 平台 ID
+ * @param isOwnShip 是否为己方舰船
+ * @return 找到返回属性框指针，否则返回 nullptr
+ */
 PropertyBox* GraphicsViewWidget::findPropertyBoxById(const QString &id, bool isOwnShip)
 {
     for (auto &box : m_propertyBoxes) {
@@ -892,6 +964,13 @@ PropertyBox* GraphicsViewWidget::findPropertyBoxById(const QString &id, bool isO
     return nullptr;
 }
 
+/**
+ * @brief 检查点是否在平台图元内
+ * @param x 屏幕 X 坐标
+ * @param y 屏幕 Y 坐标
+ * @param item 平台图元指针
+ * @return 在图元内返回 true
+ */
 bool GraphicsViewWidget::isPointInPlatform(int x, int y, PlatformItem *item)
 {
     QPointF itemPos = item->pos();
@@ -901,6 +980,14 @@ bool GraphicsViewWidget::isPointInPlatform(int x, int y, PlatformItem *item)
     return itemRect.contains(x, y);
 }
 
+/**
+ * @brief 检查点是否在舰船点击范围内
+ * @param x 屏幕 X 坐标
+ * @param y 屏幕 Y 坐标
+ * @param shipX 舰船屏幕 X 坐标
+ * @param shipY 舰船屏幕 Y 坐标
+ * @return 在范围内返回 true
+ */
 bool GraphicsViewWidget::isPointInShip(int x, int y, int shipX, int shipY)
 {
     int radius = 15;
@@ -909,6 +996,13 @@ bool GraphicsViewWidget::isPointInShip(int x, int y, int shipX, int shipY)
     return (dx * dx + dy * dy) <= (radius * radius);
 }
 
+/**
+ * @brief 检查点是否在事件标记点击范围内
+ * @param x 屏幕 X 坐标
+ * @param y 屏幕 Y 坐标
+ * @param event 事件数据
+ * @return 在范围内返回 true
+ */
 bool GraphicsViewWidget::isPointInEvent(int x, int y, const SpecialEvent &event)
 {
     int eventX, eventY;
@@ -921,6 +1015,10 @@ bool GraphicsViewWidget::isPointInEvent(int x, int y, const SpecialEvent &event)
     return (dx * dx + dy * dy) <= (radius * radius);
 }
 
+/**
+ * @brief 创建平台属性信息框
+ * @param platform 平台数据
+ */
 void GraphicsViewWidget::createPropertyBox(const PlatformData &platform)
 {
     PropertyBox box;
@@ -994,6 +1092,10 @@ void GraphicsViewWidget::createPropertyBox(const PlatformData &platform)
     updateConnectingLine(m_propertyBoxes.last());
 }
 
+/**
+ * @brief 创建事件信息框
+ * @param event 事件数据
+ */
 void GraphicsViewWidget::createEventInfoBox(const SpecialEvent &event)
 {
     PropertyBox box;
@@ -1060,6 +1162,10 @@ void GraphicsViewWidget::createEventInfoBox(const SpecialEvent &event)
     updateConnectingLine(m_propertyBoxes.last());
 }
 
+/**
+ * @brief 销毁属性框
+ * @param box 属性框指针
+ */
 void GraphicsViewWidget::destroyPropertyBox(PropertyBox *box)
 {
     if (box && box->label) {
@@ -1075,6 +1181,12 @@ void GraphicsViewWidget::destroyPropertyBox(PropertyBox *box)
     m_propertyBoxes.removeOne(*box);
 }
 
+/**
+ * @brief 事件过滤器，处理鹰眼图点击和属性框拖拽
+ * @param obj 事件目标对象
+ * @param event 事件指针
+ * @return 处理了事件返回 true，否则返回 false
+ */
 bool GraphicsViewWidget::eventFilter(QObject *obj, QEvent *event)
 {
     if (obj == m_overviewLabel && event->type() == QEvent::MouseButtonPress) {
@@ -1131,6 +1243,9 @@ bool GraphicsViewWidget::eventFilter(QObject *obj, QEvent *event)
     return QGraphicsView::eventFilter(obj, event);
 }
 
+/**
+ * @brief 初始化鹰眼概览图
+ */
 void GraphicsViewWidget::initOverviewMap()
 {
     m_overviewLabel = new QLabel(this);
@@ -1142,6 +1257,9 @@ void GraphicsViewWidget::initOverviewMap()
     m_overviewLabel->raise();
 }
 
+/**
+ * @brief 更新鹰眼概览图显示
+ */
 void GraphicsViewWidget::updateOverviewMap()
 {
     if (!m_overviewLabel) return;
@@ -1150,6 +1268,9 @@ void GraphicsViewWidget::updateOverviewMap()
     m_overviewLabel->setPixmap(QPixmap::fromImage(m_overviewImage));
 }
 
+/**
+ * @brief 绘制鹰眼概览图内容
+ */
 void GraphicsViewWidget::drawOverviewMapContent()
 {
     int w = m_overviewLabel->width();

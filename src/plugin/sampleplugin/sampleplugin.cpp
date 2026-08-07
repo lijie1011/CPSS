@@ -1,8 +1,7 @@
 /**
  * @file sampleplugin.cpp
  * @brief 示例插件类实现
- * @details 该文件实现了SamplePlugin类的所有方法，展示了插件的基本结构和生命周期管理。
- * @date 2026-07-28
+ * @details 本文件实现了SamplePlugin类的所有方法，演示插件的基本结构和生命周期管理。
  */
 
 #include "sampleplugin.h"
@@ -17,7 +16,7 @@ SamplePlugin::SamplePlugin()
 
 /**
  * @brief 析构函数
- * @details 销毁所有已创建的界面部件
+ * @details 销毁所有已创建的界面
  */
 SamplePlugin::~SamplePlugin()
 {
@@ -28,7 +27,7 @@ SamplePlugin::~SamplePlugin()
 
 /**
  * @brief 获取插件名称
- * @return 插件显示名称
+ * @return 插件的显示名称
  */
 QString SamplePlugin::pluginName() const
 {
@@ -37,7 +36,7 @@ QString SamplePlugin::pluginName() const
 
 /**
  * @brief 获取插件ID
- * @return 插件唯一标识符
+ * @return 插件的唯一标识符
  */
 QString SamplePlugin::pluginId() const
 {
@@ -82,8 +81,8 @@ void SamplePlugin::shutdown()
 
 /**
  * @brief 创建插件界面
- * @param parent 父窗口部件
- * @return 插件界面部件
+ * @param parent 父界面
+ * @return 插件界面
  */
 QWidget* SamplePlugin::createWidget(QWidget *parent)
 {

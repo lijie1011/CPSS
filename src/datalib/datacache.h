@@ -1,9 +1,9 @@
 /**
  * @file datacache.h
  * @brief 数据缓存类定义
- * @details 该类采用单例模式，负责缓存所有动态数据（平台、事件等），
- *          提供线程安全的数据访问接口，并在数据变化时发出信号通知。
- *          同时支持测试数据生成和过期数据清理功能。
+ * @details 本类实现单例模式，负责缓存所有动态数据（平台、事件等）。
+ *          它提供线程安全的数据访问接口，并在数据变更时发射信号通知。
+ *          同时支持测试数据生成和过期数据清理。
  * @date 2026-07-28
  */
 
@@ -20,7 +20,7 @@
 /**
  * @class DataCache
  * @brief 数据缓存类
- * @details 继承自QObject，提供线程安全的数据缓存和管理功能
+ * @details 继承自QObject，提供线程安全的数据缓存与管理
  */
 class CPSS_DATA_API DataCache : public QObject
 {
@@ -36,14 +36,14 @@ public:
     /**
      * @brief 更新平台数据
      * @param data 平台数据
-     * @return 更新成功返回true
+     * @return true 表示更新成功
      */
     bool updatePlatform(const PlatformData &data);
     
     /**
      * @brief 移除平台
      * @param id 平台ID
-     * @return 移除成功返回true，不存在返回false
+     * @return true 表示已移除，false 表示未找到
      */
     bool removePlatform(const QString &id);
     
@@ -69,14 +69,14 @@ public:
     /**
      * @brief 添加事件
      * @param event 事件数据
-     * @return 添加成功返回true
+     * @return true 表示已添加
      */
     bool addEvent(const SpecialEvent &event);
     
     /**
      * @brief 移除事件
      * @param eventId 事件ID
-     * @return 移除成功返回true，不存在返回false
+     * @return true 表示已移除，false 表示未找到
      */
     bool removeEvent(const QString &eventId);
     
@@ -92,25 +92,25 @@ public:
     QList<SpecialEvent> getAllEvents() const;
     
     /**
-     * @brief 获取事件历史
+     * @brief 获取事件历史记录
      * @return 事件历史列表
      */
     QList<SpecialEvent> getEventHistory() const;
     
     /**
-     * @brief 清空事件历史
+     * @brief 清空事件历史记录
      */
     void clearEventHistory();
     
     /**
-     * @brief 获取最大历史记录数
-     * @return 最大历史记录数
+     * @brief 获取最大历史记录数量
+     * @return 最大历史大小
      */
     int getMaxHistorySize() const;
     
     /**
-     * @brief 设置最大历史记录数
-     * @param size 最大历史记录数
+     * @brief 设置最大历史记录数量
+     * @param size 最大历史大小
      */
     void setMaxHistorySize(int size);
     
@@ -160,8 +160,8 @@ public:
     void stopDataPush();
     
     /**
-     * @brief 检查推送是否运行
-     * @return 运行中返回true
+     * @brief 检查推送是否正在运行
+     * @return true 表示正在运行
      */
     bool isPushRunning() const;
     
@@ -179,7 +179,7 @@ public:
 signals:
     /**
      * @brief 平台数据更新信号
-     * @param data 更新的平台数据
+     * @param data 更新后的平台数据
      */
     void platformUpdated(const PlatformData &data);
     
@@ -190,8 +190,8 @@ signals:
     void platformsUpdated(const QList<PlatformData> &platforms);
     
     /**
-     * @brief 动态数据变化信号
-     * @param data 变化后的动态对象集合
+     * @brief 动态数据变更信号
+     * @param data 变更后的动态对象集合
      */
     void dynamicDataChanged(const DynamicObjects &data);
     
@@ -203,12 +203,12 @@ signals:
     
     /**
      * @brief 事件移除信号
-     * @param eventId 移除的事件ID
+     * @param eventId 已移除事件的ID
      */
     void eventRemoved(const QString &eventId);
     
     /**
-     * @brief 数据推送信号
+     * @brief 数据已推送信号
      * @param data 推送的数据
      */
     void dataPushed(const DynamicObjects &data);
@@ -247,7 +247,7 @@ private:
     mutable QReadWriteLock m_dataLock;  ///< 数据读写锁
     DynamicObjects m_dynamicData;       ///< 动态对象数据
     QList<SpecialEvent> m_eventHistory; ///< 事件历史记录
-    int m_maxHistorySize;               ///< 最大历史记录数
+    int m_maxHistorySize;               ///< 最大历史记录数量
     
     QTimer m_expireTimer;               ///< 过期检查定时器
     QTimer m_pushTimer;                 ///< 数据推送定时器

@@ -1,8 +1,7 @@
 /**
  * @file eventhistorydialog.h
  * @brief 事件历史对话框类定义
- * @details 该对话框用于显示和管理事件历史记录，以表格形式展示事件信息。
- * @date 2026-07-28
+ * @details 本对话框用于显示和管理事件历史记录，以表格形式展示事件信息。
  */
 
 #ifndef EVENTHISTORYDIALOG_H
@@ -16,7 +15,7 @@
 /**
  * @class EventHistoryDialog
  * @brief 事件历史对话框类
- * @details 继承自QDialog，提供事件历史记录的展示界面
+ * @details 继承自 QDialog，提供事件历史记录的显示界面
  */
 class EventHistoryDialog : public QDialog
 {
@@ -51,7 +50,7 @@ private:
     /**
      * @brief 根据事件类型获取颜色
      * @param type 事件类型枚举值
-     * @return 事件类型对应的颜色
+     * @return 对应事件类型的颜色
      */
     QColor eventTypeColor(SpecialEventType type);
     

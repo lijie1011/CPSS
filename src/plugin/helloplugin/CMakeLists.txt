@@ -7,16 +7,6 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-if(WIN32)
-    set(Qt5_DIR "E:/Qt5.12.11/5.12.11/msvc2017_64/lib/cmake/Qt5")
-endif()
-
-find_package(Qt5 5.12 REQUIRED COMPONENTS
-    Widgets
-    Gui
-    Core
-)
-
 set(PLUGIN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
 set(SOURCES
@@ -30,6 +20,10 @@ set(HEADERS
 )
 
 add_library(helloplugin SHARED ${SOURCES} ${HEADERS})
+
+if(WIN32)
+    target_compile_options(helloplugin PRIVATE /utf-8)
+endif()
 
 target_include_directories(helloplugin PRIVATE
     ${PLUGIN_INCLUDE_DIR}

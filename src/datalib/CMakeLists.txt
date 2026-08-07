@@ -17,6 +17,10 @@ add_library(cpss_data SHARED
     ${DATALIB_HEADERS}
 )
 
+if(WIN32)
+    target_compile_options(cpss_data PRIVATE /utf-8)
+endif()
+
 set_target_properties(cpss_data PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
