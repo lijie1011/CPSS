@@ -19,13 +19,13 @@
 EventHistoryDialog::EventHistoryDialog(QWidget *parent)
     : QDialog(parent)
 {
-    setWindowTitle("Event History");
+    setWindowTitle(QStringLiteral("事件历史"));
     setMinimumSize(800, 500);
     
     m_tableWidget = new QTableWidget(this);
     m_tableWidget->setColumnCount(8);
     QStringList headers;
-    headers << "Time" << "ID" << "Type" << "Name" << "Target" << "Source" << "Location" << "Description";
+    headers << QStringLiteral("时间") << QStringLiteral("编号") << QStringLiteral("类型") << QStringLiteral("名称") << QStringLiteral("目标") << QStringLiteral("来源") << QStringLiteral("位置") << QStringLiteral("描述");
     m_tableWidget->setHorizontalHeaderLabels(headers);
     m_tableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     m_tableWidget->horizontalHeader()->setStretchLastSection(true);
@@ -51,17 +51,17 @@ EventHistoryDialog::~EventHistoryDialog()
 QString EventHistoryDialog::eventTypeToString(SpecialEventType type)
 {
     switch (type) {
-    case Event_Attack: return "Attack";
-    case Event_Defense: return "Defense";
-    case Event_Alert: return "Alert";
-    case Event_MissionStart: return "Mission Start";
-    case Event_MissionEnd: return "Mission End";
-    case Event_Contact: return "Contact";
-    case Event_Lost: return "Lost";
-    case Event_Damage: return "Damage";
-    case Event_Repair: return "Repair";
-    case Event_Custom: return "Custom";
-    default: return "Unknown";
+    case Event_Attack: return QStringLiteral("攻击");
+    case Event_Defense: return QStringLiteral("防御");
+    case Event_Alert: return QStringLiteral("告警");
+    case Event_MissionStart: return QStringLiteral("任务开始");
+    case Event_MissionEnd: return QStringLiteral("任务结束");
+    case Event_Contact: return QStringLiteral("接触");
+    case Event_Lost: return QStringLiteral("失联");
+    case Event_Damage: return QStringLiteral("损伤");
+    case Event_Repair: return QStringLiteral("修理");
+    case Event_Custom: return QStringLiteral("自定义");
+    default: return QStringLiteral("未知");
     }
 }
 

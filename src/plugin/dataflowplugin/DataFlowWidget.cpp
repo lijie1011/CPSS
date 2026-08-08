@@ -155,7 +155,7 @@ void DataFlowWidget::createUI()
     layout->setContentsMargins(14, 14, 14, 14);
     layout->setSpacing(10);
 
-    auto *panelTitle = new QLabel(QStringLiteral("Data Flow Monitor"), panel);
+    auto *panelTitle = new QLabel(QStringLiteral("数据流监控"), panel);
     QFont titleFont = panelTitle->font();
     titleFont.setPointSize(14);
     titleFont.setBold(true);
@@ -173,17 +173,17 @@ void DataFlowWidget::createUI()
 
     m_modeCombo = new QComboBox(panel);
     m_modeCombo->addItems({
-        QStringLiteral("Source Pipeline"),
-        QStringLiteral("Platform Data Flow"),
-        QStringLiteral("Event Alert Flow")
+        QStringLiteral("源头管道"),
+        QStringLiteral("平台数据流"),
+        QStringLiteral("事件告警流")
     });
 
-    auto *gridCheck = new QCheckBox(QStringLiteral("Show Grid"), panel);
+    auto *gridCheck = new QCheckBox(QStringLiteral("显示网格"), panel);
     gridCheck->setChecked(true);
 
-    auto *fitButton = new QPushButton(QStringLiteral("Fit to View"), panel);
-    auto *zoomInButton = new QPushButton(QStringLiteral("Zoom In"), panel);
-    auto *zoomOutButton = new QPushButton(QStringLiteral("Zoom Out"), panel);
+    auto *fitButton = new QPushButton(QStringLiteral("适应窗口"), panel);
+    auto *zoomInButton = new QPushButton(QStringLiteral("放大"), panel);
+    auto *zoomOutButton = new QPushButton(QStringLiteral("缩小"), panel);
 
     fitButton->setMinimumHeight(28);
     zoomInButton->setMinimumHeight(28);
@@ -201,7 +201,7 @@ void DataFlowWidget::createUI()
     layout->addWidget(m_zoomLabel);
     layout->addWidget(m_statusLabel);
     layout->addSpacing(4);
-    layout->addWidget(new QLabel(QStringLiteral("Flow Mode"), panel));
+    layout->addWidget(new QLabel(QStringLiteral("流程模式"), panel));
     layout->addWidget(m_modeCombo);
     layout->addWidget(gridCheck);
     layout->addLayout(zoomLayout);
@@ -264,7 +264,7 @@ void DataFlowWidget::createUI()
     updateGraphInfo(0, 0);
     updateSelectedInfo(-1, QString());
     updateZoomInfo(1.0);
-    m_statusLabel->setText(QStringLiteral("Waiting for data..."));
+    m_statusLabel->setText(QStringLiteral("等待数据..."));
 }
 
 /**
@@ -290,19 +290,19 @@ void DataFlowWidget::loadFlowMode(FlowMode mode)
 void DataFlowWidget::setupSourcePipeline()
 {
     QVector<NodeFlowWidget::Node> nodes = {
-        node(1, QStringLiteral("Data Source"), QStringLiteral("HTTP/Raw"), nodeColor(0), 40, 100),
-        node(2, QStringLiteral("Protocol Adapter"), QStringLiteral("Parse/Validate"), nodeColor(1), 270, 100),
-        node(3, QStringLiteral("Data Cache"), QStringLiteral("Store/Dedupe"), nodeColor(2), 500, 100),
-        node(4, QStringLiteral("Data Push"), QStringLiteral("Distribute/Callback"), nodeColor(3), 730, 100),
-        node(5, QStringLiteral("Situation Display"), QStringLiteral("Render/Interact"), nodeColor(4), 960, 100),
-        node(6, QStringLiteral("Expire Cleanup"), QStringLiteral("Timer/TTL"), nodeColor(5), 500, 270),
+        node(1, QStringLiteral("数据源"), QStringLiteral("HTTP/原始"), nodeColor(0), 40, 100),
+        node(2, QStringLiteral("协议适配"), QStringLiteral("解析/校验"), nodeColor(1), 270, 100),
+        node(3, QStringLiteral("数据缓存"), QStringLiteral("存储/去重"), nodeColor(2), 500, 100),
+        node(4, QStringLiteral("数据推送"), QStringLiteral("分发/回调"), nodeColor(3), 730, 100),
+        node(5, QStringLiteral("态势显示"), QStringLiteral("渲染/交互"), nodeColor(4), 960, 100),
+        node(6, QStringLiteral("过期清理"), QStringLiteral("定时/TTL"), nodeColor(5), 500, 270),
     };
     QVector<NodeFlowWidget::Edge> edges = {
-        {1, 2, QStringLiteral("raw")},
-        {2, 3, QStringLiteral("parsed")},
-        {3, 4, QStringLiteral("cached")},
-        {4, 5, QStringLiteral("display")},
-        {3, 6, QStringLiteral("expire")},
+        {1, 2, QStringLiteral("原始")},
+        {2, 3, QStringLiteral("解析")},
+        {3, 4, QStringLiteral("缓存")},
+        {4, 5, QStringLiteral("显示")},
+        {3, 6, QStringLiteral("过期")},
     };
     m_flow->setNodes(nodes);
     m_flow->setEdges(edges);
@@ -336,21 +336,21 @@ void DataFlowWidget::setupPlatformDataFlow()
 void DataFlowWidget::setupEventAlertFlow()
 {
     QVector<NodeFlowWidget::Node> nodes = {
-        node(1, QStringLiteral("Weapon Launch"), QStringLiteral("Attack Event"), nodeColor(0), 40, 120),
-        node(2, QStringLiteral("Event Creation"), QStringLiteral("Missile Platform"), nodeColor(1), 270, 120),
-        node(3, QStringLiteral("Missile Flight"), QStringLiteral("Pos Update"), nodeColor(2), 500, 120),
-        node(4, QStringLiteral("Alert Event"), QStringLiteral("Alert Generated"), nodeColor(3), 730, 120),
-        node(5, QStringLiteral("Property Box"), QStringLiteral("Details"), nodeColor(4), 960, 120),
-        node(6, QStringLiteral("Event History"), QStringLiteral("Record List"), nodeColor(5), 500, 290),
-        node(7, QStringLiteral("Situation Icon"), QStringLiteral("A/!/D Marker"), nodeColor(0), 730, 290),
+        node(1, QStringLiteral("武器发射"), QStringLiteral("攻击事件"), nodeColor(0), 40, 120),
+        node(2, QStringLiteral("事件创建"), QStringLiteral("导弹平台"), nodeColor(1), 270, 120),
+        node(3, QStringLiteral("导弹飞行"), QStringLiteral("位置更新"), nodeColor(2), 500, 120),
+        node(4, QStringLiteral("告警事件"), QStringLiteral("告警生成"), nodeColor(3), 730, 120),
+        node(5, QStringLiteral("属性框"), QStringLiteral("详情"), nodeColor(4), 960, 120),
+        node(6, QStringLiteral("事件历史"), QStringLiteral("记录列表"), nodeColor(5), 500, 290),
+        node(7, QStringLiteral("态势图标"), QStringLiteral("A/!/D 标记"), nodeColor(0), 730, 290),
     };
     QVector<NodeFlowWidget::Edge> edges = {
-        {1, 2, QStringLiteral("launch")},
-        {2, 3, QStringLiteral("fly")},
-        {3, 4, QStringLiteral("alert")},
-        {4, 5, QStringLiteral("show")},
-        {4, 6, QStringLiteral("record")},
-        {4, 7, QStringLiteral("marker")},
+        {1, 2, QStringLiteral("发射")},
+        {2, 3, QStringLiteral("飞行")},
+        {3, 4, QStringLiteral("告警")},
+        {4, 5, QStringLiteral("显示")},
+        {4, 6, QStringLiteral("记录")},
+        {4, 7, QStringLiteral("标记")},
     };
     m_flow->setNodes(nodes);
     m_flow->setEdges(edges);
@@ -363,7 +363,7 @@ void DataFlowWidget::setupEventAlertFlow()
  */
 void DataFlowWidget::updateGraphInfo(int nodeCount, int edgeCount)
 {
-    m_graphLabel->setText(QStringLiteral("Nodes: %1, Edges: %2").arg(nodeCount).arg(edgeCount));
+    m_graphLabel->setText(QStringLiteral("节点数: %1, 连线数: %2").arg(nodeCount).arg(edgeCount));
 }
 
 /**
@@ -374,10 +374,10 @@ void DataFlowWidget::updateGraphInfo(int nodeCount, int edgeCount)
 void DataFlowWidget::updateSelectedInfo(int id, const QString &title)
 {
     if (id < 0) {
-        m_selectedLabel->setText(QStringLiteral("Selected: None"));
+        m_selectedLabel->setText(QStringLiteral("选中: 无"));
         return;
     }
-    m_selectedLabel->setText(QStringLiteral("Selected: #%1 %2").arg(id).arg(title));
+    m_selectedLabel->setText(QStringLiteral("选中: #%1 %2").arg(id).arg(title));
 }
 
 /**
@@ -386,7 +386,7 @@ void DataFlowWidget::updateSelectedInfo(int id, const QString &title)
  */
 void DataFlowWidget::updateZoomInfo(double zoom)
 {
-    m_zoomLabel->setText(QStringLiteral("Zoom: %1%").arg(QString::number(zoom * 100.0, 'f', 0)));
+    m_zoomLabel->setText(QStringLiteral("缩放: %1%").arg(QString::number(zoom * 100.0, 'f', 0)));
 }
 
 /**
@@ -407,19 +407,19 @@ void DataFlowWidget::onDataPushed(const DynamicObjects &data)
     switch (mode) {
     case Mode_SourcePipeline:
         m_pendingHighlightChain = {1, 2, 3, 4, 5};
-        m_statusLabel->setText(QStringLiteral("Data pushed for %1 platforms").arg(data.platforms.size()));
+        m_statusLabel->setText(QStringLiteral("已推送数据，平台数: %1").arg(data.platforms.size()));
         break;
     case Mode_PlatformData:
         m_pendingHighlightChain = {1, 2, 3, 4, 5, 7};
-        m_statusLabel->setText(QStringLiteral("Platform updated: %1 entries").arg(data.platforms.size()));
+        m_statusLabel->setText(QStringLiteral("平台已更新: %1 条").arg(data.platforms.size()));
         break;
     case Mode_EventAlert:
         if (!data.events.isEmpty()) {
             m_pendingHighlightChain = {4, 5, 6, 7};
-            m_statusLabel->setText(QStringLiteral("New events: %1").arg(data.events.size()));
+            m_statusLabel->setText(QStringLiteral("新事件: %1").arg(data.events.size()));
         } else {
             m_pendingHighlightChain = {3, 7};
-            m_statusLabel->setText(QStringLiteral("Situation updated"));
+            m_statusLabel->setText(QStringLiteral("态势已更新"));
         }
         break;
     }
@@ -441,7 +441,7 @@ void DataFlowWidget::onDataChanged(const DynamicObjects &data)
         for (auto it = data.platforms.constBegin(); it != data.platforms.constEnd(); ++it) {
             addPlatformNode(it.value());
         }
-        m_statusLabel->setText(QStringLiteral("Platforms: %1").arg(m_platformNodeMap.size()));
+        m_statusLabel->setText(QStringLiteral("平台数: %1").arg(m_platformNodeMap.size()));
         return;
     }
     onDataPushed(data);
@@ -460,7 +460,7 @@ void DataFlowWidget::onPlatformUpdated(const PlatformData &platform)
     FlowMode mode = static_cast<FlowMode>(m_modeCombo->currentIndex());
     if (mode == Mode_PlatformData) {
         addPlatformNode(platform);
-        m_statusLabel->setText(QStringLiteral("Platform %1 updated").arg(platform.id));
+        m_statusLabel->setText(QStringLiteral("平台 %1 已更新").arg(platform.id));
     }
 }
 
@@ -482,15 +482,15 @@ void DataFlowWidget::onEventUpdated(const SpecialEvent &event)
         switch (event.eventType) {
         case Event_Attack:
             m_pendingHighlightChain = {1, 2, 3, 4, 7};
-            m_statusLabel->setText(QStringLiteral("Attack event: %1").arg(event.eventName));
+            m_statusLabel->setText(QStringLiteral("攻击事件: %1").arg(event.eventName));
             break;
         case Event_Alert:
             m_pendingHighlightChain = {4, 5, 6, 7};
-            m_statusLabel->setText(QStringLiteral("Alert event: %1").arg(event.eventName));
+            m_statusLabel->setText(QStringLiteral("告警事件: %1").arg(event.eventName));
             break;
         default:
             m_pendingHighlightChain = {4, 6};
-            m_statusLabel->setText(QStringLiteral("Event: %1").arg(event.eventName));
+            m_statusLabel->setText(QStringLiteral("事件: %1").arg(event.eventName));
             break;
         }
     }

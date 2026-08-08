@@ -17,7 +17,7 @@ PlatformControlPanel::PlatformControlPanel(QWidget *parent)
     : QDialog(parent),
       m_updatingCheckState(false)
 {
-    setWindowTitle(QString::fromLocal8Bit("Platform Control Panel"));
+    setWindowTitle(QStringLiteral("平台控制面板"));
     setMinimumSize(500, 600);
     initUI();
 }
@@ -39,7 +39,7 @@ void PlatformControlPanel::initUI()
     mainLayout->setSpacing(10);
 
     m_searchEdit = new QLineEdit(this);
-    m_searchEdit->setPlaceholderText(QString::fromLocal8Bit("Search platforms..."));
+    m_searchEdit->setPlaceholderText(QStringLiteral("搜索平台..."));
     connect(m_searchEdit, &QLineEdit::textChanged, this, &PlatformControlPanel::onSearchTextChanged);
     mainLayout->addWidget(m_searchEdit);
 
@@ -53,15 +53,15 @@ void PlatformControlPanel::initUI()
     QHBoxLayout *btnLayout = new QHBoxLayout();
     btnLayout->setSpacing(10);
 
-    m_applyBtn = new QPushButton(QString::fromLocal8Bit("Apply"), this);
+    m_applyBtn = new QPushButton(QStringLiteral("应用"), this);
     connect(m_applyBtn, &QPushButton::clicked, this, &PlatformControlPanel::onApplyClicked);
     btnLayout->addWidget(m_applyBtn);
 
-    m_resetBtn = new QPushButton(QString::fromLocal8Bit("Reset"), this);
+    m_resetBtn = new QPushButton(QStringLiteral("重置"), this);
     connect(m_resetBtn, &QPushButton::clicked, this, &PlatformControlPanel::onResetClicked);
     btnLayout->addWidget(m_resetBtn);
 
-    m_closeBtn = new QPushButton(QString::fromLocal8Bit("Close"), this);
+    m_closeBtn = new QPushButton(QStringLiteral("关闭"), this);
     connect(m_closeBtn, &QPushButton::clicked, this, &PlatformControlPanel::onCloseClicked);
     btnLayout->addWidget(m_closeBtn);
 
@@ -145,23 +145,23 @@ void PlatformControlPanel::addPlatformNode(QTreeWidgetItem *campItem, const Plat
     platformItem->setCheckState(0, hasChecked ? Qt::Checked : Qt::Unchecked);
 
     QTreeWidgetItem *shipItem = new QTreeWidgetItem(platformItem);
-    shipItem->setText(0, QString::fromLocal8Bit("Ship Icon"));
+    shipItem->setText(0, QStringLiteral("舰船图标"));
     shipItem->setFlags(shipItem->flags() | Qt::ItemIsUserCheckable);
     shipItem->setCheckState(0, state.showShip ? Qt::Checked : Qt::Unchecked);
 
     QTreeWidgetItem *nameItem = new QTreeWidgetItem(platformItem);
-    nameItem->setText(0, QString::fromLocal8Bit("Name Label"));
+    nameItem->setText(0, QStringLiteral("名称标签"));
     nameItem->setFlags(nameItem->flags() | Qt::ItemIsUserCheckable);
     nameItem->setCheckState(0, state.showName ? Qt::Checked : Qt::Unchecked);
 
     QTreeWidgetItem *trackItem = new QTreeWidgetItem(platformItem);
-    trackItem->setText(0, QString::fromLocal8Bit("Track"));
+    trackItem->setText(0, QStringLiteral("航迹"));
     trackItem->setFlags(trackItem->flags() | Qt::ItemIsUserCheckable);
     trackItem->setCheckState(0, state.showTrack ? Qt::Checked : Qt::Unchecked);
 
     if (!platform.sensors.isEmpty()) {
         QTreeWidgetItem *sensorsItem = new QTreeWidgetItem(platformItem);
-        sensorsItem->setText(0, QString::fromLocal8Bit("Sensors"));
+        sensorsItem->setText(0, QStringLiteral("传感器"));
         sensorsItem->setFlags(sensorsItem->flags() | Qt::ItemIsUserCheckable);
         sensorsItem->setCheckState(0, state.showSensors ? Qt::Checked : Qt::Unchecked);
 
@@ -183,7 +183,7 @@ void PlatformControlPanel::addPlatformNode(QTreeWidgetItem *campItem, const Plat
 
     if (!platform.weapons.isEmpty()) {
         QTreeWidgetItem *weaponsItem = new QTreeWidgetItem(platformItem);
-        weaponsItem->setText(0, QString::fromLocal8Bit("Weapons"));
+        weaponsItem->setText(0, QStringLiteral("武器"));
         weaponsItem->setFlags(weaponsItem->flags() | Qt::ItemIsUserCheckable);
         weaponsItem->setCheckState(0, state.showWeapons ? Qt::Checked : Qt::Unchecked);
 
@@ -204,7 +204,7 @@ void PlatformControlPanel::addPlatformNode(QTreeWidgetItem *campItem, const Plat
     }
 
     QTreeWidgetItem *eventsItem = new QTreeWidgetItem(platformItem);
-    eventsItem->setText(0, QString::fromLocal8Bit("Events"));
+    eventsItem->setText(0, QStringLiteral("事件"));
     eventsItem->setFlags(eventsItem->flags() | Qt::ItemIsUserCheckable);
     eventsItem->setCheckState(0, state.showEvents ? Qt::Checked : Qt::Unchecked);
 }
@@ -237,8 +237,8 @@ void PlatformControlPanel::onResetClicked()
             for (int k = 0; k < platformItem->childCount(); k++) {
                 QTreeWidgetItem *childItem = platformItem->child(k);
                 QString text = childItem->text(0);
-                bool checked = (text == QString::fromLocal8Bit("Ship Icon") || 
-                                text == QString::fromLocal8Bit("Name Label"));
+                bool checked = (text == QStringLiteral("舰船图标") || 
+                                text == QStringLiteral("名称标签"));
                 childItem->setCheckState(0, checked ? Qt::Checked : Qt::Unchecked);
 
                 for (int l = 0; l < childItem->childCount(); l++) {
@@ -376,16 +376,16 @@ void PlatformControlPanel::collectStates(DisplayStateMap &stateMap)
                 QString itemText = childItem->text(0);
                 bool checked = childItem->checkState(0) == Qt::Checked;
 
-                if (itemText.contains(QString::fromLocal8Bit("Ship Icon"))) {
+                if (itemText.contains(QStringLiteral("舰船图标"))) {
                     hasShip = true;
                     state.showShip = !campUnchecked && !platformUnchecked && checked;
-                } else if (itemText.contains(QString::fromLocal8Bit("Name Label"))) {
+                } else if (itemText.contains(QStringLiteral("名称标签"))) {
                     hasName = true;
                     state.showName = !campUnchecked && !platformUnchecked && checked;
-                } else if (itemText.contains(QString::fromLocal8Bit("Track"))) {
+                } else if (itemText.contains(QStringLiteral("航迹"))) {
                     hasTrack = true;
                     state.showTrack = !campUnchecked && !platformUnchecked && checked;
-                } else if (itemText.contains(QString::fromLocal8Bit("Sensors"))) {
+                } else if (itemText.contains(QStringLiteral("传感器"))) {
                     hasSensors = true;
                     state.showSensors = !campUnchecked && !platformUnchecked && checked;
 
@@ -398,7 +398,7 @@ void PlatformControlPanel::collectStates(DisplayStateMap &stateMap)
                         sensorState.enabled = checked && (sensorItem->checkState(0) == Qt::Checked);
                         state.sensors.append(sensorState);
                     }
-                } else if (itemText.contains(QString::fromLocal8Bit("Weapons"))) {
+                } else if (itemText.contains(QStringLiteral("武器"))) {
                     hasWeapons = true;
                     state.showWeapons = !campUnchecked && !platformUnchecked && checked;
 
@@ -411,7 +411,7 @@ void PlatformControlPanel::collectStates(DisplayStateMap &stateMap)
                         weaponState.enabled = checked && (weaponItem->checkState(0) == Qt::Checked);
                         state.weapons.append(weaponState);
                     }
-                } else if (itemText.contains(QString::fromLocal8Bit("Events"))) {
+                } else if (itemText.contains(QStringLiteral("事件"))) {
                     hasEvents = true;
                     state.showEvents = !campUnchecked && !platformUnchecked && checked;
                 }
@@ -437,11 +437,11 @@ void PlatformControlPanel::collectStates(DisplayStateMap &stateMap)
 QString PlatformControlPanel::campToString(CampType camp)
 {
     switch (camp) {
-    case Camp_Friendly: return QString::fromLocal8Bit("Friendly");
-    case Camp_Enemy: return QString::fromLocal8Bit("Enemy");
-    case Camp_Neutral: return QString::fromLocal8Bit("Neutral");
-    case Camp_Red: return QString::fromLocal8Bit("Red");
-    case Camp_Purple: return QString::fromLocal8Bit("Purple");
-    default: return QString::fromLocal8Bit("Unknown");
+    case Camp_Friendly: return QStringLiteral("友军");
+    case Camp_Enemy: return QStringLiteral("敌方");
+    case Camp_Neutral: return QStringLiteral("中立");
+    case Camp_Red: return QStringLiteral("红方");
+    case Camp_Purple: return QStringLiteral("紫方");
+    default: return QStringLiteral("未知");
     }
 }

@@ -9,12 +9,12 @@ HelloWidget::HelloWidget(QWidget *parent)
     layout->setContentsMargins(40, 40, 40, 40);
     layout->setAlignment(Qt::AlignCenter);
 
-    QLabel *helloLabel = new QLabel("<h1>Hello!</h1>", this);
+    QLabel *helloLabel = new QLabel(QStringLiteral("<h1>Hello!</h1>"), this);
     helloLabel->setStyleSheet("font-size: 48px; font-weight: bold; color: #333; text-align: center;");
     helloLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(helloLabel);
 
-    QLabel *descLabel = new QLabel("This is a simple hello plugin.", this);
+    QLabel *descLabel = new QLabel(QStringLiteral("这是一个简单的 Hello 插件。"), this);
     descLabel->setStyleSheet("font-size: 16px; color: #666; text-align: center; margin-top: 20px;");
     descLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(descLabel);

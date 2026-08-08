@@ -27,6 +27,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPainterPathStroker>
+#include <QSet>
 #include <QWheelEvent>
 
 #include <algorithm>
@@ -333,32 +334,74 @@ bool NodeFlowWidget::exportJson(const QString &fileName) const
  * @brief 从 JSON 文件导入图
  * @param fileName JSON 文件路径
  * @return 读取成功返回 true
+ * @details 详细日志覆盖：文件打开失败、JSON 解析错误（含行列号）、
+ *          根节点类型错误、空文件、节点/边计数、冲突 ID、颜色降级、
+ *          成功导入统计。
  */
 bool NodeFlowWidget::importJson(const QString &fileName)
 {
+    Logger::info("NodeFlowWidget: importJson start, file=%s", fileName.toUtf8().constData());
+
+    // 1. 打开文件
     QFile file(fileName);
-    if (!file.open(QIODevice::ReadOnly)) return false;
+    if (!file.open(QIODevice::ReadOnly)) {
+        Logger::error("NodeFlowWidget: importJson failed, cannot open file: %s (error=%d)",
+                      fileName.toUtf8().constData(), file.error());
+        return false;
+    }
+
+    // 2. 读取原始数据
     QByteArray data = file.readAll();
     file.close();
+    Logger::info("NodeFlowWidget: importJson file read, size=%d bytes", data.size());
 
+    // 3. 空文件提前拒绝
+    if (data.trimmed().isEmpty()) {
+        Logger::warn("NodeFlowWidget: importJson aborted, file is empty: %s",
+                     fileName.toUtf8().constData());
+        return false;
+    }
+
+    // 4. JSON 语法解析
     QJsonParseError err;
     QJsonDocument doc = QJsonDocument::fromJson(data, &err);
-    if (err.error != QJsonParseError::NoError || !doc.isObject()) return false;
+    if (err.error != QJsonParseError::NoError) {
+        Logger::error("NodeFlowWidget: importJson parse error at offset %d: %s",
+                      err.offset, err.errorString().toUtf8().constData());
+        return false;
+    }
+    if (!doc.isObject()) {
+        Logger::error("NodeFlowWidget: importJson root is not a JSON object (isArray=%d, isEmpty=%d)",
+                      doc.isArray() ? 1 : 0, doc.isEmpty() ? 1 : 0);
+        return false;
+    }
 
     QJsonObject root = doc.object();
 
-    // 解析节点数组
+    // 5. 节点数组解析
     QVector<Node> nodes;
     int maxId = 0;
+    int invalidColorCount = 0;
     QJsonArray nodeArray = root.value(QStringLiteral("nodes")).toArray();
+    Logger::info("NodeFlowWidget: importJson nodes array size=%d", nodeArray.size());
+
     for (const QJsonValue &val : nodeArray) {
         QJsonObject obj = val.toObject();
         Node node;
         node.id = obj.value(QStringLiteral("id")).toInt(0);
         node.title = obj.value(QStringLiteral("title")).toString();
         node.subtitle = obj.value(QStringLiteral("subtitle")).toString();
-        node.color = QColor(obj.value(QStringLiteral("color")).toString("#2E7DD1"));
-        if (!node.color.isValid()) node.color = QColor("#2E7DD1");
+
+        // 颜色：尝试解析，失败则降级到默认蓝
+        QString colorStr = obj.value(QStringLiteral("color")).toString("#2E7DD1");
+        node.color = QColor(colorStr);
+        if (!node.color.isValid()) {
+            node.color = QColor("#2E7DD1");
+            invalidColorCount++;
+            Logger::warn("NodeFlowWidget: importJson node id=%d invalid color '%s', fallback to #2E7DD1",
+                         node.id, colorStr.toUtf8().constData());
+        }
+
         double x = obj.value(QStringLiteral("x")).toDouble(0);
         double y = obj.value(QStringLiteral("y")).toDouble(0);
         double w = obj.value(QStringLiteral("width")).toDouble(NodeWidth);
@@ -368,9 +411,16 @@ bool NodeFlowWidget::importJson(const QString &fileName)
         maxId = std::max(maxId, node.id);
     }
 
-    // 解析边数组
+    if (invalidColorCount > 0) {
+        Logger::warn("NodeFlowWidget: importJson %d node(s) had invalid color, fallback applied",
+                     invalidColorCount);
+    }
+
+    // 6. 边数组解析
     QVector<Edge> edges;
     QJsonArray edgeArray = root.value(QStringLiteral("edges")).toArray();
+    Logger::info("NodeFlowWidget: importJson edges array size=%d", edgeArray.size());
+
     for (const QJsonValue &val : edgeArray) {
         QJsonObject obj = val.toObject();
         Edge edge;
@@ -380,7 +430,19 @@ bool NodeFlowWidget::importJson(const QString &fileName)
         edges.push_back(edge);
     }
 
-    // 替换当前画布
+    // 7. 检查重复节点 ID
+    QSet<int> seenIds;
+    int dupCount = 0;
+    for (const Node &n : nodes) {
+        if (seenIds.contains(n.id)) dupCount++;
+        seenIds.insert(n.id);
+    }
+    if (dupCount > 0) {
+        Logger::warn("NodeFlowWidget: importJson found %d duplicate node id(s), later entries will overlay earlier ones",
+                     dupCount);
+    }
+
+    // 8. 替换当前画布状态
     m_nodes = nodes;
     m_edges = edges;
     m_nextNodeId = maxId + 1;
@@ -391,6 +453,9 @@ bool NodeFlowWidget::importJson(const QString &fileName)
     m_needInitialFit = true;
     emitGraphChanged();
     update();
+
+    Logger::info("NodeFlowWidget: importJson done, nodes=%d, edges=%d, nextNodeId=%d, file=%s",
+                 nodes.size(), edges.size(), m_nextNodeId, fileName.toUtf8().constData());
     return true;
 }
 
@@ -754,8 +819,8 @@ void NodeFlowWidget::editNodeTitle(int id)
     Node *node = findNode(id);
     if (!node) return;
     bool ok = false;
-    const QString text = QInputDialog::getText(this, QStringLiteral("Rename Node"),
-        QStringLiteral("Node Name"), QLineEdit::Normal, node->title, &ok);
+    const QString text = QInputDialog::getText(this, QStringLiteral("重命名节点"),
+        QStringLiteral("节点名称"), QLineEdit::Normal, node->title, &ok);
     if (ok && !text.isEmpty()) { node->title = text; update(); }
 }
 
@@ -767,8 +832,8 @@ void NodeFlowWidget::editEdgeLabel(int index)
     if (index < 0 || index >= m_edges.size()) return;
     Edge &edge = m_edges[index];
     bool ok = false;
-    const QString text = QInputDialog::getText(this, QStringLiteral("Edit Edge Label"),
-        QStringLiteral("Label"), QLineEdit::Normal, edge.label, &ok);
+    const QString text = QInputDialog::getText(this, QStringLiteral("编辑连线标签"),
+        QStringLiteral("标签内容"), QLineEdit::Normal, edge.label, &ok);
     if (ok) { edge.label = text; update(); }
 }
 

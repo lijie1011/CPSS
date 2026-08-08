@@ -31,7 +31,7 @@ HelloPlugin::~HelloPlugin()
  */
 QString HelloPlugin::pluginName() const
 {
-    return QString("Hello");
+    return QStringLiteral("Hello");
 }
 
 /**
@@ -61,7 +61,7 @@ bool HelloPlugin::init(IPluginHost *host)
 {
     m_host = host;
     if (m_host) {
-        m_host->showStatusMessage(QString("Loaded plugin: %1").arg(pluginName()));
+        m_host->showStatusMessage(QStringLiteral("已加载插件: %1").arg(pluginName()));
         return true;
     }
     return false;

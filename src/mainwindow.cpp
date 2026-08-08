@@ -156,7 +156,7 @@ void MainWindow::createChartDock()
         return;
     }
 
-    QDockWidget *dock = new QDockWidget(tr("Chart"), this);
+    QDockWidget *dock = new QDockWidget(QStringLiteral("海图"), this);
     dock->setObjectName("Dock_chart.plugin");
     dock->setWidget(chartWidget);
     dock->setFeatures(QDockWidget::DockWidgetMovable |
@@ -526,7 +526,7 @@ void MainWindow::showNotification(const QString &title, const QString &message)
  */
 void MainWindow::createStatusBar()
 {
-    statusBar()->showMessage(tr("CPSS v1.0 - Ready"));
+    statusBar()->showMessage(QStringLiteral("CPSS v1.0 - 就绪"));
 }
 
 /** @brief 放大海图，委托给 ChartPlugin */
@@ -560,13 +560,13 @@ void MainWindow::updateGeoPosition(QPoint pos)
 {
     ChartPlugin *cp = chartPlugin();
     if (!cp || !cp->isEnclibReady()) {
-        statusBar()->showMessage(tr("Map not initialized"));
+        statusBar()->showMessage(QStringLiteral("海图未初始化"));
         return;
     }
     double lon, lat;
     if (cp->screenToGeo(pos.x(), pos.y(), lon, lat)) {
         double scale = cp->currentScale();
-        statusBar()->showMessage(tr("Lon: %1 Lat: %2 Scale: %3")
+        statusBar()->showMessage(QStringLiteral("经度: %1  纬度: %2  比例尺: %3")
                                  .arg(lon, 0, 'f', 6)
                                  .arg(lat, 0, 'f', 6)
                                  .arg(scale, 0, 'f', 0));
@@ -580,30 +580,30 @@ void MainWindow::updateGeoPosition(QPoint pos)
 void MainWindow::showEventLegend()
 {
     QString legendText =
-        "<h2>Event Legend</h2><hr/>"
-        "<h3>Camp Colors:</h3>"
+        "<h2>事件图例</h2><hr/>"
+        "<h3>阵营颜色:</h3>"
         "<table border=\"0\" cellpadding=\"5\">"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FF00;border:1px solid black;\"></span></td><td> Friendly (Green)</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF0000;border:1px solid black;\"></span></td><td> Enemy (Red)</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFFF00;border:1px solid black;\"></span></td><td> Neutral (Yellow)</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#808080;border:1px solid black;\"></span></td><td> Unknown (Gray)</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FF00;border:1px solid black;\"></span></td><td> 友方（绿色）</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF0000;border:1px solid black;\"></span></td><td> 敌方（红色）</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFFF00;border:1px solid black;\"></span></td><td> 中立（黄色）</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#808080;border:1px solid black;\"></span></td><td> 未知（灰色）</td></tr>"
         "</table><hr/>"
-        "<h3>Event Icons:</h3>"
+        "<h3>事件图标:</h3>"
         "<table border=\"0\" cellpadding=\"5\">"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">!</span></td><td> Alert</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#8B0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">A</span></td><td> Attack</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#0000FF;color:white;text-align:center;font-weight:bold;border:1px solid black;\">D</span></td><td> Defense</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FFFF;color:black;text-align:center;font-weight:bold;border:1px solid black;\">C</span></td><td> Contact</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFA500;color:white;text-align:center;font-weight:bold;border:1px solid black;\">X</span></td><td> Damage</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">!</span></td><td> 告警</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#8B0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">A</span></td><td> 攻击</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#0000FF;color:white;text-align:center;font-weight:bold;border:1px solid black;\">D</span></td><td> 防御</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FFFF;color:black;text-align:center;font-weight:bold;border:1px solid black;\">C</span></td><td> 接触</td></tr>"
+        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFA500;color:white;text-align:center;font-weight:bold;border:1px solid black;\">X</span></td><td> 损伤</td></tr>"
         "</table><hr/>"
-        "<h3>How to use:</h3>"
+        "<h3>操作说明:</h3>"
         "<ul>"
-        "<li>Click on a target to show property box</li>"
-        "<li>Double-click on property box to close it</li>"
-        "<li>Drag property box to reposition</li>"
-        "<li>Click on blank area to hide all property boxes</li>"
+        "<li>点击目标显示属性框</li>"
+        "<li>双击属性框关闭</li>"
+        "<li>拖动属性框可移动位置</li>"
+        "<li>点击空白区域隐藏所有属性框</li>"
         "</ul>";
-    QMessageBox::information(this, tr("Event Legend"), legendText);
+    QMessageBox::information(this, QStringLiteral("事件图例"), legendText);
 }
 
 /**
@@ -619,7 +619,7 @@ void MainWindow::showDisplaySetting()
     QDialog* dialog = new QDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setModal(true);
-    dialog->setWindowTitle(QString::fromUtf8("海图显示控制"));
+    dialog->setWindowTitle(QStringLiteral("海图显示控制"));
 
     QGridLayout* gridLayout = new QGridLayout(dialog);
     gridLayout->setContentsMargins(0, 0, 0, 0);

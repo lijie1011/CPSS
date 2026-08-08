@@ -86,14 +86,13 @@ void ViewWidget::updateDynamicData(const DynamicObjects &data)
             
             QString campStr;
             switch (platform.camp) {
-            case Camp_Friendly: campStr = "Friendly"; break;
-            case Camp_Red: campStr = "Red"; break;
-            case Camp_Purple: campStr = "Purple"; break;
-            case Camp_Enemy: campStr = "Enemy"; break;
-            case Camp_Neutral: campStr = "Neutral"; break;
-            default: campStr = "Unknown"; break;
+            case Camp_Friendly: campStr = QStringLiteral("友军"); break;
+            case Camp_Red: campStr = QStringLiteral("红方"); break;
+            case Camp_Purple: campStr = QStringLiteral("紫方"); break;
+            case Camp_Enemy: campStr = QStringLiteral("敌方"); break;
+            case Camp_Neutral: campStr = QStringLiteral("中立"); break;
+            default: campStr = QStringLiteral("未知"); break;
             }
-            
             QString eventsStr;
             const SpecialEvent *latestEvent = nullptr;
             qint64 latestTimestamp = 0;
@@ -104,11 +103,11 @@ void ViewWidget::updateDynamicData(const DynamicObjects &data)
                 }
             }
             if (latestEvent) {
-                eventsStr = QString("\nEvent: %1").arg(latestEvent->eventName);
+                eventsStr = QStringLiteral("\n事件: %1").arg(latestEvent->eventName);
             }
             
             box->label->setText(
-                QString("Property\nName: %1\nID: %2\nCamp: %3\nLongitude: %4\nLatitude: %5\nSpeed: %6 kn%7")
+                QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n速度: %6 节%7")
                     .arg(platform.name)
                     .arg(platform.id)
                     .arg(campStr)
@@ -145,7 +144,7 @@ void ViewWidget::paintEvent(QPaintEvent *event)
     } else {
         painter.fillRect(this->rect(), Qt::darkGray);
         painter.setPen(Qt::white);
-        painter.drawText(rect(), Qt::AlignCenter, tr("Map not initialized"));
+        painter.drawText(rect(), Qt::AlignCenter, QStringLiteral("海图未初始化"));
     }
 
     QPainterPath clipPath;
@@ -681,23 +680,23 @@ void ViewWidget::createEventInfoBox(const SpecialEvent &event)
 
     QString eventTypeStr;
     switch (event.eventType) {
-    case Event_Alert: eventTypeStr = "Alert"; break;
-    case Event_Attack: eventTypeStr = "Attack"; break;
-    case Event_Defense: eventTypeStr = "Defense"; break;
-    case Event_Contact: eventTypeStr = "Contact"; break;
-    case Event_Damage: eventTypeStr = "Damage"; break;
-    case Event_MissionStart: eventTypeStr = "Mission Start"; break;
-    case Event_MissionEnd: eventTypeStr = "Mission End"; break;
-    case Event_Lost: eventTypeStr = "Lost"; break;
-    case Event_Repair: eventTypeStr = "Repair"; break;
-    case Event_Custom: eventTypeStr = "Custom"; break;
-    default: eventTypeStr = "Unknown"; break;
+    case Event_Alert: eventTypeStr = QStringLiteral("告警"); break;
+    case Event_Attack: eventTypeStr = QStringLiteral("攻击"); break;
+    case Event_Defense: eventTypeStr = QStringLiteral("防御"); break;
+    case Event_Contact: eventTypeStr = QStringLiteral("接触"); break;
+    case Event_Damage: eventTypeStr = QStringLiteral("损伤"); break;
+    case Event_MissionStart: eventTypeStr = QStringLiteral("任务开始"); break;
+    case Event_MissionEnd: eventTypeStr = QStringLiteral("任务结束"); break;
+    case Event_Lost: eventTypeStr = QStringLiteral("失联"); break;
+    case Event_Repair: eventTypeStr = QStringLiteral("修理"); break;
+    case Event_Custom: eventTypeStr = QStringLiteral("自定义"); break;
+    default: eventTypeStr = QStringLiteral("未知"); break;
     }
 
     QDateTime timestamp = QDateTime::fromMSecsSinceEpoch(event.timestamp);
 
     label->setText(
-        QString("Event\nName: %1\nType: %2\nID: %3\nLongitude: %4\nLatitude: %5\nTime: %6\nDescription: %7")
+        QStringLiteral("事件\n名称: %1\n类型: %2\n编号: %3\n经度: %4\n纬度: %5\n时间: %6\n描述: %7")
             .arg(event.eventName)
             .arg(eventTypeStr)
             .arg(event.eventId)
@@ -841,12 +840,12 @@ void ViewWidget::createPropertyBox(const PlatformData &platform)
     
     QString campStr;
     switch (platform.camp) {
-    case Camp_Friendly: campStr = "Friendly"; break;
-    case Camp_Red: campStr = "Red"; break;
-    case Camp_Purple: campStr = "Purple"; break;
-    case Camp_Enemy: campStr = "Enemy"; break;
-    case Camp_Neutral: campStr = "Neutral"; break;
-    default: campStr = "Unknown"; break;
+    case Camp_Friendly: campStr = QStringLiteral("友军"); break;
+    case Camp_Red: campStr = QStringLiteral("红方"); break;
+    case Camp_Purple: campStr = QStringLiteral("紫方"); break;
+    case Camp_Enemy: campStr = QStringLiteral("敌方"); break;
+    case Camp_Neutral: campStr = QStringLiteral("中立"); break;
+    default: campStr = QStringLiteral("未知"); break;
     }
     
     QString eventsStr;
@@ -859,11 +858,11 @@ void ViewWidget::createPropertyBox(const PlatformData &platform)
         }
     }
     if (latestEvent) {
-        eventsStr = QString("\nEvent: %1").arg(latestEvent->eventName);
+        eventsStr = QStringLiteral("\n事件: %1").arg(latestEvent->eventName);
     }
     
     label->setText(
-        QString("Property\nName: %1\nID: %2\nCamp: %3\nLongitude: %4\nLatitude: %5\nHeading: %6°\nSpeed: %7 kn%8")
+        QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n航向: %6°\n速度: %7 节%8")
             .arg(platform.name)
             .arg(platform.id)
             .arg(campStr)
@@ -1007,7 +1006,7 @@ void ViewWidget::drawOverviewMapContent()
     if (!m_enclibReady) {
         QPainter painter(&m_overviewImage);
         painter.setPen(Qt::gray);
-        painter.drawText(m_overviewImage.rect(), Qt::AlignCenter, "Map not ready");
+        painter.drawText(m_overviewImage.rect(), Qt::AlignCenter, QStringLiteral("海图未就绪"));
         return;
     }
 

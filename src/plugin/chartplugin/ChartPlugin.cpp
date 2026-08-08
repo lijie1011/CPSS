@@ -44,7 +44,7 @@ ChartPlugin::~ChartPlugin()
  * @brief 获取插件名称
  * @return 插件的显示名称
  */
-QString ChartPlugin::pluginName() const { return QString("Chart"); }
+QString ChartPlugin::pluginName() const { return QStringLiteral("海图"); }
 
 /**
  * @brief 获取插件 ID

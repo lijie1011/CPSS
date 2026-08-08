@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
         MainWindow *mainwin = nullptr;
         if (!headlessMode) {
             mainwin = new MainWindow();
-            mainwin->setWindowTitle("CPSS - Combat Process Simulation");
+            mainwin->setWindowTitle(QStringLiteral("CPSS - 作战过程仿真"));
             mainwin->resize(800, 600);
             mainwin->show();
         }

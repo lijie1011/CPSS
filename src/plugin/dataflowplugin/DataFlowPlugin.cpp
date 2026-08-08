@@ -39,7 +39,7 @@ DataFlowPlugin::~DataFlowPlugin()
  */
 QString DataFlowPlugin::pluginName() const
 {
-    return QStringLiteral("Data Flow Monitor");
+    return QStringLiteral("数据流监控");
 }
 
 /**
