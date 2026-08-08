@@ -404,9 +404,9 @@ void DataCache::initTestData()
     redShip1.lat = redBaseLat;
     redShip1.altitude = 0.0;
     redShip1.speed = 12.0;
-    redShip1.type = "ship";
+    redShip1.type = "destroyer";
     redShip1.category = "battleship";
-    redShip1.camp = Camp_Red;
+    redShip1.camp = Camp_Mine;
     redShip1.dataStatus = DataStatus_Normal;
     redShip1.updateTime = QDateTime::currentMSecsSinceEpoch();
     redShip1.validUntil = redShip1.updateTime + 10000;
@@ -430,9 +430,9 @@ void DataCache::initTestData()
     redShip2.lat = redBaseLat + 0.05;
     redShip2.altitude = 0.0;
     redShip2.speed = 15.0;
-    redShip2.type = "ship";
+    redShip2.type = "destroyer";
     redShip2.category = "destroyer";
-    redShip2.camp = Camp_Red;
+    redShip2.camp = Camp_Mine;
     redShip2.dataStatus = DataStatus_Normal;
     redShip2.updateTime = QDateTime::currentMSecsSinceEpoch();
     redShip2.validUntil = redShip2.updateTime + 10000;
@@ -445,9 +445,9 @@ void DataCache::initTestData()
     redFighter1.lat = redBaseLat + 0.2;
     redFighter1.altitude = 8000.0;
     redFighter1.speed = 900.0;
-    redFighter1.type = "plane";
+    redFighter1.type = "fighter";
     redFighter1.category = "fighter";
-    redFighter1.camp = Camp_Red;
+    redFighter1.camp = Camp_Mine;
     redFighter1.dataStatus = DataStatus_Normal;
     redFighter1.updateTime = QDateTime::currentMSecsSinceEpoch();
     redFighter1.validUntil = redFighter1.updateTime + 10000;
@@ -460,9 +460,9 @@ void DataCache::initTestData()
     purpleShip1.lat = purpleBaseLat;
     purpleShip1.altitude = 0.0;
     purpleShip1.speed = 18.0;
-    purpleShip1.type = "ship";
+    purpleShip1.type = "frigate";
     purpleShip1.category = "cruiser";
-    purpleShip1.camp = Camp_Purple;
+    purpleShip1.camp = Camp_Enemy;
     purpleShip1.dataStatus = DataStatus_Normal;
     purpleShip1.updateTime = QDateTime::currentMSecsSinceEpoch();
     purpleShip1.validUntil = purpleShip1.updateTime + 10000;
@@ -482,9 +482,9 @@ void DataCache::initTestData()
     purpleShip2.lat = purpleBaseLat + 0.06;
     purpleShip2.altitude = 0.0;
     purpleShip2.speed = 14.0;
-    purpleShip2.type = "ship";
+    purpleShip2.type = "submarine";
     purpleShip2.category = "submarine";
-    purpleShip2.camp = Camp_Purple;
+    purpleShip2.camp = Camp_Enemy;
     purpleShip2.dataStatus = DataStatus_Normal;
     purpleShip2.updateTime = QDateTime::currentMSecsSinceEpoch();
     purpleShip2.validUntil = purpleShip2.updateTime + 10000;
@@ -497,13 +497,30 @@ void DataCache::initTestData()
     purplePlane1.lat = purpleBaseLat - 0.15;
     purplePlane1.altitude = 6000.0;
     purplePlane1.speed = 850.0;
-    purplePlane1.type = "plane";
+    purplePlane1.type = "bomber";
     purplePlane1.category = "bomber";
-    purplePlane1.camp = Camp_Purple;
+    purplePlane1.camp = Camp_Enemy;
     purplePlane1.dataStatus = DataStatus_Normal;
     purplePlane1.updateTime = QDateTime::currentMSecsSinceEpoch();
     purplePlane1.validUntil = purplePlane1.updateTime + 10000;
     updatePlatform(purplePlane1);
+
+    // 敌方巡航导弹平台：导弹同样是一个平台，应按 type 显示导弹图标而非小圆点
+    PlatformData enemyMissile1;
+    enemyMissile1.id = "20";
+    enemyMissile1.name = "Enemy Missile 1";
+    enemyMissile1.lon = purpleBaseLon - 0.05;      // 位于敌方阵营区域附近
+    enemyMissile1.lat = purpleBaseLat + 0.12;
+    enemyMissile1.altitude = 1200.0;               // 巡航高度
+    enemyMissile1.speed = 1000.0;                  // 高速飞行
+    enemyMissile1.heading = 250.0;                 // 朝我方方向飞行
+    enemyMissile1.type = "cruise_sea";             // 海基巡航导弹 → 海基巡航导弹.png
+    enemyMissile1.category = "missile";
+    enemyMissile1.camp = Camp_Enemy;               // 敌方（蓝色着色）
+    enemyMissile1.dataStatus = DataStatus_Normal;
+    enemyMissile1.updateTime = QDateTime::currentMSecsSinceEpoch();
+    enemyMissile1.validUntil = enemyMissile1.updateTime + 10000;
+    updatePlatform(enemyMissile1);
 
     SpecialEvent contactEvent;
     contactEvent.eventId = "event1";
@@ -534,7 +551,7 @@ void DataCache::updateTestData()
     for (PlatformData &platform : platforms) {
         double moveSpeed = platform.speed / 3600.0;
 
-        if (platform.camp == Camp_Red) {
+        if (platform.camp == Camp_Mine) {
             if (platform.id == "1") {
                 platform.lon += 0.00002 * moveSpeed;
                 platform.lat += 0.00001 * moveSpeed;
@@ -545,7 +562,7 @@ void DataCache::updateTestData()
                 platform.lon += 0.00003 * moveSpeed;
                 platform.lat -= 0.000005 * moveSpeed;
             }
-        } else if (platform.camp == Camp_Purple) {
+        } else if (platform.camp == Camp_Enemy) {
             if (platform.id == "9") {
                 platform.lon -= 0.000018 * moveSpeed;
                 platform.lat += 0.000008 * moveSpeed;

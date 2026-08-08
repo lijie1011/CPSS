@@ -22,6 +22,7 @@
 
 #include "encl.h"
 #include "common/logger.h"
+#include "common/IconManager.h"
 
 /**
  * @brief 构造函数
@@ -42,20 +43,9 @@ GraphicsViewWidget::GraphicsViewWidget(QWidget *parent)
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     initOverviewMap();
-    loadIcons();
-}
 
-/**
- * @brief 加载平台图标资源
- */
-void GraphicsViewWidget::loadIcons()
-{
-    QString resourcePath = QCoreApplication::applicationDirPath() + "/../resource";
-
-    m_redBoatIcon = QImage(resourcePath + "/red/boat.png");
-    m_redPlaneIcon = QImage(resourcePath + "/red/plane.png");
-    m_purpleBoatIcon = QImage(resourcePath + "/purple/boat.png");
-    m_purplePlaneIcon = QImage(resourcePath + "/purple/plane.png");
+    // 初始化图标管理器（模板加载/转换），平台图元将按需着色取图
+    IconManager::instance().init();
 }
 
 /**
@@ -133,15 +123,7 @@ void GraphicsViewWidget::updateDynamicData(const DynamicObjects &data)
             box->heading = platform.heading;
             box->speed = platform.speed;
 
-            QString campStr;
-            switch (platform.camp) {
-            case Camp_Friendly: campStr = QStringLiteral("友军"); break;
-            case Camp_Red: campStr = QStringLiteral("红方"); break;
-            case Camp_Purple: campStr = QStringLiteral("紫方"); break;
-            case Camp_Enemy: campStr = QStringLiteral("敌方"); break;
-            case Camp_Neutral: campStr = QStringLiteral("中立"); break;
-            default: campStr = QStringLiteral("未知"); break;
-            }
+            QString campStr = campName(platform.camp);
 
             QString eventsStr;
             const SpecialEvent *latestEvent = nullptr;
@@ -225,8 +207,7 @@ void GraphicsViewWidget::updatePlatformItems()
         }
 
         if (!item) {
-            item = new PlatformItem(platform, m_redBoatIcon, m_redPlaneIcon,
-                                   m_purpleBoatIcon, m_purplePlaneIcon);
+            item = new PlatformItem(platform);
             item->setPos(x, y);
             m_scene->addItem(item);
             m_platformItems[platform.id] = item;
@@ -487,15 +468,8 @@ void GraphicsViewWidget::updateTracks()
             continue;
         }
 
-        QColor campColor;
-        switch (platform.camp) {
-        case Camp_Friendly: campColor = Qt::green; break;
-        case Camp_Red: campColor = Qt::red; break;
-        case Camp_Purple: campColor = QColor(148, 0, 211); break;
-        case Camp_Enemy: campColor = Qt::darkRed; break;
-        case Camp_Neutral: campColor = Qt::yellow; break;
-        default: campColor = Qt::gray; break;
-        }
+        // 航迹颜色与阵营颜色保持一致（我红敌蓝）
+        QColor trackColor = campColor(platform.camp);
 
         QPainterPath trackPath;
         bool firstPoint = true;
@@ -514,10 +488,10 @@ void GraphicsViewWidget::updateTracks()
         if (m_trackItems.contains(platform.id)) {
             QGraphicsPathItem *pathItem = static_cast<QGraphicsPathItem*>(m_trackItems[platform.id]);
             pathItem->setPath(trackPath);
-            pathItem->setPen(QPen(campColor, 2, Qt::DashLine));
+            pathItem->setPen(QPen(trackColor, 2, Qt::DashLine));
         } else {
             QGraphicsPathItem *pathItem = new QGraphicsPathItem(trackPath);
-            pathItem->setPen(QPen(campColor, 2, Qt::DashLine));
+            pathItem->setPen(QPen(trackColor, 2, Qt::DashLine));
             m_scene->addItem(pathItem);
             m_trackItems[platform.id] = pathItem;
         }
@@ -1035,15 +1009,7 @@ void GraphicsViewWidget::createPropertyBox(const PlatformData &platform)
     label->setWindowFlags(Qt::FramelessWindowHint | Qt::Tool);
     label->setStyleSheet("background-color: white; border: 1px solid black; padding: 8px;");
 
-    QString campStr;
-    switch (platform.camp) {
-    case Camp_Friendly: campStr = QStringLiteral("友军"); break;
-    case Camp_Red: campStr = QStringLiteral("红方"); break;
-    case Camp_Purple: campStr = QStringLiteral("紫方"); break;
-    case Camp_Enemy: campStr = QStringLiteral("敌方"); break;
-    case Camp_Neutral: campStr = QStringLiteral("中立"); break;
-    default: campStr = QStringLiteral("未知"); break;
-    }
+    QString campStr = campName(platform.camp);
 
     QString eventsStr;
     const SpecialEvent *latestEvent = nullptr;
@@ -1313,19 +1279,12 @@ void GraphicsViewWidget::drawOverviewMapContent()
         int x, y;
         EnclEagleEyeGeoToPix(platform.lon, platform.lat, x, y);
 
-        QColor campColor;
-        switch (platform.camp) {
-        case Camp_Friendly: campColor = Qt::green; break;
-        case Camp_Red: campColor = Qt::red; break;
-        case Camp_Purple: campColor = QColor(148, 0, 211); break;
-        case Camp_Enemy: campColor = Qt::darkRed; break;
-        case Camp_Neutral: campColor = Qt::yellow; break;
-        default: campColor = Qt::gray; break;
-        }
+        // 鹰眼图中平台点颜色与阵营颜色一致（我红敌蓝）
+        QColor dotColor = campColor(platform.camp);
 
-        QPen p(campColor, 2);
+        QPen p(dotColor, 2);
         overviewPainter.setPen(p);
-        overviewPainter.setBrush(campColor);
+        overviewPainter.setBrush(dotColor);
         overviewPainter.drawEllipse(x - 3, y - 3, 6, 6);
     }
 }

@@ -39,5 +39,6 @@ target_include_directories(cpss_data PUBLIC
 target_link_libraries(cpss_data PRIVATE
     cpss_common
     Qt5::Core
+    Qt5::Gui
     Qt5::Network
 )

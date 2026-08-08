@@ -340,11 +340,11 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
     if (platform.type.isEmpty()) platform.type = obj["type"].toString();
     platform.category = obj["category"].toString();
     
+    // 阵营字段解析：与新 CampType 枚举（我方/友方/敌方/中立/未知）对应
     QString campStr = obj["camp"].toString().toLower();
-    if (campStr == "friendly") platform.camp = Camp_Friendly;
-    else if (campStr == "red") platform.camp = Camp_Red;
-    else if (campStr == "purple") platform.camp = Camp_Purple;
-    else if (campStr == "enemy") platform.camp = Camp_Enemy;
+    if (campStr == "mine" || campStr == "self" || campStr == "own") platform.camp = Camp_Mine;
+    else if (campStr == "friendly" || campStr == "friend" || campStr == "ally") platform.camp = Camp_Friendly;
+    else if (campStr == "enemy" || campStr == "hostile" || campStr == "red") platform.camp = Camp_Enemy;
     else if (campStr == "neutral") platform.camp = Camp_Neutral;
     else platform.camp = Camp_Unknown;
 

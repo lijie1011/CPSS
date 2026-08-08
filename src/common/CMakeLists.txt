@@ -2,12 +2,14 @@ set(COMMON_SOURCES
     logger.cpp
     config.cpp
     xmlconfig.cpp
+    IconManager.cpp
 )
 
 set(COMMON_HEADERS
     logger.h
     config.h
     xmlconfig.h
+    IconManager.h
 )
 
 add_library(cpss_common SHARED
@@ -32,6 +34,7 @@ target_include_directories(cpss_common PUBLIC
 target_link_libraries(cpss_common PRIVATE
     Qt5::Core
     Qt5::Xml
+    Qt5::Gui
 )
 
 if(WIN32)

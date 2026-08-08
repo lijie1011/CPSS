@@ -6,7 +6,6 @@
  */
 
 #include "waterdepthsetting.h"
-#include "viewwidget.h"
 #include <QDoubleValidator>
 #include <QString>
 #include <QIcon>

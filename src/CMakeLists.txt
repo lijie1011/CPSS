@@ -126,6 +126,9 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${ENCLIB_DIR}/fonts $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/fonts
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${ENCLIB_DIR}/s57data $<TARGET_FILE_DIR:cpss>/3dParty/Enclib/s57data
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/settings/chartinfodisplay.xml $<TARGET_FILE_DIR:cpss>
+        # 拷贝资源目录（JB / JB_Souce 平台图标等）到运行期资源路径：
+        # IconManager::resourcePath() = <exe目录>/../resource，即 build/bin/resource
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resource $<TARGET_FILE_DIR:cpss>/../resource
     )
     
 

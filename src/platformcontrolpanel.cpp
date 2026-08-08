@@ -96,7 +96,7 @@ void PlatformControlPanel::populateTree(const DynamicObjects &data, const Displa
     }
 
     QList<CampType> campOrder;
-    campOrder << Camp_Red << Camp_Purple << Camp_Friendly << Camp_Enemy << Camp_Neutral;
+    campOrder << Camp_Mine << Camp_Friendly << Camp_Enemy << Camp_Neutral << Camp_Unknown;
 
     for (CampType camp : campOrder) {
         if (!groups.contains(camp)) continue;
@@ -437,11 +437,11 @@ void PlatformControlPanel::collectStates(DisplayStateMap &stateMap)
 QString PlatformControlPanel::campToString(CampType camp)
 {
     switch (camp) {
-    case Camp_Friendly: return QStringLiteral("友军");
+    case Camp_Mine: return QStringLiteral("我方");
+    case Camp_Friendly: return QStringLiteral("友方");
     case Camp_Enemy: return QStringLiteral("敌方");
     case Camp_Neutral: return QStringLiteral("中立");
-    case Camp_Red: return QStringLiteral("红方");
-    case Camp_Purple: return QStringLiteral("紫方");
+    case Camp_Unknown: return QStringLiteral("未知");
     default: return QStringLiteral("未知");
     }
 }

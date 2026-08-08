@@ -27,15 +27,12 @@ public:
     /**
      * @brief 构造函数
      * @param platform 平台数据
-     * @param redBoatIcon 红方舰船图标
-     * @param redPlaneIcon 红方飞机图标
-     * @param purpleBoatIcon 紫方舰船图标
-     * @param purplePlaneIcon 紫方飞机图标
      * @param parent 父图元
+     * @details 图标不再由外部预生成传入，而是内部根据平台类型（type）
+     *          与阵营（camp）通过 IconManager 按需着色获取，
+     *          详见 iconFileForType() 与 campColor() 映射。
      */
-    PlatformItem(const PlatformData &platform, const QImage &redBoatIcon,
-                 const QImage &redPlaneIcon, const QImage &purpleBoatIcon,
-                 const QImage &purplePlaneIcon, QGraphicsItem *parent = nullptr);
+    explicit PlatformItem(const PlatformData &platform, QGraphicsItem *parent = nullptr);
 
     /**
      * @brief 更新平台数据
@@ -101,11 +98,7 @@ private:
     PlatformData m_platform;            ///< 平台数据
     PlatformDisplayState m_displayState; ///< 显示状态
 
-    QImage m_redBoatIcon;      ///< 红方舰船图标
-    QImage m_redPlaneIcon;     ///< 红方飞机图标
-    QImage m_purpleBoatIcon;   ///< 紫方舰船图标
-    QImage m_purplePlaneIcon;  ///< 紫方飞机图标
-    QImage m_currentIcon;      ///< 当前使用的图标
+    QImage m_currentIcon;      ///< 当前使用的图标（按 type+camp 着色后）
     QImage m_scaledIcon;       ///< 缩放后的图标
 
     QRectF m_boundingRect; ///< 边界矩形

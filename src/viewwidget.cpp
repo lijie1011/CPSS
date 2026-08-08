@@ -15,6 +15,24 @@
 #include <cmath>
 #include "encl.h"
 #include "common/logger.h"
+#include "common/IconManager.h"
+
+/**
+ * @brief 获取阵营对应的颜色
+ * @param camp 阵营类型
+ * @return 阵营颜色
+ */
+static QColor campColor(CampType camp)
+{
+    switch (camp) {
+    case Camp_Friendly: return QColor(0, 255, 0);      // 友军绿色
+    case Camp_Red:      return QColor(255, 0, 0);      // 红方红色
+    case Camp_Purple:   return QColor(148, 0, 211);    // 紫方紫色
+    case Camp_Enemy:    return QColor(139, 0, 0);      // 敌方暗红
+    case Camp_Neutral:  return QColor(255, 255, 0);    // 中立黄色
+    default:            return QColor(128, 128, 128);  // 未知灰色
+    }
+}
 
 /**
  * @brief 构造函数
@@ -32,15 +50,18 @@ ViewWidget::ViewWidget(QWidget *parent)
 
 /**
  * @brief 加载平台图标资源
+ * @details 从 IconManager 获取 JB_Souce 模板并着色
  */
 void ViewWidget::loadIcons()
 {
-    QString resourcePath = QCoreApplication::applicationDirPath() + "/../resource";
-    
-    m_redBoatIcon = QImage(resourcePath + "/red/boat.png");
-    m_redPlaneIcon = QImage(resourcePath + "/red/plane.png");
-    m_purpleBoatIcon = QImage(resourcePath + "/purple/boat.png");
-    m_purplePlaneIcon = QImage(resourcePath + "/purple/plane.png");
+    IconManager &im = IconManager::instance();
+    im.init();
+
+    // 从 JB_Souce 模板着色生成各阵营图标
+    m_redBoatIcon    = im.getIcon(QStringLiteral("驱逐舰.png"), campColor(Camp_Red));
+    m_redPlaneIcon   = im.getIcon(QStringLiteral("歼击机.png"), campColor(Camp_Red));
+    m_purpleBoatIcon = im.getIcon(QStringLiteral("驱逐舰.png"), campColor(Camp_Purple));
+    m_purplePlaneIcon= im.getIcon(QStringLiteral("歼击机.png"), campColor(Camp_Purple));
 }
 
 /**

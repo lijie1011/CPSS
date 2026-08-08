@@ -306,11 +306,6 @@ private:
     void drawOverviewMapContent();
     
     /**
-     * @brief 加载图标
-     */
-    void loadIcons();
-    
-    /**
      * @brief 绘制连接线
      */
     void drawConnectingLines();
@@ -335,11 +330,6 @@ private:
     QList<PropertyBox> m_propertyBoxes;         ///< 属性框列表
     QLabel *m_overviewLabel;                    ///< 鹰眼图标签
     QRect m_overviewViewport;                   ///< 鹰眼图视口
-
-    QImage m_redBoatIcon;                       ///< 红方舰船图标
-    QImage m_redPlaneIcon;                      ///< 红方飞机图标
-    QImage m_purpleBoatIcon;                    ///< 紫方舰船图标
-    QImage m_purplePlaneIcon;                   ///< 紫方飞机图标
 };
 
 #endif
