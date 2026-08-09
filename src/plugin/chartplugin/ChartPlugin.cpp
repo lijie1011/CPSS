@@ -162,9 +162,17 @@ QWidget* ChartPlugin::createWidget(QWidget *parent)
     // 将 DataManager 的动态数据变更信号连接到 GraphicsViewWidget
     DataManager *dm = DataManager::instance();
     if (dm) {
-        connect(dm, &DataManager::dynamicDataChanged,
-                m_viewWidget, &GraphicsViewWidget::updateDynamicData);
-        dm->startTestDataTimer(100);
+        // 增量：单平台新增/更新 → 多目标实时显示（高频主路径）
+        connect(dm, &DataManager::platformUpdated,
+                m_viewWidget, &GraphicsViewWidget::updateSinglePlatform);
+        // 增量：单平台删除/过期 → 直接删除对应图元，避免残留
+        connect(dm, &DataManager::platformRemoved,
+                m_viewWidget, &GraphicsViewWidget::removeSinglePlatform);
+        // 增量：新增事件 → 刷新事件标记（替代已停用的全量 dynamicDataChanged 兜底）
+        connect(dm, &DataManager::eventAdded,
+                m_viewWidget, &GraphicsViewWidget::refreshEventMarkers);
+        // 测试数据 1 秒更新一次（1Hz），配合较大的每拍位移使目标移动更明显
+        dm->startTestDataTimer(1000);
     }
 
     logInfo(QString("[ChartPlugin] createWidget done, view=%1")

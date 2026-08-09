@@ -16,6 +16,8 @@
 #include <QGraphicsPathItem>
 #include <QGraphicsTextItem>
 #include <QGraphicsRectItem>
+#include <QGraphicsPolygonItem>
+#include <QPolygonF>
 #include <QPen>
 #include <QBrush>
 #include <QFont>
@@ -84,11 +86,24 @@ GraphicsViewWidget::~GraphicsViewWidget()
     }
     m_eventMarkerItems.clear();
 
-    for (auto &box : m_propertyBoxes) {
-        if (box.label) {
-            delete box.label;
+    for (auto &items : m_statusStripItems) {
+        for (auto item : items) {
+            delete item;
         }
     }
+    m_statusStripItems.clear();
+
+    for (auto &box : m_propertyBoxes) {
+        if (box.item) {
+            m_scene->removeItem(box.item);
+            delete box.item;
+        }
+        if (box.connectingLine) {
+            m_scene->removeItem(box.connectingLine);
+            delete box.connectingLine;
+        }
+    }
+    m_propertyBoxes.clear();
 
     delete m_overviewLabel;
     delete m_scene;
@@ -117,7 +132,7 @@ void GraphicsViewWidget::updateDynamicData(const DynamicObjects &data)
         }
 
         PropertyBox *box = findPropertyBoxById(platform.id, platform.id == "SHIP_001");
-        if (box && box->label && box->label->isVisible() && !box->isDragging) {
+        if (box && box->item && box->item->isVisible()) {
             box->lon = platform.lon;
             box->lat = platform.lat;
             box->heading = platform.heading;
@@ -138,7 +153,7 @@ void GraphicsViewWidget::updateDynamicData(const DynamicObjects &data)
                 eventsStr = QStringLiteral("\n事件: %1").arg(latestEvent->eventName);
             }
 
-            box->label->setText(
+            box->item->setText(
                 QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n航向: %6\n速度: %7 节%8")
                     .arg(platform.name)
                     .arg(platform.id)
@@ -149,7 +164,6 @@ void GraphicsViewWidget::updateDynamicData(const DynamicObjects &data)
                     .arg(platform.speed)
                     .arg(eventsStr)
             );
-            box->label->adjustSize();
         }
     }
 
@@ -158,6 +172,190 @@ void GraphicsViewWidget::updateDynamicData(const DynamicObjects &data)
     updateTracks();
     updateEventMarkers();
     updateAllConnectingLines();
+}
+
+/**
+ * @brief 事件新增时刷新海图事件标记
+ * @param event 新增的事件
+ * @details 全量 dynamicDataChanged 停发后，海图本地缓存 m_dynamicData.events
+ *          不再被整体更新。此处先把新增事件按 eventId 去重并入本地事件列表
+ *          （与 DataCache::addEvent 的去重逻辑保持一致），再调用
+ *          updateEventMarkers() 重绘事件标记，使新事件图标立即显示。
+ */
+void GraphicsViewWidget::refreshEventMarkers(const SpecialEvent &event)
+{
+    // 按 eventId 去重并入本地事件列表：已存在则原地更新为最新，否则追加
+    bool replaced = false;
+    for (int i = 0; i < m_dynamicData.events.size(); ++i) {
+        if (m_dynamicData.events[i].eventId == event.eventId) {
+            m_dynamicData.events[i] = event;
+            replaced = true;
+            break;
+        }
+    }
+    if (!replaced) {
+        m_dynamicData.events.append(event);
+    }
+
+    updateEventMarkers();
+}
+
+/**
+ * @brief 单平台增量更新（新增或更新）
+ * @param platform 单个平台数据
+ * @details 仅处理该 id 对应的图元：已过期则转为删除；否则复用或新建图元并
+ *          更新位置/数据/显示状态。同时把该平台写回 m_dynamicData，保证鼠标
+ *          命中测试、传感器/武器范围、航迹、属性框等依赖全量数据的逻辑仍可用。
+ */
+void GraphicsViewWidget::updateSinglePlatform(const PlatformData &platform)
+{
+    // 过期平台按删除处理，避免图上残留
+    if (platform.isExpired()) {
+        removeSinglePlatform(platform.id);
+        return;
+    }
+
+    // 同步维护本地全量数据（供命中测试/控制面板等使用）
+    m_dynamicData.platforms[platform.id] = platform;
+
+    int x, y;
+    if (!geoToScreen(platform.lon, platform.lat, x, y)) {
+        return;
+    }
+
+    // 复用或新建该 id 的平台图元
+    PlatformItem *item = m_platformItems.value(platform.id, nullptr);
+    if (!item) {
+        item = new PlatformItem(platform);
+        item->setPos(x, y);
+        m_scene->addItem(item);
+        m_platformItems[platform.id] = item;
+    } else {
+        item->updateData(platform);
+        item->setPos(x, y);
+    }
+
+    // 应用该平台的显示状态
+    auto stateIt = m_displayStates.find(platform.id);
+    if (stateIt != m_displayStates.end()) {
+        item->updateDisplayState(stateIt.value());
+    }
+    item->setVisible(true);
+
+    // 回写对应属性框的地理坐标/航向/速度，并刷新文本，
+    // 使附着框在 updateAllConnectingLines 中按新锚点跟随、显示最新数据
+    PropertyBox *box = findPropertyBoxById(platform.id, platform.id == "SHIP_001");
+    if (box && box->item) {
+        box->lon = platform.lon;
+        box->lat = platform.lat;
+        box->heading = platform.heading;
+        box->speed = platform.speed;
+
+        if (box->item->isVisible()) {
+            QString campStr = campName(platform.camp);
+
+            QString eventsStr;
+            const SpecialEvent *latestEvent = nullptr;
+            qint64 latestTimestamp = 0;
+            for (const auto &event : m_dynamicData.events) {
+                if (event.targetId == platform.id && event.timestamp > latestTimestamp) {
+                    latestTimestamp = event.timestamp;
+                    latestEvent = &event;
+                }
+            }
+            if (latestEvent) {
+                eventsStr = QStringLiteral("\n事件: %1").arg(latestEvent->eventName);
+            }
+
+            box->item->setText(
+                QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n航向: %6\n速度: %7 节%8")
+                    .arg(platform.name)
+                    .arg(platform.id)
+                    .arg(campStr)
+                    .arg(platform.lon, 0, 'f', 6)
+                    .arg(platform.lat, 0, 'f', 6)
+                    .arg(platform.heading > 0 ? platform.heading : 0)
+                    .arg(platform.speed)
+                    .arg(eventsStr)
+            );
+        }
+    }
+
+    // 增量刷新该平台的传感器/武器范围、航迹、事件标记与连接线（这些函数按 id 差量更新）
+    updateSensorWeaponRanges();
+    updateTracks();
+    updateEventMarkers();
+    updateAllConnectingLines();
+}
+
+/**
+ * @brief 单平台增量删除
+ * @param id 被移除（删除或过期）平台的 ID
+ * @details 删除该 id 的平台图元及其传感器/武器范围、航迹、属性框等附属元素，
+ *          并从 m_dynamicData 中移除，避免残留。
+ */
+void GraphicsViewWidget::removeSinglePlatform(const QString &id)
+{
+    // 从本地全量数据移除
+    m_dynamicData.platforms.remove(id);
+
+    // 删除平台图元
+    if (m_platformItems.contains(id)) {
+        PlatformItem *item = m_platformItems.take(id);
+        if (item) {
+            m_scene->removeItem(item);
+            delete item;
+        }
+    }
+
+    // 删除传感器作用范围图元
+    if (m_sensorRangeItems.contains(id)) {
+        for (auto rItem : m_sensorRangeItems[id]) {
+            m_scene->removeItem(rItem);
+            delete rItem;
+        }
+        m_sensorRangeItems.remove(id);
+    }
+
+    // 删除武器作用范围图元
+    if (m_weaponRangeItems.contains(id)) {
+        for (auto rItem : m_weaponRangeItems[id]) {
+            m_scene->removeItem(rItem);
+            delete rItem;
+        }
+        m_weaponRangeItems.remove(id);
+    }
+
+    // 删除航迹图元
+    if (m_trackItems.contains(id)) {
+        QGraphicsItem *tItem = m_trackItems.take(id);
+        if (tItem) {
+            m_scene->removeItem(tItem);
+            delete tItem;
+        }
+    }
+
+    // 删除该平台的事件方块标记（方式1，按平台ID索引），避免残留
+    if (m_eventMarkerItems.contains(id)) {
+        for (auto item : m_eventMarkerItems.take(id)) {
+            m_scene->removeItem(item);
+            delete item;
+        }
+    }
+
+    // 删除该平台上方的设备状态徽标条，避免残留
+    if (m_statusStripItems.contains(id)) {
+        for (auto item : m_statusStripItems.take(id)) {
+            m_scene->removeItem(item);
+            delete item;
+        }
+    }
+
+    // 删除该平台对应的属性框（含连接线）
+    PropertyBox *box = findPropertyBoxById(id, id == "SHIP_001");
+    if (box) {
+        destroyPropertyBox(box);
+    }
 }
 
 /**
@@ -512,113 +710,250 @@ void GraphicsViewWidget::updateTracks()
 
 /**
  * @brief 更新事件标记
+ * @details 统一处理两种事件呈现方式，均走同一套通信与容器 m_eventMarkerItems：
+ *          - 方式1（跟随平台）：事件带 targetId，标记画在该平台当前位置，
+ *            方形字母图标，随平台移动、随平台删除而清理，键为平台ID；
+ *          - 方式2（地理标绘）：事件无 targetId，按事件自身 lon/lat 标绘，
+ *            菱形标志 + 事件名文字，位置固定、不跟随平台，键为事件ID。
+ *          末尾统一清理已不存在的标记（平台过期/事件移除）。
  */
 void GraphicsViewWidget::updateEventMarkers()
 {
-    QSet<QString> currentPlatformIds;
+    // 本轮仍有效的标记键集合（平台ID 或 事件ID），用于末尾清理
+    QSet<QString> currentKeys;
 
+    // ---- 方式1：带 targetId 的事件，作为“圆圈徽标”并入平台上方徽标条同一排 ----
+    // 说明：事件不再单独画成右上方的方块，而是与传感器/武器/通信/受损等状态徽标
+    //       统一由 updatePlatformStatusStrip 以圆圈形式在平台图标正上方横向一排显示。
     for (const PlatformData &platform : m_dynamicData.platforms.values()) {
         if (platform.isExpired()) {
             continue;
         }
-        currentPlatformIds.insert(platform.id);
 
-        bool showEvents = !m_displayStates.contains(platform.id) || m_displayStates[platform.id].showEvents;
-
-        if (m_eventMarkerItems.contains(platform.id)) {
-            for (auto item : m_eventMarkerItems[platform.id]) {
-                item->setVisible(showEvents);
-            }
-        }
-
-        if (!showEvents) {
-            continue;
-        }
-
-        const SpecialEvent *latestEvent = nullptr;
-        qint64 latestTimestamp = 0;
-        for (const auto &event : m_dynamicData.events) {
-            if (event.targetId == platform.id && event.timestamp > latestTimestamp) {
-                latestTimestamp = event.timestamp;
-                latestEvent = &event;
-            }
-        }
-
-        if (!latestEvent) {
-            if (m_eventMarkerItems.contains(platform.id)) {
-                for (auto item : m_eventMarkerItems[platform.id]) {
+        // 先计算平台屏幕坐标：徽标条以此为锚点
+        int x, y;
+        if (!geoToScreen(platform.lon, platform.lat, x, y)) {
+            // 平台不在可视范围：隐藏其徽标条，避免残留错位
+            if (m_statusStripItems.contains(platform.id)) {
+                for (auto item : m_statusStripItems[platform.id]) {
                     item->setVisible(false);
                 }
             }
             continue;
         }
 
+        // 设备状态徽标条（横向一排圆圈：传感器/武器/通信/受损/事件），统一重建
+        updatePlatformStatusStrip(platform, x, y);
+    }
+
+    // ---- 方式2：无 targetId 的事件，按事件自身经纬度地理标绘（菱形 + 文字） ----
+    for (const SpecialEvent &event : m_dynamicData.events) {
+        // 仅处理不关联平台（targetId 为空）且有有效经纬度的事件
+        if (!event.targetId.isEmpty()) {
+            continue;
+        }
+        if (event.lon == 0 && event.lat == 0) {
+            continue;
+        }
+
+        currentKeys.insert(event.eventId);
+
         int x, y;
-        if (!geoToScreen(platform.lon, platform.lat, x, y)) {
+        if (!geoToScreen(event.lon, event.lat, x, y)) {
             continue;
         }
 
         QColor markerColor;
-        QString iconText;
-
-        switch (latestEvent->eventType) {
-        case Event_Alert: markerColor = Qt::red; iconText = "!"; break;
-        case Event_Attack: markerColor = Qt::darkRed; iconText = "A"; break;
-        case Event_Defense: markerColor = Qt::blue; iconText = "D"; break;
-        case Event_Contact: markerColor = Qt::cyan; iconText = "C"; break;
-        case Event_Damage: markerColor = QColor(255, 165, 0); iconText = "X"; break;
-        case Event_MissionStart: markerColor = Qt::green; iconText = "M"; break;
-        case Event_MissionEnd: markerColor = Qt::gray; iconText = "E"; break;
-        case Event_Lost: markerColor = Qt::magenta; iconText = "?"; break;
-        case Event_Repair: markerColor = QColor(144, 238, 144); iconText = "R"; break;
-        default: markerColor = Qt::yellow; iconText = "*"; break;
+        switch (event.eventType) {
+        case Event_Alert: markerColor = Qt::red; break;
+        case Event_Attack: markerColor = Qt::darkRed; break;
+        case Event_Defense: markerColor = Qt::blue; break;
+        case Event_Contact: markerColor = Qt::cyan; break;
+        case Event_Damage: markerColor = QColor(255, 165, 0); break;
+        case Event_MissionStart: markerColor = Qt::green; break;
+        case Event_MissionEnd: markerColor = Qt::gray; break;
+        case Event_Lost: markerColor = Qt::magenta; break;
+        case Event_Repair: markerColor = QColor(144, 238, 144); break;
+        default: markerColor = Qt::yellow; break;
         }
 
-        if (m_eventMarkerItems.contains(platform.id)) {
-            QList<QGraphicsItem*> items = m_eventMarkerItems[platform.id];
+        // 菱形顶点（以标绘点为中心，半径 10 像素的四个方向端点）
+        const int r = 10;
+        QPolygonF diamond;
+        diamond << QPointF(x, y - r)   // 上
+                << QPointF(x + r, y)   // 右
+                << QPointF(x, y + r)   // 下
+                << QPointF(x - r, y);  // 左
+
+        if (m_eventMarkerItems.contains(event.eventId)) {
+            QList<QGraphicsItem*> items = m_eventMarkerItems[event.eventId];
             if (items.size() >= 2) {
-                QGraphicsRectItem *rect = static_cast<QGraphicsRectItem*>(items[0]);
-                rect->setRect(x + 20 - 8, y - 15 - 8, 16, 16);
-                rect->setPen(QPen(markerColor, 2));
-                rect->setBrush(QBrush(markerColor, Qt::Dense4Pattern));
-                rect->setVisible(true);
+                QGraphicsPolygonItem *poly = static_cast<QGraphicsPolygonItem*>(items[0]);
+                poly->setPolygon(diamond);
+                poly->setPen(QPen(markerColor, 2));
+                poly->setBrush(QBrush(markerColor, Qt::SolidPattern));
+                poly->setVisible(true);
 
                 QGraphicsTextItem *text = static_cast<QGraphicsTextItem*>(items[1]);
-                text->setPlainText(iconText);
-                QFont font("Arial", 9, QFont::Bold);
-                text->setFont(font);
-                text->setDefaultTextColor(Qt::white);
-                text->setPos(x + 20 - 4, y - 15 - 5);
+                text->setPlainText(event.eventName);
+                text->setPos(x + r + 2, y - r);
                 text->setVisible(true);
             }
         } else {
-            QGraphicsRectItem *rect = new QGraphicsRectItem(x + 20 - 8, y - 15 - 8, 16, 16);
-            rect->setPen(QPen(markerColor, 2));
-            rect->setBrush(QBrush(markerColor, Qt::Dense4Pattern));
-            m_scene->addItem(rect);
-            m_eventMarkerItems[platform.id].append(rect);
+            QGraphicsPolygonItem *poly = new QGraphicsPolygonItem(diamond);
+            poly->setPen(QPen(markerColor, 2));
+            poly->setBrush(QBrush(markerColor, Qt::SolidPattern));
+            poly->setZValue(60);   // 高于航迹/背景，便于醒目显示
+            m_scene->addItem(poly);
+            m_eventMarkerItems[event.eventId].append(poly);
 
-            QGraphicsTextItem *text = new QGraphicsTextItem(iconText);
+            QGraphicsTextItem *text = new QGraphicsTextItem(event.eventName);
             QFont font("Arial", 9, QFont::Bold);
             text->setFont(font);
-            text->setDefaultTextColor(Qt::white);
-            text->setPos(x + 20 - 4, y - 15 - 5);
+            text->setDefaultTextColor(markerColor);
+            text->setPos(x + r + 2, y - r);
+            text->setZValue(60);
             m_scene->addItem(text);
-            m_eventMarkerItems[platform.id].append(text);
+            m_eventMarkerItems[event.eventId].append(text);
         }
     }
 
+    // ---- 统一清理：删除已不存在的标记（平台过期 或 事件移除） ----
     QList<QString> toRemove;
-    for (const QString &id : m_eventMarkerItems.keys()) {
-        if (!currentPlatformIds.contains(id)) {
-            toRemove.append(id);
+    for (const QString &key : m_eventMarkerItems.keys()) {
+        if (!currentKeys.contains(key)) {
+            toRemove.append(key);
         }
     }
-    for (const QString &id : toRemove) {
-        for (auto item : m_eventMarkerItems.take(id)) {
+    for (const QString &key : toRemove) {
+        for (auto item : m_eventMarkerItems.take(key)) {
             m_scene->removeItem(item);
             delete item;
         }
+    }
+
+    // 同步清理已消失平台的设备状态徽标条（键为平台ID，故仅需比对平台键）
+    QList<QString> stripToRemove;
+    for (const QString &pid : m_statusStripItems.keys()) {
+        if (!m_dynamicData.platforms.contains(pid)) {
+            stripToRemove.append(pid);
+        }
+    }
+    for (const QString &pid : stripToRemove) {
+        for (auto item : m_statusStripItems.take(pid)) {
+            m_scene->removeItem(item);
+            delete item;
+        }
+    }
+}
+
+/**
+ * @brief 更新单个平台上方的设备状态徽标条（横向一排）
+ * @param platform 平台数据
+ * @param x 平台图标场景 X 坐标
+ * @param y 平台图标场景 Y 坐标
+ * @details 徽标数据来源：
+ *          - 传感器/武器：复用 m_displayStates 中各 ComponentState.enabled，
+ *            任一开启即视为该类设备工作中（S / W）；
+ *          - 事件：取该平台最新一条事件，按事件类型映射为一个圆圈徽标（如 A/!/X/N…），
+ *            受 showEvents 显示开关控制。
+ *          所有徽标统一为“圆底 + 白色字母”，在平台图标正上方**同一排**水平居中排布。
+ *          每拍先整条删除该平台旧徽标再重建，避免变长图元的索引复用问题。
+ */
+void GraphicsViewWidget::updatePlatformStatusStrip(const PlatformData &platform, int x, int y)
+{
+    // 整条重建：先清掉该平台旧徽标（1Hz 刷新，开销可忽略）
+    if (m_statusStripItems.contains(platform.id)) {
+        for (auto item : m_statusStripItems.take(platform.id)) {
+            m_scene->removeItem(item);
+            delete item;
+        }
+    }
+
+    // 依据显示状态聚合“传感器开启 / 武器就绪”标志（复用控制面板写入的 enabled）
+    bool sensorOn = false;
+    bool weaponReady = false;
+    if (m_displayStates.contains(platform.id)) {
+        const PlatformDisplayState &st = m_displayStates[platform.id];
+        for (const ComponentState &cs : st.sensors) {
+            if (cs.enabled) { sensorOn = true; break; }
+        }
+        for (const ComponentState &cs : st.weapons) {
+            if (cs.enabled) { weaponReady = true; break; }
+        }
+    }
+
+    // 组装本轮要显示的徽标：{字母, 颜色}，按固定顺序排布（同一排圆圈）
+    struct Badge { QString text; QColor color; };
+    QList<Badge> badges;
+    if (sensorOn)   badges.append({QStringLiteral("S"), Qt::cyan});               // S: 传感器开启
+    if (weaponReady) badges.append({QStringLiteral("W"), QColor(255, 165, 0)});   // W: 武器就绪
+
+    // 事件徽标：取该平台最新一条事件，按类型映射为一个圆圈徽标，并入同一排。
+    // 受 showEvents 显示开关控制（未设置显示状态时默认显示）。
+    bool showEvents = !m_displayStates.contains(platform.id) || m_displayStates[platform.id].showEvents;
+    if (showEvents) {
+        const SpecialEvent *latest = nullptr;
+        qint64 latestTs = 0;
+        for (const auto &event : m_dynamicData.events) {
+            if (event.targetId == platform.id && event.timestamp > latestTs) {
+                latestTs = event.timestamp;
+                latest = &event;
+            }
+        }
+        if (latest) {
+            QColor evColor;
+            QString evText;
+            switch (latest->eventType) {
+            case Event_Alert:        evColor = Qt::red;              evText = "!"; break;
+            case Event_Attack:       evColor = Qt::darkRed;          evText = "A"; break;
+            case Event_Defense:      evColor = Qt::blue;             evText = "D"; break;
+            case Event_Contact:      evColor = Qt::cyan;             evText = "C"; break;
+            case Event_Damage:       evColor = QColor(255, 69, 0);   evText = "X"; break;   // 受损
+            case Event_MissionStart: evColor = Qt::green;            evText = "M"; break;
+            case Event_MissionEnd:   evColor = Qt::gray;             evText = "E"; break;
+            case Event_Lost:         evColor = Qt::magenta;          evText = "N"; break;   // 通信中断/失联
+            case Event_Repair:       evColor = QColor(144, 238, 144);evText = "R"; break;
+            default:                 evColor = Qt::yellow;           evText = "*"; break;
+            }
+            badges.append({evText, evColor});
+        }
+    }
+
+    if (badges.isEmpty()) {
+        return;   // 无任何状态则不绘制徽标条
+    }
+
+    // 布局：直径 14 的圆底，间距 4，整条在平台图标正上方水平居中
+    const int d = 14;          // 徽标直径
+    const int gap = 4;         // 徽标间距
+    const int stripW = badges.size() * d + (badges.size() - 1) * gap;
+    const int startX = x - stripW / 2;   // 整条水平居中于平台
+    const int topY = y - 12 - d;         // 位于平台图标上方（贴近图标，减小间距）
+
+    for (int i = 0; i < badges.size(); ++i) {
+        const Badge &b = badges[i];
+        int bx = startX + i * (d + gap);
+
+        // 圆底：填充半透明底色 + 同色描边，便于在海图背景上辨识
+        QGraphicsEllipseItem *circle = new QGraphicsEllipseItem(bx, topY, d, d);
+        QColor fill = b.color; fill.setAlpha(200);
+        circle->setBrush(QBrush(fill));
+        circle->setPen(QPen(b.color.darker(150), 1));
+        circle->setZValue(61);   // 高于背景/航迹，确保徽标醒目
+        m_scene->addItem(circle);
+        m_statusStripItems[platform.id].append(circle);
+
+        // 字母：白色加粗，按包围盒居中到圆内
+        QGraphicsTextItem *text = new QGraphicsTextItem(b.text);
+        QFont font("Arial", 8, QFont::Bold);
+        text->setFont(font);
+        text->setDefaultTextColor(Qt::white);
+        QRectF tb = text->boundingRect();
+        text->setPos(bx + d / 2.0 - tb.width() / 2.0, topY + d / 2.0 - tb.height() / 2.0);
+        text->setZValue(62);
+        m_scene->addItem(text);
+        m_statusStripItems[platform.id].append(text);
     }
 }
 
@@ -670,6 +1005,12 @@ void GraphicsViewWidget::mousePressEvent(QMouseEvent *event)
  */
 void GraphicsViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
+    // 若有场景 item 正在被拖动（如属性框），则不平移海图，交由基类分发给 item
+    if (m_scene && m_scene->mouseGrabberItem()) {
+        QGraphicsView::mouseMoveEvent(event);
+        return;
+    }
+
     QPoint currentMousePt = event->pos();
     Qt::MouseButtons btns = event->buttons();
     if (m_enclibReady && (Qt::LeftButton == (btns & Qt::LeftButton))) {
@@ -691,6 +1032,13 @@ void GraphicsViewWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     switch (event->button()) {
     case Qt::LeftButton: {
+        // 若此次左键交互是在拖动某个场景 item（如属性框），则不触发海图平移与
+        // 命中测试，直接交由基类把释放事件分发给该 item
+        if (m_scene && m_scene->mouseGrabberItem()) {
+            QGraphicsView::mouseReleaseEvent(event);
+            return;
+        }
+
         if (m_enclibReady) {
             EnclViewPan(m_lastLeftMousePt.x(), m_lastLeftMousePt.y(), event->x(), event->y());
         }
@@ -704,6 +1052,12 @@ void GraphicsViewWidget::mouseReleaseEvent(QMouseEvent *event)
 
             for (const PlatformData &platform : m_dynamicData.platforms.values()) {
                 if (platform.isExpired()) {
+                    continue;
+                }
+                // 平台图标被隐藏时（showShip=false），不参与命中测试，
+                // 避免点击其原位置仍能选中不可见的平台。
+                if (m_displayStates.contains(platform.id) &&
+                    !m_displayStates[platform.id].showShip) {
                     continue;
                 }
                 int shipX, shipY;
@@ -732,8 +1086,8 @@ void GraphicsViewWidget::mouseReleaseEvent(QMouseEvent *event)
             }
 
             for (auto &box : m_propertyBoxes) {
-                if (box.label) {
-                    box.label->hide();
+                if (box.item) {
+                    box.item->setVisible(false);
                 }
             }
             update();
@@ -782,6 +1136,8 @@ void GraphicsViewWidget::updateChart()
     if (m_enclibReady) {
         EnclViewSetSize(width(), size().height());
         updateMapBackground();
+        // 缩放/平移后重算事件标记的屏幕位置（含跟随平台的方式1与地理标绘的方式2）
+        updateEventMarkers();
     }
     update();
 }
@@ -841,7 +1197,7 @@ void GraphicsViewWidget::updateDisplayState(const DisplayStateMap &stateMap)
  */
 void GraphicsViewWidget::updateConnectingLine(PropertyBox &box)
 {
-    if (!box.label || !box.label->isVisible()) {
+    if (!box.item || !box.item->isVisible()) {
         if (box.connectingLine) {
             m_scene->removeItem(box.connectingLine);
             delete box.connectingLine;
@@ -860,14 +1216,15 @@ void GraphicsViewWidget::updateConnectingLine(PropertyBox &box)
         return;
     }
 
-    QPoint shipCenter(shipX, shipY);
-    QPoint boxCenter = box.label->geometry().center();
-    boxCenter = mapFromGlobal(boxCenter);
+    // 场景坐标 ≡ 视图坐标：平台端直接用 geoToScreen 结果，框端用 item 中心的场景坐标
+    QPointF shipCenter(shipX, shipY);
+    QPointF boxCenter = box.item->mapToScene(box.item->boundingRect().center());
 
     if (!box.connectingLine) {
         box.connectingLine = new QGraphicsLineItem(QLineF(shipCenter, boxCenter));
         QPen pen(Qt::white, 1, Qt::DashLine);
         box.connectingLine->setPen(pen);
+        box.connectingLine->setZValue(50);
         m_scene->addItem(box.connectingLine);
     } else {
         box.connectingLine->setLine(QLineF(shipCenter, boxCenter));
@@ -876,10 +1233,18 @@ void GraphicsViewWidget::updateConnectingLine(PropertyBox &box)
 
 /**
  * @brief 更新所有属性框的连接线
+ * @details 对附着（attached）的属性框先按“平台锚点 + 偏移”重定位，再刷新连接线；
+ *          脱离/固定的框保持用户放置位置不动，仅刷新其连接线（线仍连到平台锚点）。
  */
 void GraphicsViewWidget::updateAllConnectingLines()
 {
     for (auto &box : m_propertyBoxes) {
+        if (box.item && box.item->isAttached()) {
+            int shipX, shipY;
+            if (geoToScreen(box.lon, box.lat, shipX, shipY)) {
+                box.item->setPos(QPointF(shipX, shipY) + box.item->offset());
+            }
+        }
         updateConnectingLine(box);
     }
 }
@@ -908,14 +1273,14 @@ bool GraphicsViewWidget::geoToScreen(double lon, double lat, int &x, int &y)
 }
 
 /**
- * @brief 通过标签指针查找属性框
- * @param label 标签指针
+ * @brief 通过图元指针查找属性框
+ * @param item 属性框图元指针
  * @return 找到返回属性框指针，否则返回 nullptr
  */
-PropertyBox* GraphicsViewWidget::findPropertyBoxByLabel(QLabel *label)
+PropertyBox* GraphicsViewWidget::findPropertyBoxByItem(PropertyBoxItem *item)
 {
     for (auto &box : m_propertyBoxes) {
-        if (box.label == label) {
+        if (box.item == item) {
             return &box;
         }
     }
@@ -1003,11 +1368,10 @@ void GraphicsViewWidget::createPropertyBox(const PlatformData &platform)
     box.lat = platform.lat;
     box.heading = platform.heading;
     box.speed = platform.speed;
-    box.isDragging = false;
 
-    QLabel *label = new QLabel(this);
-    label->setWindowFlags(Qt::FramelessWindowHint | Qt::Tool);
-    label->setStyleSheet("background-color: white; border: 1px solid black; padding: 8px;");
+    // 新建场景内属性框图元（平台框：白底黑框）
+    PropertyBoxItem *item = new PropertyBoxItem(platform.id, false);
+    item->setColors(Qt::white, Qt::black);
 
     QString campStr = campName(platform.camp);
 
@@ -1024,7 +1388,7 @@ void GraphicsViewWidget::createPropertyBox(const PlatformData &platform)
         eventsStr = QStringLiteral("\n事件: %1").arg(latestEvent->eventName);
     }
 
-    label->setText(
+    item->setText(
         QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n航向: %6°\n速度: %7 节%8")
             .arg(platform.name)
             .arg(platform.id)
@@ -1035,26 +1399,26 @@ void GraphicsViewWidget::createPropertyBox(const PlatformData &platform)
             .arg(platform.speed)
             .arg(eventsStr)
     );
-    label->adjustSize();
-    label->installEventFilter(this);
-    label->setMouseTracking(true);
+
+    // 默认附着：初始偏移让框显示在平台上方
+    qreal boxH = item->boundingRect().height();
+    item->setOffset(QPointF(0, -(boxH + 15)));
+    item->setAttached(true);
+    item->setZValue(100);
 
     int shipX, shipY;
     if (geoToScreen(platform.lon, platform.lat, shipX, shipY)) {
-        QPoint pos = mapToGlobal(QPoint(shipX, shipY));
-        pos.setY(pos.y() - label->height() - 15);
-        QRect screenGeometry = QApplication::desktop()->availableGeometry(this);
-        if (pos.y() < screenGeometry.top())
-            pos.setY(mapToGlobal(QPoint(shipX, shipY)).y() + 20);
-        if (pos.x() + label->width() > screenGeometry.right())
-            pos.setX(screenGeometry.right() - label->width());
-        label->move(pos);
+        item->setPos(QPointF(shipX, shipY) + item->offset());
     }
 
-    box.label = label;
+    // 交互通过信号回到 view 处理（拖动脱离刷新连接线 / 双击删除）
+    connect(item, &PropertyBoxItem::boxMoved, this, &GraphicsViewWidget::onPropertyBoxMoved);
+    connect(item, &PropertyBoxItem::boxDoubleClicked, this, &GraphicsViewWidget::onPropertyBoxDoubleClicked);
+    m_scene->addItem(item);
+
+    box.item = item;
     box.connectingLine = nullptr;
     m_propertyBoxes.append(box);
-    label->show();
     updateConnectingLine(m_propertyBoxes.last());
 }
 
@@ -1072,11 +1436,10 @@ void GraphicsViewWidget::createEventInfoBox(const SpecialEvent &event)
     box.lat = event.lat;
     box.heading = 0;
     box.speed = 0;
-    box.isDragging = false;
 
-    QLabel *label = new QLabel(this);
-    label->setWindowFlags(Qt::FramelessWindowHint | Qt::Tool);
-    label->setStyleSheet("background-color: #FFE4E1; border: 1px solid #DC143C; padding: 8px;");
+    // 新建场景内事件信息框图元（事件框：#FFE4E1 底 / #DC143C 框）
+    PropertyBoxItem *item = new PropertyBoxItem(event.eventId, true);
+    item->setColors(QColor("#FFE4E1"), QColor("#DC143C"));
 
     QString eventTypeStr;
     switch (event.eventType) {
@@ -1095,7 +1458,7 @@ void GraphicsViewWidget::createEventInfoBox(const SpecialEvent &event)
 
     QDateTime timestamp = QDateTime::fromMSecsSinceEpoch(event.timestamp);
 
-    label->setText(
+    item->setText(
         QStringLiteral("事件\n名称: %1\n类型: %2\n编号: %3\n经度: %4\n纬度: %5\n时间: %6\n描述: %7")
             .arg(event.eventName)
             .arg(eventTypeStr)
@@ -1105,26 +1468,25 @@ void GraphicsViewWidget::createEventInfoBox(const SpecialEvent &event)
             .arg(timestamp.toString("yyyy-MM-dd HH:mm:ss"))
             .arg(event.description)
     );
-    label->adjustSize();
-    label->installEventFilter(this);
-    label->setMouseTracking(true);
+
+    // 默认附着：初始偏移让框显示在事件锚点上方
+    qreal boxH = item->boundingRect().height();
+    item->setOffset(QPointF(0, -(boxH + 15)));
+    item->setAttached(true);
+    item->setZValue(100);
 
     int eventX, eventY;
     if (geoToScreen(event.lon, event.lat, eventX, eventY)) {
-        QPoint pos = mapToGlobal(QPoint(eventX, eventY));
-        pos.setY(pos.y() - label->height() - 15);
-        QRect screenGeometry = QApplication::desktop()->availableGeometry(this);
-        if (pos.y() < screenGeometry.top())
-            pos.setY(mapToGlobal(QPoint(eventX, eventY)).y() + 20);
-        if (pos.x() + label->width() > screenGeometry.right())
-            pos.setX(screenGeometry.right() - label->width());
-        label->move(pos);
+        item->setPos(QPointF(eventX, eventY) + item->offset());
     }
 
-    box.label = label;
+    connect(item, &PropertyBoxItem::boxMoved, this, &GraphicsViewWidget::onPropertyBoxMoved);
+    connect(item, &PropertyBoxItem::boxDoubleClicked, this, &GraphicsViewWidget::onPropertyBoxDoubleClicked);
+    m_scene->addItem(item);
+
+    box.item = item;
     box.connectingLine = nullptr;
     m_propertyBoxes.append(box);
-    label->show();
     updateConnectingLine(m_propertyBoxes.last());
 }
 
@@ -1134,10 +1496,12 @@ void GraphicsViewWidget::createEventInfoBox(const SpecialEvent &event)
  */
 void GraphicsViewWidget::destroyPropertyBox(PropertyBox *box)
 {
-    if (box && box->label) {
-        box->label->hide();
-        delete box->label;
-        box->label = nullptr;
+    if (box && box->item) {
+        m_scene->removeItem(box->item);
+        // item 是 QObject，删除常由其自身信号（双击）触发，使用 deleteLater
+        // 避免在其自身事件栈内析构导致崩溃
+        box->item->deleteLater();
+        box->item = nullptr;
     }
     if (box && box->connectingLine) {
         m_scene->removeItem(box->connectingLine);
@@ -1148,7 +1512,34 @@ void GraphicsViewWidget::destroyPropertyBox(PropertyBox *box)
 }
 
 /**
- * @brief 事件过滤器，处理鹰眼图点击和属性框拖拽
+ * @brief 属性框被拖动的响应槽
+ * @param item 被拖动的属性框图元
+ * @details item 内部已置为脱离/固定，此处仅刷新其连接线。
+ */
+void GraphicsViewWidget::onPropertyBoxMoved(PropertyBoxItem *item)
+{
+    PropertyBox *box = findPropertyBoxByItem(item);
+    if (box) {
+        updateConnectingLine(*box);
+    }
+}
+
+/**
+ * @brief 属性框被双击的响应槽
+ * @param item 被双击的属性框图元
+ * @details 删除该属性框及其连接线（与原双击删除交互一致）。
+ */
+void GraphicsViewWidget::onPropertyBoxDoubleClicked(PropertyBoxItem *item)
+{
+    PropertyBox *box = findPropertyBoxByItem(item);
+    if (box) {
+        destroyPropertyBox(box);
+        update();
+    }
+}
+
+/**
+ * @brief 事件过滤器，处理鹰眼图点击
  * @param obj 事件目标对象
  * @param event 事件指针
  * @return 处理了事件返回 true，否则返回 false
@@ -1167,45 +1558,6 @@ bool GraphicsViewWidget::eventFilter(QObject *obj, QEvent *event)
         return true;
     }
 
-    for (auto &box : m_propertyBoxes) {
-        if (obj == box.label) {
-            if (event->type() == QEvent::MouseButtonDblClick) {
-                destroyPropertyBox(&box);
-                update();
-                return true;
-            }
-            if (event->type() == QEvent::MouseButtonPress) {
-                QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
-                if (mouseEvent->button() == Qt::LeftButton) {
-                    box.isDragging = true;
-                    box.dragOffset = mouseEvent->globalPos() - box.label->pos();
-                    return true;
-                }
-            }
-            else if (event->type() == QEvent::MouseMove) {
-                if (box.isDragging) {
-                    QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
-                    QPoint newPos = mouseEvent->globalPos() - box.dragOffset;
-                    QRect screenGeometry = QApplication::desktop()->availableGeometry(this);
-                    if (newPos.x() < screenGeometry.left())
-                        newPos.setX(screenGeometry.left());
-                    if (newPos.y() < screenGeometry.top())
-                        newPos.setY(screenGeometry.top());
-                    if (newPos.x() + box.label->width() > screenGeometry.right())
-                        newPos.setX(screenGeometry.right() - box.label->width());
-                    if (newPos.y() + box.label->height() > screenGeometry.bottom())
-                        newPos.setY(screenGeometry.bottom() - box.label->height());
-                    box.label->move(newPos);
-                    updateConnectingLine(box);
-                    return true;
-                }
-            }
-            else if (event->type() == QEvent::MouseButtonRelease) {
-                box.isDragging = false;
-                return true;
-            }
-        }
-    }
     return QGraphicsView::eventFilter(obj, event);
 }
 

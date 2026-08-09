@@ -182,6 +182,13 @@ signals:
      * @param data 更新后的平台数据
      */
     void platformUpdated(const PlatformData &data);
+
+    /**
+     * @brief 平台移除信号
+     * @param id 被移除（删除或过期）平台的 ID
+     * @details 供海图等消费者做单目标增量删除，避免依赖全量刷新清理残留
+     */
+    void platformRemoved(const QString &id);
     
     /**
      * @brief 平台列表更新信号

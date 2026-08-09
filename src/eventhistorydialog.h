@@ -9,6 +9,7 @@
 
 #include <QDialog>
 #include <QTableWidget>
+#include <QComboBox>
 #include <QList>
 #include "dynamicdata.h"
 
@@ -39,6 +40,13 @@ public:
      */
     void updateHistory(const QList<SpecialEvent> &events);
     
+private slots:
+    /**
+     * @brief 平台ID筛选下拉框选择变化时刷新表格
+     * @param platformId 当前选中的平台ID（"全部"表示不筛选）
+     */
+    void onFilterChanged(const QString &platformId);
+
 private:
     /**
      * @brief 事件类型转字符串
@@ -54,7 +62,23 @@ private:
      */
     QColor eventTypeColor(SpecialEventType type);
     
-    QTableWidget *m_tableWidget;  ///< 事件表格控件
+    /**
+     * @brief 按当前筛选条件重建表格
+     * @param platformId 平台ID；为空或"全部"时显示所有事件，
+     *        否则只显示 targetId 或 sourceId 匹配该ID的事件
+     */
+    void rebuildTable(const QString &platformId);
+    
+    /**
+     * @brief 依据当前全量事件，刷新平台ID下拉框选项
+     * @details 从所有事件的 targetId/sourceId 去重收集平台ID，
+     *          排序后填充下拉框，并尽量保留当前选中项。
+     */
+    void refreshFilterOptions();
+    
+    QComboBox *m_filterCombo;             ///< 平台ID筛选下拉框（目标/来源去重）
+    QTableWidget *m_tableWidget;          ///< 事件表格控件
+    QList<SpecialEvent> m_allEvents;      ///< 全量事件缓存，供筛选时复用
 };
 
 #endif

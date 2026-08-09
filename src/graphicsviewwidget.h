@@ -21,6 +21,7 @@
 #include "dynamicdata.h"
 #include "displaystate.h"
 #include "platformitem.h"
+#include "propertyboxitem.h"
 
 /**
  * @struct PropertyBox
@@ -35,10 +36,8 @@ struct PropertyBox {
     double lat;                      ///< 纬度
     double heading;                  ///< 航向
     double speed;                    ///< 速度
-    QLabel *label;                   ///< 显示标签
+    PropertyBoxItem *item;           ///< 场景内属性框图元（附着/脱离与偏移由其自身持有）
     QGraphicsLineItem *connectingLine; ///< 连接线
-    bool isDragging;                 ///< 当前是否正在拖拽
-    QPoint dragOffset;               ///< 拖拽偏移量
 
     /**
      * @brief 相等运算符重载
@@ -76,6 +75,23 @@ public:
      * @param data 动态目标数据
      */
     void updateDynamicData(const DynamicObjects &data);
+    
+    /**
+     * @brief 单平台增量更新（新增或更新）
+     * @param platform 单个平台数据
+     * @details 连接 DataManager::platformUpdated，仅更新/新建该 id 对应的图元，
+     *          实现多目标实时显示，避免每次全量重建。内部同步维护 m_dynamicData
+     *          以保证鼠标命中测试与控制面板等仍可用。
+     */
+    void updateSinglePlatform(const PlatformData &platform);
+    
+    /**
+     * @brief 单平台增量删除
+     * @param id 被移除（删除或过期）平台的 ID
+     * @details 连接 DataManager::platformRemoved，删除该 id 对应的图元及其
+     *          传感器/武器范围、航迹、属性框等附属元素，避免残留。
+     */
+    void removeSinglePlatform(const QString &id);
     
     /**
      * @brief 获取当前动态数据
@@ -136,6 +152,30 @@ public slots:
      * @param stateMap 显示状态映射
      */
     void updateDisplayState(const DisplayStateMap &stateMap);
+
+    /**
+     * @brief 事件新增时刷新海图事件标记
+     * @param event 新增的事件（此处仅作触发信号使用，实际按全量事件重绘标记）
+     * @details 连接 DataManager::eventAdded，替代原先依赖全量 dynamicDataChanged
+     *          的兜底刷新。内部调用 updateEventMarkers()，使新增事件的图标
+     *          立即出现在对应平台旁。
+     */
+    void refreshEventMarkers(const SpecialEvent &event);
+
+private slots:
+    /**
+     * @brief 属性框被拖动的响应槽
+     * @param item 被拖动的属性框图元
+     * @details item 内部已置为脱离/固定状态，此处仅刷新其连接线。
+     */
+    void onPropertyBoxMoved(PropertyBoxItem *item);
+
+    /**
+     * @brief 属性框被双击的响应槽
+     * @param item 被双击的属性框图元
+     * @details 删除该属性框及其连接线（与原双击删除交互一致）。
+     */
+    void onPropertyBoxDoubleClicked(PropertyBoxItem *item);
 
 protected:
     /**
@@ -204,9 +244,29 @@ private:
     void updateTracks();
     
     /**
-     * @brief 更新事件标记
+     * @brief 更新事件标记（统一处理两种呈现方式）
+     * @details 两种方式共用同一套通信与容器 m_eventMarkerItems：
+     *          - 方式1（跟随平台）：事件带 targetId，标记画在对应平台当前位置，
+     *            方形字母图标，随平台移动、随平台删除而清理，键为平台ID；
+     *          - 方式2（地理标绘）：事件无 targetId，按事件自身 lon/lat 标绘，
+     *            菱形标志 + 事件名文字，位置固定、不跟随平台，键为事件ID。
      */
     void updateEventMarkers();
+
+    /**
+     * @brief 更新单个平台上方的设备状态徽标条（横向一排）
+     * @param platform 平台数据（提供阵营/事件关联等）
+     * @param x 平台图标在场景中的 X 坐标
+     * @param y 平台图标在场景中的 Y 坐标
+     * @details 在平台图标正上方横向排布若干小徽标，状态数据复用 m_displayStates：
+     *          - 传感器开启：displayState.sensors 任一 enabled 为真时显示“S”（青色）；
+     *          - 武器就绪：displayState.weapons 任一 enabled 为真时显示“W”（橙色）；
+     *          - 通信/受损：由该平台最新事件类型派生（Event_Lost→通信中断，
+     *            Event_Damage→受损），无对应事件则不显示。
+     *          徽标按平台ID存于 m_statusStripItems，每拍整条重建（1Hz 开销极小），
+     *          随平台移动而跟随、随平台删除而清理。
+     */
+    void updatePlatformStatusStrip(const PlatformData &platform, int x, int y);
 
     /**
      * @brief 地理坐标转屏幕坐标
@@ -230,11 +290,11 @@ private:
     void updateAllConnectingLines();
     
     /**
-     * @brief 通过标签查找属性框
-     * @param label 标签
+     * @brief 通过图元查找属性框
+     * @param item 属性框图元
      * @return 属性框指针
      */
-    PropertyBox* findPropertyBoxByLabel(QLabel *label);
+    PropertyBox* findPropertyBoxByItem(PropertyBoxItem *item);
     
     /**
      * @brief 通过 ID 查找属性框
@@ -325,7 +385,8 @@ private:
     QMap<QString, QList<QGraphicsItem*>> m_sensorRangeItems; ///< 传感器作用范围图元映射
     QMap<QString, QList<QGraphicsItem*>> m_weaponRangeItems; ///< 武器作用范围图元映射
     QMap<QString, QGraphicsItem*> m_trackItems;             ///< 航迹图元映射
-    QMap<QString, QList<QGraphicsItem*>> m_eventMarkerItems; ///< 事件标记图元映射
+    QMap<QString, QList<QGraphicsItem*>> m_eventMarkerItems; ///< 事件标记图元映射（方式1按平台ID、方式2按事件ID共用同一容器）
+    QMap<QString, QList<QGraphicsItem*>> m_statusStripItems; ///< 设备状态徽标条图元映射（按平台ID，横排显示传感器/武器/通信受损状态）
 
     QList<PropertyBox> m_propertyBoxes;         ///< 属性框列表
     QLabel *m_overviewLabel;                    ///< 鹰眼图标签

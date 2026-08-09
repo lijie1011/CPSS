@@ -31,8 +31,15 @@ DataManager::DataManager(QObject *parent)
             this, &DataManager::dynamicDataChanged);
     connect(cache, &DataCache::platformUpdated,
             this, &DataManager::platformUpdated);
+    connect(cache, &DataCache::platformRemoved,
+            this, &DataManager::platformRemoved);
     connect(cache, &DataCache::platformsUpdated,
             this, &DataManager::platformsUpdated);
+    // 转发事件增量信号：供事件历史界面等做定向刷新，替代全量 dynamicDataChanged
+    connect(cache, &DataCache::eventAdded,
+            this, &DataManager::eventAdded);
+    connect(cache, &DataCache::eventRemoved,
+            this, &DataManager::eventRemoved);
 }
 
 /**
@@ -381,8 +388,8 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
     }
 
     emit platformUpdated(platform);
-    emit platformsUpdated(getAllPlatforms());
-    emit dynamicDataChanged(getAllData());
+    //emit platformsUpdated(getAllPlatforms());
+    //emit dynamicDataChanged(getAllData());
 }
 
 /**

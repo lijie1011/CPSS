@@ -238,6 +238,13 @@ signals:
     void platformUpdated(const PlatformData &data);
     
     /**
+     * @brief 平台移除信号
+     * @param id 被移除（删除或过期）平台的 ID
+     * @details 由 DataCache::platformRemoved 转发而来，供海图增量删除目标
+     */
+    void platformRemoved(const QString &id);
+    
+    /**
      * @brief 平台列表更新信号
      * @param platforms 平台数据列表
      */
@@ -248,6 +255,21 @@ signals:
      * @param data 动态对象集合
      */
     void dynamicDataChanged(const DynamicObjects &data);
+    
+    /**
+     * @brief 事件添加信号
+     * @param event 新增的事件
+     * @details 由 DataCache::eventAdded 转发而来，供事件历史界面等做
+     *          定向增量刷新，替代原先依赖全量 dynamicDataChanged 的方式
+     */
+    void eventAdded(const SpecialEvent &event);
+    
+    /**
+     * @brief 事件移除信号
+     * @param eventId 已移除事件的 ID
+     * @details 由 DataCache::eventRemoved 转发而来，供事件历史界面等做定向刷新
+     */
+    void eventRemoved(const QString &eventId);
     
     /**
      * @brief 数据过期信号

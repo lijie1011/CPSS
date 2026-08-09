@@ -53,6 +53,7 @@ set(SOURCES
     mainwindow.cpp
     graphicsviewwidget.cpp
     platformitem.cpp
+    propertyboxitem.cpp
     eventhistorydialog.cpp
     platformcontrolpanel.cpp
     mainwindow.ui
@@ -69,6 +70,7 @@ set(HEADERS
     mainwindow.h
     graphicsviewwidget.h
     platformitem.h
+    propertyboxitem.h
     eventhistorydialog.h
     platformcontrolpanel.h
     displaystate.h

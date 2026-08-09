@@ -88,10 +88,11 @@ DataFlowWidget::DataFlowWidget(DataManager *dataManager, QWidget *parent)
     if (m_dataManager) {
         // 信号1：当新采集的数据被推送到管理器时发射
         connect(m_dataManager, &DataManager::dataPushed, this, &DataFlowWidget::onDataPushed);
-        // 信号2：当管理器修改内存中的平台/事件记录时发射
-        connect(m_dataManager, &DataManager::dynamicDataChanged, this, &DataFlowWidget::onDataChanged);
-        // 信号3：当单条平台记录变化时发射（用于 PlatformData 模式）
+        // 信号2：单条平台记录变化 → 平台节点增量刷新（用于 PlatformData 模式）
         connect(m_dataManager, &DataManager::platformUpdated, this, &DataFlowWidget::onPlatformUpdated);
+        // 信号3：新增事件 → 事件高亮链回放（用于 EventAlert 模式）
+        //        改用定向的 eventAdded 信号替代已停用的全量 dynamicDataChanged
+        connect(m_dataManager, &DataManager::eventAdded, this, &DataFlowWidget::onEventUpdated);
     }
 
     m_highlightTimer->setSingleShot(false);

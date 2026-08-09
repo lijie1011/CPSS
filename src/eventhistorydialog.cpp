@@ -7,21 +7,39 @@
 
 #include "eventhistorydialog.h"
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QHeaderView>
 #include <QDateTime>
 #include <QTableWidgetItem>
 #include <QScrollBar>
+#include <QSet>
 
 /**
  * @brief 构造函数
  * @param parent 父窗口
  */
 EventHistoryDialog::EventHistoryDialog(QWidget *parent)
-    : QDialog(parent)
+    : QDialog(parent),
+      m_filterCombo(nullptr),
+      m_tableWidget(nullptr)
 {
     setWindowTitle(QStringLiteral("事件历史"));
     setMinimumSize(800, 500);
     
+    // 顶部筛选栏：标签 + 平台ID下拉框（按目标/来源去重）
+    QLabel *filterLabel = new QLabel(QStringLiteral("平台ID筛选："), this);
+    m_filterCombo = new QComboBox(this);
+    m_filterCombo->setMinimumWidth(160);
+    m_filterCombo->addItem(QStringLiteral("全部"));
+    connect(m_filterCombo, &QComboBox::currentTextChanged,
+            this, &EventHistoryDialog::onFilterChanged);
+
+    QHBoxLayout *filterLayout = new QHBoxLayout();
+    filterLayout->addWidget(filterLabel);
+    filterLayout->addWidget(m_filterCombo);
+    filterLayout->addStretch();
+
     m_tableWidget = new QTableWidget(this);
     m_tableWidget->setColumnCount(8);
     QStringList headers;
@@ -33,6 +51,7 @@ EventHistoryDialog::EventHistoryDialog(QWidget *parent)
     m_tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
     
     QVBoxLayout *layout = new QVBoxLayout(this);
+    layout->addLayout(filterLayout);
     layout->addWidget(m_tableWidget);
 }
 
@@ -90,12 +109,101 @@ QColor EventHistoryDialog::eventTypeColor(SpecialEventType type)
 /**
  * @brief 更新历史记录
  * @param events 事件列表
+ * @details 缓存全量事件，刷新平台ID下拉框选项，并按当前选中的筛选条件
+ *          重建表格。筛选逻辑在本地缓存上进行，切换下拉框无需重新取数。
  */
 void EventHistoryDialog::updateHistory(const QList<SpecialEvent> &events)
 {
+    m_allEvents = events;
+
+    // 先刷新下拉框（会尽量保留当前选中项），再按当前筛选条件重建表格
+    refreshFilterOptions();
+    rebuildTable(m_filterCombo->currentText());
+}
+
+/**
+ * @brief 平台ID筛选下拉框选择变化的响应槽
+ * @param platformId 当前选中的平台ID
+ */
+void EventHistoryDialog::onFilterChanged(const QString &platformId)
+{
+    rebuildTable(platformId);
+}
+
+/**
+ * @brief 依据当前全量事件，刷新平台ID下拉框选项
+ * @details 下拉框固定包含两个特殊项：
+ *          - “全部”：显示所有事件；
+ *          - “无目标(地理标绘)”：仅显示 targetId 与 sourceId 均为空的地理标绘事件；
+ *          其后为按目标/来源去重排序的平台ID。
+ *          仅当存在无目标事件时才追加“无目标(地理标绘)”项。
+ */
+void EventHistoryDialog::refreshFilterOptions()
+{
+    // 记住当前选中项，刷新后尽量恢复
+    const QString previous = m_filterCombo->currentText();
+
+    // 从所有事件的 targetId/sourceId 去重收集平台ID；同时统计是否存在无目标事件
+    QSet<QString> idSet;
+    bool hasNoTarget = false;
+    for (const SpecialEvent &event : m_allEvents) {
+        if (!event.targetId.isEmpty()) {
+            idSet.insert(event.targetId);
+        }
+        if (!event.sourceId.isEmpty()) {
+            idSet.insert(event.sourceId);
+        }
+        // 目标与来源均为空视为“无目标(地理标绘)”事件
+        if (event.targetId.isEmpty() && event.sourceId.isEmpty()) {
+            hasNoTarget = true;
+        }
+    }
+
+    QStringList ids = idSet.toList();
+    ids.sort();
+
+    // 重建下拉框：首项固定为“全部”，若存在无目标事件则追加“无目标(地理标绘)”，其后为排序后的平台ID
+    m_filterCombo->blockSignals(true);   // 重建期间屏蔽信号，避免触发多次刷新
+    m_filterCombo->clear();
+    m_filterCombo->addItem(QStringLiteral("全部"));
+    if (hasNoTarget) {
+        m_filterCombo->addItem(QStringLiteral("无目标(地理标绘)"));
+    }
+    m_filterCombo->addItems(ids);
+
+    // 恢复之前的选中项；若该项已不存在（如平台已删除、无目标事件已清空），回退到“全部”
+    int idx = m_filterCombo->findText(previous);
+    m_filterCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+    m_filterCombo->blockSignals(false);
+}
+
+/**
+ * @brief 按当前筛选条件重建表格
+ * @param platformId 筛选条件：
+ *        - 空或“全部”：显示所有事件；
+ *        - “无目标(地理标绘)”：仅显示 targetId 与 sourceId 均为空的地理标绘事件；
+ *        - 其他：显示目标或来源匹配该平台ID的事件。
+ */
+void EventHistoryDialog::rebuildTable(const QString &platformId)
+{
+    const bool showAll = platformId.isEmpty() || platformId == QStringLiteral("全部");
+    const bool showNoTarget = (platformId == QStringLiteral("无目标(地理标绘)"));
+
     m_tableWidget->setRowCount(0);
     
-    for (const SpecialEvent &event : events) {
+    for (const SpecialEvent &event : m_allEvents) {
+        if (showNoTarget) {
+            // 仅显示目标与来源均为空的地理标绘事件
+            if (!event.targetId.isEmpty() || !event.sourceId.isEmpty()) {
+                continue;
+            }
+        } else if (!showAll) {
+            // 非“全部”/“无目标”时，仅显示目标或来源匹配该平台ID的事件
+            if (event.targetId != platformId && event.sourceId != platformId) {
+                continue;
+            }
+        }
+
         int row = m_tableWidget->rowCount();
         m_tableWidget->insertRow(row);
         

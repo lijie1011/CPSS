@@ -82,8 +82,8 @@ bool DataCache::updatePlatform(const PlatformData &data)
     locker.unlock();
     
     emit platformUpdated(newData);
-    emit platformsUpdated(getAllPlatforms());
-    emit dynamicDataChanged(getAllData());
+    //emit platformsUpdated(getAllPlatforms());
+    //emit dynamicDataChanged(getAllData());
     return true;
 }
 
@@ -100,8 +100,11 @@ bool DataCache::removePlatform(const QString &id)
         m_dynamicData.timestamp = QDateTime::currentMSecsSinceEpoch();
         locker.unlock();
         
+        // 单目标增量删除通知（供海图直接删除对应图元，无需全量对账）
+        emit platformRemoved(id);
         emit platformsUpdated(getAllPlatforms());
-        emit dynamicDataChanged(getAllData());
+        // 已停用全量广播：改由订阅者接收定向增量信号（platformRemoved 等）
+        // emit dynamicDataChanged(getAllData());
         return true;
     }
     return false;
@@ -148,20 +151,37 @@ QList<PlatformData> DataCache::getValidPlatforms() const
  * @brief 添加事件
  * @param event 事件数据
  * @return true 表示已添加
+ * @details 广播列表 m_dynamicData.events 按 eventId 去重：同一 id 只保留最新
+ *          一条（覆盖旧值），避免测试/推送反复添加同 id 事件导致列表无限增长
+ *          （该列表随每次信号深拷贝广播并用于画海图，是内存膨胀的根源）。
+ *          历史列表 m_eventHistory 不设上限，完整保留所有事件供历史界面展示。
  */
 bool DataCache::addEvent(const SpecialEvent &event)
 {
     QWriteLocker locker(&m_dataLock);
-    m_dynamicData.events.append(event);
-    m_eventHistory.prepend(event);
-    while (m_eventHistory.size() > m_maxHistorySize) {
-        m_eventHistory.removeLast();
+
+    // 广播列表按 eventId 去重：若已存在同 id 事件则原地更新为最新数据，否则追加
+    bool replaced = false;
+    for (int i = 0; i < m_dynamicData.events.size(); ++i) {
+        if (m_dynamicData.events[i].eventId == event.eventId) {
+            m_dynamicData.events[i] = event;
+            replaced = true;
+            break;
+        }
     }
+    if (!replaced) {
+        m_dynamicData.events.append(event);
+    }
+
+    // 历史列表完整保留（不设上限）：每次都记录，供事件历史界面展示全部记录
+    m_eventHistory.prepend(event);
+
     m_dynamicData.timestamp = QDateTime::currentMSecsSinceEpoch();
     locker.unlock();
     
     emit eventAdded(event);
-    emit dynamicDataChanged(getAllData());
+    // 已停用全量广播：事件新增改由订阅者接收定向 eventAdded 信号刷新
+    // emit dynamicDataChanged(getAllData());
     return true;
 }
 
@@ -180,7 +200,8 @@ bool DataCache::removeEvent(const QString &eventId)
             locker.unlock();
             
             emit eventRemoved(eventId);
-            emit dynamicDataChanged(getAllData());
+            // 已停用全量广播：事件移除改由订阅者接收定向 eventRemoved 信号刷新
+            // emit dynamicDataChanged(getAllData());
             return true;
         }
     }
@@ -196,7 +217,8 @@ void DataCache::clearEvents()
     m_dynamicData.events.clear();
     m_dynamicData.timestamp = QDateTime::currentMSecsSinceEpoch();
     
-    emit dynamicDataChanged(getAllData());
+    // 已停用全量广播：如需通知清空，应改用定向信号（当前无调用方）
+    // emit dynamicDataChanged(getAllData());
 }
 
 /**
@@ -284,10 +306,13 @@ void DataCache::invalidateExpiredData()
         
         for (const QString& id : expiredIds) {
             DataManager::instance()->onPlatformExpired(id);
+            // 过期即视为该目标从海图消失，发出单目标增量删除通知
+            emit platformRemoved(id);
         }
         
         emit platformsUpdated(getAllPlatforms());
-        emit dynamicDataChanged(getAllData());
+        // 已停用全量广播：过期删除改由订阅者接收定向 platformRemoved 信号处理
+        // emit dynamicDataChanged(getAllData());
     }
 }
 
@@ -549,38 +574,52 @@ void DataCache::updateTestData()
 
     QList<PlatformData> platforms = getAllPlatforms();
     for (PlatformData &platform : platforms) {
-        double moveSpeed = platform.speed / 3600.0;
+        // 每拍（1 秒）位移量：定时器为 1000ms（1Hz），每秒只更新一次。
+        // 为使目标在海图上移动明显、变动够快，采用“较大的每拍经纬度位移”，
+        // 并按航速做温和缩放（高速目标步长更大，但整体量级仍可见）。
+        // 基准步长约 0.004 度/拍，各平台方向系数不同以形成不同航向。
+        double moveSpeed = 0.02 + platform.speed * 0.00015;   // 舰船≈0.022，飞机≈0.155
 
         if (platform.camp == Camp_Mine) {
             if (platform.id == "1") {
-                platform.lon += 0.00002 * moveSpeed;
-                platform.lat += 0.00001 * moveSpeed;
+                platform.lon += 0.20 * moveSpeed;
+                platform.lat += 0.10 * moveSpeed;
             } else if (platform.id == "2") {
-                platform.lon += 0.000015 * moveSpeed;
-                platform.lat += 0.000015 * moveSpeed;
+                platform.lon += 0.15 * moveSpeed;
+                platform.lat += 0.15 * moveSpeed;
             } else if (platform.id == "3") {
-                platform.lon += 0.00003 * moveSpeed;
-                platform.lat -= 0.000005 * moveSpeed;
+                platform.lon += 0.30 * moveSpeed;
+                platform.lat -= 0.05 * moveSpeed;
             }
         } else if (platform.camp == Camp_Enemy) {
             if (platform.id == "9") {
-                platform.lon -= 0.000018 * moveSpeed;
-                platform.lat += 0.000008 * moveSpeed;
+                platform.lon -= 0.18 * moveSpeed;
+                platform.lat += 0.08 * moveSpeed;
             } else if (platform.id == "10") {
-                platform.lon -= 0.000012 * moveSpeed;
-                platform.lat -= 0.00001 * moveSpeed;
+                platform.lon -= 0.12 * moveSpeed;
+                platform.lat -= 0.10 * moveSpeed;
             } else if (platform.id == "13") {
-                platform.lon -= 0.000025 * moveSpeed;
-                platform.lat += 0.00001 * moveSpeed;
+                platform.lon -= 0.25 * moveSpeed;
+                platform.lat += 0.10 * moveSpeed;
             }
         }
 
         platform.updateTime = now;
-        platform.validUntil = now + 10000;
+        // 演示级联删除：敌方潜艇（id=="10"）停止续期，约 10 秒后由
+        // invalidateExpiredData 自动标记过期并发出 platformRemoved，
+        // 海图据此级联删除其平台图元、传感器/武器范围、航迹、事件标记、
+        // 属性框与连接线。其余平台正常续期，保持存活。
+        if (platform.id != "9") {
+            platform.validUntil = now + 10000;
+        }
 
         updatePlatform(platform);
     }
 
+    // 事件生成节奏：定时器为 1000ms（1Hz），每拍 m_eventCounter 加 1（≈1 秒）。
+    // 以下阈值按 tick 计数控制事件更新节奏：
+    //   5/8/10/15 tick 各触发一次（≈5/8/10/15 秒），20 tick（≈20 秒）整轮重置。
+    // 配合 addEvent() 的 eventId 去重，同一事件只更新为最新状态，不会累积。
     m_eventCounter++;
     if (m_eventCounter == 5) {
         SpecialEvent shipAttackEvent;
@@ -595,6 +634,22 @@ void DataCache::updateTestData()
         shipAttackEvent.lon = target.lon;
         shipAttackEvent.lat = target.lat;
         addEvent(shipAttackEvent);
+    } else if (m_eventCounter == 8) {
+        // 方式2 演示：地理标绘事件（targetId 留空，不关联任何平台）。
+        // 事件按自身固定 lon/lat 在海图上以菱形标志 + 文字标签标绘，
+        // 位置固定、不跟随平台，即便相关平台被删除也不受影响。
+        SpecialEvent mineEvent;
+        mineEvent.eventId = "geo_event1";
+        mineEvent.eventType = Event_Alert;
+        mineEvent.eventName = QString::fromLocal8Bit("Mine Detected");
+        mineEvent.description = QString::fromLocal8Bit("Suspected mine field in this area");
+        mineEvent.timestamp = now;
+        mineEvent.targetId = "";                 // 关键：无目标平台 → 走地理标绘（方式2）
+        mineEvent.sourceId = "";
+        // 固定在红蓝双方之间的一处海域（介于 redBase 121.5 与 purpleBase 122.55 之间）
+        mineEvent.lon = 122.0;
+        mineEvent.lat = 31.25;
+        addEvent(mineEvent);
     } else if (m_eventCounter == 10) {
         SpecialEvent planeAttackEvent;
         planeAttackEvent.eventId = "event3";
@@ -608,6 +663,22 @@ void DataCache::updateTestData()
         planeAttackEvent.lon = target.lon;
         planeAttackEvent.lat = target.lat;
         addEvent(planeAttackEvent);
+    } else if (m_eventCounter == 12) {
+        // 演示“受损”徽标（X）：给我方平台 "2" 发受损事件（Event_Damage）。
+        // 海图 updatePlatformStatusStrip 会据该平台最新事件类型派生受损状态，
+        // 在其图标上方显示橙红色 "X" 徽标。
+        SpecialEvent damageEvent;
+        damageEvent.eventId = "event_damage_2";
+        damageEvent.eventType = Event_Damage;
+        damageEvent.eventName = QString::fromLocal8Bit("Hull Damage");
+        damageEvent.description = QString::fromLocal8Bit("Platform sustained battle damage");
+        damageEvent.timestamp = now;
+        damageEvent.targetId = "2";
+        damageEvent.sourceId = "13";
+        PlatformData target = getPlatform("2");
+        damageEvent.lon = target.lon;
+        damageEvent.lat = target.lat;
+        addEvent(damageEvent);
     } else if (m_eventCounter == 15) {
         SpecialEvent alertEvent;
         alertEvent.eventId = "event4";
@@ -621,6 +692,21 @@ void DataCache::updateTestData()
         alertEvent.lon = target.lon;
         alertEvent.lat = target.lat;
         addEvent(alertEvent);
+    } else if (m_eventCounter == 17) {
+        // 演示“通信中断”徽标（N）：给敌方平台 "10" 发失联事件（Event_Lost）。
+        // 海图据该平台最新事件类型派生通信中断状态，在其图标上方显示品红 "N" 徽标。
+        SpecialEvent lostEvent;
+        lostEvent.eventId = "event_lost_10";
+        lostEvent.eventType = Event_Lost;
+        lostEvent.eventName = QString::fromLocal8Bit("Comms Lost");
+        lostEvent.description = QString::fromLocal8Bit("Lost communication with platform");
+        lostEvent.timestamp = now;
+        lostEvent.targetId = "10";
+        lostEvent.sourceId = "";
+        PlatformData target = getPlatform("10");
+        lostEvent.lon = target.lon;
+        lostEvent.lat = target.lat;
+        addEvent(lostEvent);
     } else if (m_eventCounter >= 20) {
         m_eventCounter = 0;
     }

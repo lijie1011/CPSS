@@ -20,8 +20,14 @@
 #include <QDir>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QGridLayout>
 #include <QPushButton>
 #include <QTabWidget>
+#include <QDialog>
+#include <QScrollArea>
+#include <QPixmap>
+#include <QFrame>
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -38,6 +44,8 @@
 #include <QApplication>
 #include "common/logger.h"
 #include "common/xmlconfig.h"
+#include "common/IconManager.h"
+#include "dynamicdata.h"
 
 /// 便捷日志宏，统一输出到 cpss.log
 static inline void logInfo(const QString &msg) {
@@ -92,6 +100,14 @@ MainWindow::MainWindow(QWidget *parent)
 
     addToolBar(Qt::LeftToolBarArea, ui->toolBar);
     addToolBar(Qt::BottomToolBarArea, ui->pluginToolBar);
+    // 工具栏按钮当前无图标，默认 IconOnly 样式会显示为空白按钮；
+    // 改为“文字在图标旁”样式，使按钮文字（放大/缩小/插件名等）正常显示。
+    ui->toolBar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    ui->pluginToolBar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    // 为工具栏设置窗口标题：QMainWindow 右键上下文菜单用 windowTitle 作为
+    // 各工具栏/停靠栏的显隐勾选项名称；未设置时该菜单项显示为空白（只有勾选框）。
+    ui->toolBar->setWindowTitle(QStringLiteral("工具栏"));
+    ui->pluginToolBar->setWindowTitle(QStringLiteral("插件栏"));
     createStatusBar();
 
     XmlConfig::instance();
@@ -574,36 +590,184 @@ void MainWindow::updateGeoPosition(QPoint pos)
 }
 
 /**
- * @brief 显示事件图例对话框
- * @details 以 HTML 表格形式展示阵营颜色、事件图标含义及操作提示
+ * @brief 显示图例对话框
+ * @details 以自定义对话框展示：阵营颜色（我红敌蓝）、平台类型对应图标（由
+ *          IconManager 按阵营色实时着色渲染，与海图显示保持一致）、事件图标
+ *          含义及操作提示。平台图例直接复用 iconFileForType()/campColor()
+ *          与 IconManager，确保与海图上的绘制完全一致。
  */
 void MainWindow::showEventLegend()
 {
-    QString legendText =
-        "<h2>事件图例</h2><hr/>"
-        "<h3>阵营颜色:</h3>"
-        "<table border=\"0\" cellpadding=\"5\">"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FF00;border:1px solid black;\"></span></td><td> 友方（绿色）</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF0000;border:1px solid black;\"></span></td><td> 敌方（红色）</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFFF00;border:1px solid black;\"></span></td><td> 中立（黄色）</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#808080;border:1px solid black;\"></span></td><td> 未知（灰色）</td></tr>"
-        "</table><hr/>"
-        "<h3>事件图标:</h3>"
-        "<table border=\"0\" cellpadding=\"5\">"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">!</span></td><td> 告警</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#8B0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">A</span></td><td> 攻击</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#0000FF;color:white;text-align:center;font-weight:bold;border:1px solid black;\">D</span></td><td> 防御</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FFFF;color:black;text-align:center;font-weight:bold;border:1px solid black;\">C</span></td><td> 接触</td></tr>"
-        "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFA500;color:white;text-align:center;font-weight:bold;border:1px solid black;\">X</span></td><td> 损伤</td></tr>"
-        "</table><hr/>"
-        "<h3>操作说明:</h3>"
-        "<ul>"
-        "<li>点击目标显示属性框</li>"
-        "<li>双击属性框关闭</li>"
-        "<li>拖动属性框可移动位置</li>"
-        "<li>点击空白区域隐藏所有属性框</li>"
-        "</ul>";
-    QMessageBox::information(this, QStringLiteral("事件图例"), legendText);
+    // 确保图标管理器已初始化（幂等；若海图插件已初始化则直接返回）
+    IconManager::instance().init();
+
+    // 图例对话框（带滚动区域，内容较多时可滚动查看）
+    QDialog dialog(this);
+    dialog.setWindowTitle(QStringLiteral("图例"));
+    dialog.resize(420, 640);
+
+    QVBoxLayout *dlgLayout = new QVBoxLayout(&dialog);
+    dlgLayout->setContentsMargins(0, 0, 0, 0);
+
+    QScrollArea *scroll = new QScrollArea(&dialog);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    dlgLayout->addWidget(scroll);
+
+    QWidget *content = new QWidget(scroll);
+    QVBoxLayout *layout = new QVBoxLayout(content);
+    layout->setContentsMargins(16, 16, 16, 16);
+    layout->setSpacing(8);
+
+    // ---- 阵营颜色（我红敌蓝，与 campColor() 保持一致）----
+    {
+        QLabel *title = new QLabel(QStringLiteral("<h3>阵营颜色</h3>"), content);
+        layout->addWidget(title);
+
+        // 阵营顺序：我方/友方/敌方/中立/未知
+        const QList<CampType> camps = {Camp_Mine, Camp_Friendly, Camp_Enemy, Camp_Neutral, Camp_Unknown};
+        for (CampType camp : camps) {
+            QWidget *row = new QWidget(content);
+            QHBoxLayout *rl = new QHBoxLayout(row);
+            rl->setContentsMargins(0, 0, 0, 0);
+            rl->setSpacing(10);
+
+            // 颜色色块
+            QLabel *swatch = new QLabel(row);
+            swatch->setFixedSize(22, 22);
+            const QColor c = campColor(camp);
+            swatch->setStyleSheet(QString("background-color: %1; border: 1px solid #333;").arg(c.name()));
+            rl->addWidget(swatch);
+
+            // 阵营名称
+            QLabel *name = new QLabel(campName(camp), row);
+            name->setStyleSheet("font-size: 14px;");
+            rl->addWidget(name);
+            rl->addStretch();
+
+            layout->addWidget(row);
+        }
+    }
+
+    // ---- 平台图例（平台类型 → 图标，实时着色，与海图一致）----
+    {
+        QLabel *title = new QLabel(QStringLiteral("<h3>平台图例</h3>"), content);
+        layout->addWidget(title);
+
+        // 展示的平台类型：type 关键字 + 中文说明
+        // （与 iconFileForType() 的映射键保持一致，覆盖测试数据涉及的主要类型）
+        const QList<QPair<QString, QString>> entries = {
+            {QStringLiteral("carrier"),     QStringLiteral("航空母舰")},
+            {QStringLiteral("destroyer"),   QStringLiteral("驱逐舰")},
+            {QStringLiteral("frigate"),     QStringLiteral("护卫舰")},
+            {QStringLiteral("missileboat"), QStringLiteral("导弹舰")},
+            {QStringLiteral("submarine"),   QStringLiteral("潜艇")},
+            {QStringLiteral("landingship"), QStringLiteral("登陆舰")},
+            {QStringLiteral("service"),     QStringLiteral("勤务船")},
+            {QStringLiteral("civilian"),    QStringLiteral("民用船只")},
+            {QStringLiteral("awacs"),       QStringLiteral("预警机")},
+            {QStringLiteral("bomber"),      QStringLiteral("轰炸机")},
+            {QStringLiteral("attacker"),    QStringLiteral("强击机")},
+            {QStringLiteral("recon"),       QStringLiteral("侦察机")},
+            {QStringLiteral("transport"),   QStringLiteral("运输机")},
+            {QStringLiteral("uav"),         QStringLiteral("无人机")},
+            {QStringLiteral("fighter"),     QStringLiteral("歼击机")},
+            {QStringLiteral("sam"),         QStringLiteral("地空导弹")},
+            {QStringLiteral("cruise_sea"),  QStringLiteral("海基巡航导弹")},
+            {QStringLiteral("cruise_air"),  QStringLiteral("空基巡航导弹")},
+            {QStringLiteral("cruise_land"), QStringLiteral("陆基巡航导弹")},
+            {QStringLiteral("ballistic"),   QStringLiteral("弹道导弹")},
+        };
+
+        // 平台图例统一以"我方红色"着色示意（阵营色见上方"阵营颜色"说明）
+        const QColor legendColor = campColor(Camp_Mine);
+
+        // 以网格布局，每行两列，节省纵向空间
+        QWidget *grid = new QWidget(content);
+        QGridLayout *gl = new QGridLayout(grid);
+        gl->setContentsMargins(0, 0, 0, 0);
+        gl->setHorizontalSpacing(16);
+        gl->setVerticalSpacing(6);
+
+        int idx = 0;
+        for (const auto &e : entries) {
+            const int r = idx / 2;
+            const int col = (idx % 2) * 2;
+
+            // 图标：通过 IconManager 按类型取模板并着色，与海图绘制完全一致
+            QLabel *iconLabel = new QLabel(grid);
+            iconLabel->setFixedSize(28, 28);
+            iconLabel->setAlignment(Qt::AlignCenter);
+            const QString iconFile = iconFileForType(e.first);
+            QImage img = IconManager::instance().getIcon(iconFile, legendColor);
+            if (!img.isNull()) {
+                QPixmap pm = QPixmap::fromImage(
+                    img.scaled(26, 26, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+                iconLabel->setPixmap(pm);
+            } else {
+                // 图标缺失时退化显示占位（圆点由海图负责，此处仅文字提示）
+                iconLabel->setText(QStringLiteral("—"));
+            }
+            gl->addWidget(iconLabel, r, col);
+
+            // 说明文字
+            QLabel *textLabel = new QLabel(e.second, grid);
+            textLabel->setStyleSheet("font-size: 13px;");
+            gl->addWidget(textLabel, r, col + 1);
+
+            ++idx;
+        }
+        layout->addWidget(grid);
+    }
+
+    // ---- 事件图标 ----
+    {
+        QLabel *eventTitle = new QLabel(QStringLiteral("<h3>事件图标</h3>"), content);
+        layout->addWidget(eventTitle);
+
+        QLabel *eventBody = new QLabel(content);
+        eventBody->setTextFormat(Qt::RichText);
+        eventBody->setText(
+            "<table border=\"0\" cellpadding=\"4\">"
+            "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FF0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">!</span></td><td> 告警</td></tr>"
+            "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#8B0000;color:white;text-align:center;font-weight:bold;border:1px solid black;\">A</span></td><td> 攻击</td></tr>"
+            "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#0000FF;color:white;text-align:center;font-weight:bold;border:1px solid black;\">D</span></td><td> 防御</td></tr>"
+            "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#00FFFF;color:black;text-align:center;font-weight:bold;border:1px solid black;\">C</span></td><td> 接触</td></tr>"
+            "<tr><td><span style=\"display:inline-block;width:20px;height:20px;background-color:#FFA500;color:white;text-align:center;font-weight:bold;border:1px solid black;\">X</span></td><td> 损伤</td></tr>"
+            "</table>");
+        layout->addWidget(eventBody);
+    }
+
+    // ---- 操作说明 ----
+    {
+        QLabel *opTitle = new QLabel(QStringLiteral("<h3>操作说明</h3>"), content);
+        layout->addWidget(opTitle);
+
+        QLabel *opBody = new QLabel(content);
+        opBody->setTextFormat(Qt::RichText);
+        opBody->setText(
+            "<ul>"
+            "<li>点击目标显示属性框</li>"
+            "<li>双击属性框关闭</li>"
+            "<li>拖动属性框可移动位置</li>"
+            "<li>点击空白区域隐藏所有属性框</li>"
+            "</ul>");
+        layout->addWidget(opBody);
+    }
+
+    layout->addStretch();
+    scroll->setWidget(content);
+
+    // 底部关闭按钮
+    QPushButton *closeBtn = new QPushButton(QStringLiteral("关闭"), &dialog);
+    connect(closeBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
+    QHBoxLayout *btnLayout = new QHBoxLayout();
+    btnLayout->addStretch();
+    btnLayout->addWidget(closeBtn);
+    btnLayout->addStretch();
+    dlgLayout->addLayout(btnLayout);
+
+    dialog.exec();
 }
 
 /**
@@ -653,13 +817,30 @@ void MainWindow::showDepthAndContour()
 
 /**
  * @brief 显示事件历史对话框
- * @details 从 DataManager 获取完整事件历史并填充到对话框
+ * @details 从 DataManager 获取完整事件历史并填充到对话框；
+ *          同时连接 DataManager 的事件定向信号 eventAdded/eventRemoved，
+ *          使对话框在新增/移除事件时实时刷新（不再依赖已停用的全量
+ *          dynamicDataChanged 信号）。对话框设置了 WA_DeleteOnClose，
+ *          关闭即销毁，连接以 dialog 为接收者上下文随之自动断开，
+ *          避免对话框关闭后信号仍被处理。
  */
 void MainWindow::showEventHistory()
 {
     EventHistoryDialog *dialog = new EventHistoryDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->updateHistory(DataManager::instance()->getEventHistory());
+
+    // 定向实时刷新：新增事件时用最新历史重建表格
+    connect(DataManager::instance(), &DataManager::eventAdded,
+            dialog, [dialog](const SpecialEvent &) {
+        dialog->updateHistory(DataManager::instance()->getEventHistory());
+    });
+    // 定向实时刷新：移除事件时同步刷新
+    connect(DataManager::instance(), &DataManager::eventRemoved,
+            dialog, [dialog](const QString &) {
+        dialog->updateHistory(DataManager::instance()->getEventHistory());
+    });
+
     dialog->show();
 }
 
