@@ -41,7 +41,7 @@ DataCache::DataCache(QObject *parent)
     : QObject(parent),
       m_maxHistorySize(100),
       m_testStartTime(0),
-      m_eventSecondPhase(false),
+      m_testEventsGenerated(false),
       m_eventCounter(0)
 {
     connect(&m_expireTimer, &QTimer::timeout, this, &DataCache::invalidateExpiredData);
@@ -290,26 +290,28 @@ void DataCache::invalidateExpiredData()
     QWriteLocker locker(&m_dataLock);
     qint64 now = QDateTime::currentMSecsSinceEpoch();
     QStringList expiredIds;
-    // 遍历所有平台，标记已过期的平台
+    // 遍历所有平台，收集已过期平台ID（正常状态、有有效期、且已超过有效期）
     for (auto it = m_dynamicData.platforms.begin(); it != m_dynamicData.platforms.end(); ++it) {
-        // 正常状态、有有效期、且已超过有效期
-        if (it.value().dataStatus == DataStatus_Normal && 
-            it.value().validUntil > 0 && 
+        if (it.value().dataStatus == DataStatus_Normal &&
+            it.value().validUntil > 0 &&
             it.value().validUntil < now) {
-            m_dynamicData.platforms[it.key()].dataStatus = DataStatus_Expired;
             expiredIds.append(it.key());
         }
+    }
+    // 真正从 map 删除过期平台数据，避免陈旧数据驻留并被后续 .values() 反复深拷贝
+    for (const QString& id : expiredIds) {
+        m_dynamicData.platforms.remove(id);
     }
     if (!expiredIds.isEmpty()) {
         m_dynamicData.timestamp = now;
         locker.unlock();
-        
+
         for (const QString& id : expiredIds) {
             DataManager::instance()->onPlatformExpired(id);
             // 过期即视为该目标从海图消失，发出单目标增量删除通知
             emit platformRemoved(id);
         }
-        
+
         emit platformsUpdated(getAllPlatforms());
         // 已停用全量广播：过期删除改由订阅者接收定向 platformRemoved 信号处理
         // emit dynamicDataChanged(getAllData());
@@ -560,7 +562,7 @@ void DataCache::initTestData()
     addEvent(contactEvent);
 
     m_testStartTime = QDateTime::currentMSecsSinceEpoch();
-    m_eventSecondPhase = false;
+    m_testEventsGenerated = false;
     m_eventCounter = 0;
 }
 
@@ -617,97 +619,104 @@ void DataCache::updateTestData()
     }
 
     // 事件生成节奏：定时器为 1000ms（1Hz），每拍 m_eventCounter 加 1（≈1 秒）。
-    // 以下阈值按 tick 计数控制事件更新节奏：
-    //   5/8/10/15 tick 各触发一次（≈5/8/10/15 秒），20 tick（≈20 秒）整轮重置。
-    // 配合 addEvent() 的 eventId 去重，同一事件只更新为最新状态，不会累积。
+    // 仅在首周期（m_testEventsGenerated 为 false）生成事件，每个目标最多触发两次历史事件；
+    // 首周期结束后置位 m_testEventsGenerated，后续周期只重置计数器，不再重复入历史，
+    // 避免 m_eventHistory 无限增长。广播列表 m_dynamicData.events 首周期已建好，
+    // 后续靠海图本地缓存继续显示。
+    //   5/8/10/12/15/17 tick 各触发一次（≈对应秒），20 tick（≈20 秒）整轮重置。
     m_eventCounter++;
-    if (m_eventCounter == 5) {
-        SpecialEvent shipAttackEvent;
-        shipAttackEvent.eventId = "event2";
-        shipAttackEvent.eventType = Event_Attack;
-        shipAttackEvent.eventName = QString::fromLocal8Bit("Air-to-Surface Missile");
-        shipAttackEvent.description = QString::fromLocal8Bit("Missile launched from aircraft");
-        shipAttackEvent.timestamp = now;
-        shipAttackEvent.targetId = "1";
-        shipAttackEvent.sourceId = "13";
-        PlatformData target = getPlatform("1");
-        shipAttackEvent.lon = target.lon;
-        shipAttackEvent.lat = target.lat;
-        addEvent(shipAttackEvent);
-    } else if (m_eventCounter == 8) {
-        // 方式2 演示：地理标绘事件（targetId 留空，不关联任何平台）。
-        // 事件按自身固定 lon/lat 在海图上以菱形标志 + 文字标签标绘，
-        // 位置固定、不跟随平台，即便相关平台被删除也不受影响。
-        SpecialEvent mineEvent;
-        mineEvent.eventId = "geo_event1";
-        mineEvent.eventType = Event_Alert;
-        mineEvent.eventName = QString::fromLocal8Bit("Mine Detected");
-        mineEvent.description = QString::fromLocal8Bit("Suspected mine field in this area");
-        mineEvent.timestamp = now;
-        mineEvent.targetId = "";                 // 关键：无目标平台 → 走地理标绘（方式2）
-        mineEvent.sourceId = "";
-        // 固定在红蓝双方之间的一处海域（介于 redBase 121.5 与 purpleBase 122.55 之间）
-        mineEvent.lon = 122.0;
-        mineEvent.lat = 31.25;
-        addEvent(mineEvent);
-    } else if (m_eventCounter == 10) {
-        SpecialEvent planeAttackEvent;
-        planeAttackEvent.eventId = "event3";
-        planeAttackEvent.eventType = Event_Attack;
-        planeAttackEvent.eventName = QString::fromLocal8Bit("Missile Attack");
-        planeAttackEvent.description = QString::fromLocal8Bit("Anti-ship missile attack");
-        planeAttackEvent.timestamp = now;
-        planeAttackEvent.targetId = "9";
-        planeAttackEvent.sourceId = "3";
-        PlatformData target = getPlatform("9");
-        planeAttackEvent.lon = target.lon;
-        planeAttackEvent.lat = target.lat;
-        addEvent(planeAttackEvent);
-    } else if (m_eventCounter == 12) {
-        // 演示“受损”徽标（X）：给我方平台 "2" 发受损事件（Event_Damage）。
-        // 海图 updatePlatformStatusStrip 会据该平台最新事件类型派生受损状态，
-        // 在其图标上方显示橙红色 "X" 徽标。
-        SpecialEvent damageEvent;
-        damageEvent.eventId = "event_damage_2";
-        damageEvent.eventType = Event_Damage;
-        damageEvent.eventName = QString::fromLocal8Bit("Hull Damage");
-        damageEvent.description = QString::fromLocal8Bit("Platform sustained battle damage");
-        damageEvent.timestamp = now;
-        damageEvent.targetId = "2";
-        damageEvent.sourceId = "13";
-        PlatformData target = getPlatform("2");
-        damageEvent.lon = target.lon;
-        damageEvent.lat = target.lat;
-        addEvent(damageEvent);
-    } else if (m_eventCounter == 15) {
-        SpecialEvent alertEvent;
-        alertEvent.eventId = "event4";
-        alertEvent.eventType = Event_Alert;
-        alertEvent.eventName = QString::fromLocal8Bit("Threat Alert");
-        alertEvent.description = QString::fromLocal8Bit("Incoming missile detected");
-        alertEvent.timestamp = now;
-        alertEvent.targetId = "9";
-        alertEvent.sourceId = "1";
-        PlatformData target = getPlatform("9");
-        alertEvent.lon = target.lon;
-        alertEvent.lat = target.lat;
-        addEvent(alertEvent);
-    } else if (m_eventCounter == 17) {
-        // 演示“通信中断”徽标（N）：给敌方平台 "10" 发失联事件（Event_Lost）。
-        // 海图据该平台最新事件类型派生通信中断状态，在其图标上方显示品红 "N" 徽标。
-        SpecialEvent lostEvent;
-        lostEvent.eventId = "event_lost_10";
-        lostEvent.eventType = Event_Lost;
-        lostEvent.eventName = QString::fromLocal8Bit("Comms Lost");
-        lostEvent.description = QString::fromLocal8Bit("Lost communication with platform");
-        lostEvent.timestamp = now;
-        lostEvent.targetId = "10";
-        lostEvent.sourceId = "";
-        PlatformData target = getPlatform("10");
-        lostEvent.lon = target.lon;
-        lostEvent.lat = target.lat;
-        addEvent(lostEvent);
-    } else if (m_eventCounter >= 20) {
+    if (!m_testEventsGenerated) {
+        if (m_eventCounter == 5) {
+            SpecialEvent shipAttackEvent;
+            shipAttackEvent.eventId = "event2";
+            shipAttackEvent.eventType = Event_Attack;
+            shipAttackEvent.eventName = QString::fromLocal8Bit("Air-to-Surface Missile");
+            shipAttackEvent.description = QString::fromLocal8Bit("Missile launched from aircraft");
+            shipAttackEvent.timestamp = now;
+            shipAttackEvent.targetId = "1";
+            shipAttackEvent.sourceId = "13";
+            PlatformData target = getPlatform("1");
+            shipAttackEvent.lon = target.lon;
+            shipAttackEvent.lat = target.lat;
+            addEvent(shipAttackEvent);
+        } else if (m_eventCounter == 8) {
+            // 方式2 演示：地理标绘事件（targetId 留空，不关联任何平台）。
+            // 事件按自身固定 lon/lat 在海图上以菱形标志 + 文字标签标绘，
+            // 位置固定、不跟随平台，即便相关平台被删除也不受影响。
+            SpecialEvent mineEvent;
+            mineEvent.eventId = "geo_event1";
+            mineEvent.eventType = Event_Alert;
+            mineEvent.eventName = QString::fromLocal8Bit("Mine Detected");
+            mineEvent.description = QString::fromLocal8Bit("Suspected mine field in this area");
+            mineEvent.timestamp = now;
+            mineEvent.targetId = "";                 // 关键：无目标平台 → 走地理标绘（方式2）
+            mineEvent.sourceId = "";
+            // 固定在红蓝双方之间的一处海域（介于 redBase 121.5 与 purpleBase 122.55 之间）
+            mineEvent.lon = 122.0;
+            mineEvent.lat = 31.25;
+            addEvent(mineEvent);
+        } else if (m_eventCounter == 10) {
+            SpecialEvent planeAttackEvent;
+            planeAttackEvent.eventId = "event3";
+            planeAttackEvent.eventType = Event_Attack;
+            planeAttackEvent.eventName = QString::fromLocal8Bit("Missile Attack");
+            planeAttackEvent.description = QString::fromLocal8Bit("Anti-ship missile attack");
+            planeAttackEvent.timestamp = now;
+            planeAttackEvent.targetId = "9";
+            planeAttackEvent.sourceId = "3";
+            PlatformData target = getPlatform("9");
+            planeAttackEvent.lon = target.lon;
+            planeAttackEvent.lat = target.lat;
+            addEvent(planeAttackEvent);
+        } else if (m_eventCounter == 12) {
+            // 演示“受损”徽标（X）：给我方平台 "2" 发受损事件（Event_Damage）。
+            // 海图 updatePlatformStatusStrip 会据该平台最新事件类型派生受损状态，
+            // 在其图标上方显示橙红色 "X" 徽标。
+            SpecialEvent damageEvent;
+            damageEvent.eventId = "event_damage_2";
+            damageEvent.eventType = Event_Damage;
+            damageEvent.eventName = QString::fromLocal8Bit("Hull Damage");
+            damageEvent.description = QString::fromLocal8Bit("Platform sustained battle damage");
+            damageEvent.timestamp = now;
+            damageEvent.targetId = "2";
+            damageEvent.sourceId = "13";
+            PlatformData target = getPlatform("2");
+            damageEvent.lon = target.lon;
+            damageEvent.lat = target.lat;
+            addEvent(damageEvent);
+        } else if (m_eventCounter == 15) {
+            SpecialEvent alertEvent;
+            alertEvent.eventId = "event4";
+            alertEvent.eventType = Event_Alert;
+            alertEvent.eventName = QString::fromLocal8Bit("Threat Alert");
+            alertEvent.description = QString::fromLocal8Bit("Incoming missile detected");
+            alertEvent.timestamp = now;
+            alertEvent.targetId = "9";
+            alertEvent.sourceId = "1";
+            PlatformData target = getPlatform("9");
+            alertEvent.lon = target.lon;
+            alertEvent.lat = target.lat;
+            addEvent(alertEvent);
+        } else if (m_eventCounter == 17) {
+            // 演示“通信中断”徽标（N）：给敌方平台 "10" 发失联事件（Event_Lost）。
+            // 海图据该平台最新事件类型派生通信中断状态，在其图标上方显示品红 "N" 徽标。
+            SpecialEvent lostEvent;
+            lostEvent.eventId = "event_lost_10";
+            lostEvent.eventType = Event_Lost;
+            lostEvent.eventName = QString::fromLocal8Bit("Comms Lost");
+            lostEvent.description = QString::fromLocal8Bit("Lost communication with platform");
+            lostEvent.timestamp = now;
+            lostEvent.targetId = "10";
+            lostEvent.sourceId = "";
+            PlatformData target = getPlatform("10");
+            lostEvent.lon = target.lon;
+            lostEvent.lat = target.lat;
+            addEvent(lostEvent);
+        }
+    }
+    // 计数器整轮重置（始终执行，保证周期循环）；首周期结束时置位“已生成”标志
+    if (m_eventCounter >= 20) {
         m_eventCounter = 0;
+        m_testEventsGenerated = true;
     }
 }

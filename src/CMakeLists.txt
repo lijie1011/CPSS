@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.10)
+# 需要 3.13+ 以便 install() 的 DESTINATION 支持 $<CONFIG> 生成器表达式，
+# 从而将 Debug / Release 安装到各自的子目录。
+cmake_minimum_required(VERSION 3.13)
 project(CPSS VERSION 1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -149,61 +151,130 @@ elseif(UNIX)
     )
 endif()
 
-include(GNUInstallDirs)
+# ============================================================================
+#  安装规则（install）
+#  目标：cmake --install src\build --config Debug|Release 后，得到一份可直接运行
+#        的完整程序目录，安装根位于 src/build 下并区分 Debug / Release。
+#
+#  安装布局（$<CONFIG> 为 Debug 或 Release）：
+#    build/install/<Config>/
+#      ├── bin/
+#      │     ├── cpss.exe                     主程序
+#      │     ├── cpss_common.dll              公共库
+#      │     ├── cpss_data.dll                数据库
+#      │     ├── chartinfodisplay.xml         海图信息配置（运行期同级读取）
+#      │     ├── Qt5*.dll / platforms/ ...    Qt 运行时（由 windeployqt 部署）
+#      │     ├── plugins/                     外部插件 DLL（运行期扫描此目录加载）
+#      │     │     ├── sampleplugin.dll
+#      │     │     ├── helloplugin.dll
+#      │     │     └── dataflowplugin.dll
+#      │     └── 3dParty/Enclib/              海图库运行期依赖
+#      │           ├── enccore.dll / msn.exe / s52symbol.exe
+#      │           ├── config.xml / lic.dat
+#      │           └── mapdata/ fonts/ s57data/
+#      └── resource/                          平台图标资源（运行期按 exe/../resource 读取）
+#
+#  说明：cpss.log、cpss.xml、cpss.ini 为运行期生成文件，无需安装。
+# ============================================================================
 
-install(TARGETS cpss
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+# 安装根固定在 src/build/install，避免依赖外部传入的 CMAKE_INSTALL_PREFIX
+set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "CPSS 安装根目录" FORCE)
+
+# 各配置各自的安装子目录（bin 与 resource 使用生成器表达式区分 Debug/Release）
+set(CPSS_INSTALL_BIN     "$<CONFIG>/bin")                 # 可执行文件与运行期 DLL 目录
+set(CPSS_INSTALL_PLUGINS "$<CONFIG>/bin/plugins")         # 外部插件目录
+set(CPSS_INSTALL_ENCLIB  "$<CONFIG>/bin/3dParty/Enclib")  # 海图库目录
+set(CPSS_INSTALL_RES     "$<CONFIG>/resource")            # 资源目录（与 bin 同级）
+
+# ---- 主程序与业务 DLL（cpss_common / cpss_data 为 SHARED，随 RUNTIME 一并安装）----
+install(TARGETS cpss cpss_common cpss_data
+    RUNTIME DESTINATION ${CPSS_INSTALL_BIN}
+    LIBRARY DESTINATION ${CPSS_INSTALL_BIN}
 )
 
-install(FILES ${ENCLIB_BIN_DIR}/enccore.dll
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
+# ---- 外部插件 DLL：安装到 bin/plugins，供运行期 PluginManager 扫描加载 ----
+install(TARGETS sampleplugin helloplugin dataflowplugin
+    RUNTIME DESTINATION ${CPSS_INSTALL_PLUGINS}
+    LIBRARY DESTINATION ${CPSS_INSTALL_PLUGINS}
 )
 
-install(FILES ${ENCLIB_BIN_DIR}/libenccore.so
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+# ---- 海图信息配置：运行期从 exe 同级目录读取 ----
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/settings/chartinfodisplay.xml
+    DESTINATION ${CPSS_INSTALL_BIN}
 )
 
-install(DIRECTORY ${ENCLIB_DIR}/mapdata
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
-install(DIRECTORY ${ENCLIB_DIR}/fonts
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
-install(FILES ${ENCLIB_DIR}/config.xml ${ENCLIB_DIR}/lic.dat
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
+# ---- 资源目录（JB / JB_Souce 平台图标等）：运行期按 exe/../resource 读取 ----
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/resource/
+    DESTINATION ${CPSS_INSTALL_RES}
 )
 
 if(WIN32)
-    file(WRITE ${CMAKE_BINARY_DIR}/deploy.bat
-"@echo off
-windeployqt --release --compiler-runtime bin\\\\cpss.exe
-copy .\\\\3dParty\\\\Enclib\\\\bin\\\\enccore.dll bin\\\\
-copy .\\\\3dParty\\\\Enclib\\\\bin\\\\msn.exe bin\\\\
-copy .\\\\3dParty\\\\Enclib\\\\bin\\\\s52symbol.exe bin\\\\
-xcopy /E /I .\\\\3dParty\\\\Enclib\\\\mapdata bin\\\\mapdata
-xcopy /E /I .\\\\3dParty\\\\Enclib\\\\fonts bin\\\\fonts
-copy .\\\\3dParty\\\\Enclib\\\\config.xml bin\\\\
-copy .\\\\3dParty\\\\Enclib\\\\lic.dat bin\\\\
-echo Deploy complete!
-"
+    # ---- Enclib 海图库运行期文件（Windows）----
+    # 关键：enccore.dll 是 cpss.exe 的隐式链接依赖（通过 enccore.lib 链接），
+    #       Windows 启动时会从 exe 同级目录加载它，故必须额外装到 bin/ 根下；
+    #       否则运行会提示“缺少 enccore.dll”。3dParty/Enclib/bin 下再放一份，
+    #       与构建输出布局保持一致，供 Enclib 内部按需查找。
+    install(FILES ${ENCLIB_BIN_DIR}/enccore.dll
+        DESTINATION ${CPSS_INSTALL_BIN}
     )
+    install(FILES
+        ${ENCLIB_BIN_DIR}/enccore.dll
+        ${ENCLIB_BIN_DIR}/msn.exe
+        ${ENCLIB_BIN_DIR}/s52symbol.exe
+        DESTINATION ${CPSS_INSTALL_ENCLIB}/bin
+    )
+    install(FILES ${ENCLIB_DIR}/config.xml ${ENCLIB_DIR}/lic.dat
+        DESTINATION ${CPSS_INSTALL_ENCLIB}
+    )
+    install(DIRECTORY
+        ${ENCLIB_DIR}/mapdata
+        ${ENCLIB_DIR}/fonts
+        ${ENCLIB_DIR}/s57data
+        DESTINATION ${CPSS_INSTALL_ENCLIB}
+    )
+
+    # ---- Qt 运行时：调用 windeployqt 部署到安装后的 bin 目录 ----
+    # 通过 Qt5::qmake 导入目标定位 Qt 的 bin 目录，进而找到 windeployqt.exe
+    set(_qt_bin_dir "")
+    if(TARGET Qt5::qmake)
+        get_target_property(_qmake_loc Qt5::qmake IMPORTED_LOCATION)
+        if(_qmake_loc)
+            get_filename_component(_qt_bin_dir "${_qmake_loc}" DIRECTORY)
+        endif()
+    endif()
+    find_program(WINDEPLOYQT_EXE windeployqt HINTS "${_qt_bin_dir}")
+
+    if(WINDEPLOYQT_EXE)
+        # Debug 配置用 --debug，其它配置用 --release，部署到已安装的 cpss.exe 旁
+        install(CODE "
+            set(_cfg \"\${CMAKE_INSTALL_CONFIG_NAME}\")
+            if(_cfg STREQUAL \"Debug\")
+                set(_dq_flag \"--debug\")
+            else()
+                set(_dq_flag \"--release\")
+            endif()
+            message(STATUS \"[windeployqt] \${_dq_flag} 部署 Qt 运行时到 \${CMAKE_INSTALL_PREFIX}/\${_cfg}/bin\")
+            execute_process(COMMAND \"${WINDEPLOYQT_EXE}\" \${_dq_flag} --no-compiler-runtime
+                \"\${CMAKE_INSTALL_PREFIX}/\${_cfg}/bin/cpss.exe\")
+        ")
+    else()
+        message(WARNING "未找到 windeployqt，安装后需手动部署 Qt 运行时 DLL")
+    endif()
+
 elseif(UNIX)
-    file(WRITE ${CMAKE_BINARY_DIR}/deploy.sh
-"#!/bin/bash
-set -e
-linuxdeployqt bin/cpss -verbose=2
-cp ./3dParty/Enclib/bin/libenccore.so bin/
-cp ./3dParty/Enclib/bin/msn bin/
-cp ./3dParty/Enclib/bin/s52symbol bin/
-cp -r ./3dParty/Enclib/mapdata bin/
-cp -r ./3dParty/Enclib/fonts bin/
-cp ./3dParty/Enclib/config.xml bin/
-cp ./3dParty/Enclib/lic.dat bin/
-echo 'Deploy complete!'
-"
+    # ---- Enclib 海图库运行期文件（Linux）----
+    install(FILES ${ENCLIB_BIN_DIR}/libenccore.so
+        ${ENCLIB_BIN_DIR}/msn
+        ${ENCLIB_BIN_DIR}/s52symbol
+        DESTINATION ${CPSS_INSTALL_ENCLIB}/bin
     )
-    execute_process(COMMAND chmod +x ${CMAKE_BINARY_DIR}/deploy.sh)
+    install(FILES ${ENCLIB_DIR}/config.xml ${ENCLIB_DIR}/lic.dat
+        DESTINATION ${CPSS_INSTALL_ENCLIB}
+    )
+    install(DIRECTORY
+        ${ENCLIB_DIR}/mapdata
+        ${ENCLIB_DIR}/fonts
+        ${ENCLIB_DIR}/s57data
+        DESTINATION ${CPSS_INSTALL_ENCLIB}
+    )
 endif()

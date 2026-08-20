@@ -563,7 +563,7 @@ void NodeFlowWidget::mouseDoubleClickEvent(QMouseEvent *event)
 }
 
 /**
- * @brief 开始平移（Alt 或中键）、节点拖拽、连线完成或选择
+ * @brief 开始平移（Alt / 左键空白处）、节点拖拽、连线完成或选择
  * @details 当 m_connecting 为 true 时（右键菜单触发的单次连线模式）：
  *          左键点目标节点 → 完成连线并重置状态；
  *          左键点空白处或起点自身 → 取消连线。
@@ -573,7 +573,7 @@ void NodeFlowWidget::mousePressEvent(QMouseEvent *event)
     setFocus();
     m_lastWidgetPos = event->pos();
     m_lastScenePos = widgetToScene(event->pos());
-    if (event->button() == Qt::MiddleButton || event->modifiers().testFlag(Qt::AltModifier)) {
+    if (event->modifiers().testFlag(Qt::AltModifier)) {
         m_panning = true;
         setCursor(Qt::ClosedHandCursor);
         return;
@@ -597,8 +597,15 @@ void NodeFlowWidget::mousePressEvent(QMouseEvent *event)
             setSelectedNode(id);
         } else {
             const int edgeIndex = hitEdge(m_lastScenePos);
-            if (edgeIndex >= 0) { setSelectedEdge(edgeIndex); }
-            else { setSelectedNode(-1); setSelectedEdge(-1); }
+            if (edgeIndex >= 0) {
+                setSelectedEdge(edgeIndex);
+            } else {
+                // 空白处左键：进入平移模式（与中键/Alt 一致），
+                // 若释放时几乎未移动则仍按“单击空白”取消选择
+                m_leftPressWidgetPos = event->pos();
+                m_panning = true;
+                setCursor(Qt::ClosedHandCursor);
+            }
         }
     }
 }
@@ -633,9 +640,19 @@ void NodeFlowWidget::mouseMoveEvent(QMouseEvent *event)
 
 /**
  * @brief 结束平移/拖拽状态并恢复箭头光标
+ * @details 左键空白处按下后几乎未移动即释放，视为“单击空白”，仍取消当前选择
  */
 void NodeFlowWidget::mouseReleaseEvent(QMouseEvent *event)
 {
+    // 左键在空白处按下后未拖动（位移小于阈值）：保留“单击空白取消选择”的语义
+    if (m_panning && event->button() == Qt::LeftButton) {
+        const QPointF delta = event->pos() - m_leftPressWidgetPos;
+        if (delta.manhattanLength() < 5) {
+            setSelectedNode(-1);
+            setSelectedEdge(-1);
+            update();
+        }
+    }
     m_panning = false;
     m_draggingNode = false;
     setCursor(Qt::ArrowCursor);
@@ -643,16 +660,24 @@ void NodeFlowWidget::mouseReleaseEvent(QMouseEvent *event)
 }
 
 /**
- * @brief 以光标为中心缩放：计算缩放前的场景点，应用缩放，然后调整平移使同一场景点仍处于光标下方
+ * @brief 滚轮缩放：以鼠标光标位置为中心进行缩放
+ * @details 恢复数据流监控插件的滚轮缩放功能（界面需要靠滚轮缩放查看）。
+ *          放大/缩小后通过调整 m_panOffset 保持光标下的场景点不动，实现
+ *          以光标为中心的缩放效果。中键平移已按需求移除。
  */
 void NodeFlowWidget::wheelEvent(QWheelEvent *event)
 {
+    // 记录缩放前光标下的场景坐标，缩放后用它校正平移量，保证光标中心缩放
     const QPointF pos = event->pos();
     const QPointF sceneBefore = widgetToScene(pos);
-    if (event->delta() > 0) m_zoom *= 1.15; else m_zoom /= 1.15;
+    if (event->delta() > 0) {
+        m_zoom *= 1.15;
+    } else {
+        m_zoom /= 1.15;
+    }
     clampZoom();
-    const QPointF sceneAfter = widgetToScene(pos);
-    m_panOffset += (sceneBefore - sceneAfter) * m_zoom;
+    // 令新平移满足 (pos - m_panOffset) / m_zoom == sceneBefore，光标处场景点保持不动
+    m_panOffset = pos - sceneBefore * m_zoom;
     emit viewChanged(m_zoom);
     update();
     event->accept();

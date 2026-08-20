@@ -28,6 +28,8 @@
 #include <QScrollArea>
 #include <QPixmap>
 #include <QFrame>
+#include <QResizeEvent>
+#include <QDebug>
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"

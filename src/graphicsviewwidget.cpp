@@ -281,11 +281,14 @@ void GraphicsViewWidget::updateSinglePlatform(const PlatformData &platform)
         }
     }
 
-    // 增量刷新该平台的传感器/武器范围、航迹、事件标记与连接线（这些函数按 id 差量更新）
-    updateSensorWeaponRanges();
-    updateTracks();
-    updateEventMarkers();
-    updateAllConnectingLines();
+    // 单平台差量刷新：仅处理本平台的传感器/武器范围、航迹、事件徽标条与连接线，
+    // 不再调用 updateSensorWeaponRanges/updateTracks/updateEventMarkers/updateAllConnectingLines
+    // 等全量遍历函数，避免每平台更新都触发 m_dynamicData.platforms.values() 全量深拷贝。
+    // 事件标记的“方式1（跟随平台）”即设备状态徽标条，直接用本平台已算得的屏幕坐标更新。
+    updateSingleSensorWeaponRanges(platform.id, platform);
+    updateSingleTrack(platform.id, platform);
+    updatePlatformStatusStrip(platform, x, y);
+    updateSingleConnectingLine(platform.id, platform);
 }
 
 /**
@@ -655,44 +658,8 @@ void GraphicsViewWidget::updateTracks()
             continue;
         }
         currentPlatformIds.insert(platform.id);
-
-        bool showTrack = m_displayStates.contains(platform.id) && m_displayStates[platform.id].showTrack;
-
-        if (m_trackItems.contains(platform.id)) {
-            m_trackItems[platform.id]->setVisible(showTrack);
-        }
-
-        if (!showTrack || platform.trackPoints.isEmpty()) {
-            continue;
-        }
-
-        // 航迹颜色与阵营颜色保持一致（我红敌蓝）
-        QColor trackColor = campColor(platform.camp);
-
-        QPainterPath trackPath;
-        bool firstPoint = true;
-        for (const QPointF &point : platform.trackPoints) {
-            int px, py;
-            if (geoToScreen(point.x(), point.y(), px, py)) {
-                if (firstPoint) {
-                    trackPath.moveTo(px, py);
-                    firstPoint = false;
-                } else {
-                    trackPath.lineTo(px, py);
-                }
-            }
-        }
-
-        if (m_trackItems.contains(platform.id)) {
-            QGraphicsPathItem *pathItem = static_cast<QGraphicsPathItem*>(m_trackItems[platform.id]);
-            pathItem->setPath(trackPath);
-            pathItem->setPen(QPen(trackColor, 2, Qt::DashLine));
-        } else {
-            QGraphicsPathItem *pathItem = new QGraphicsPathItem(trackPath);
-            pathItem->setPen(QPen(trackColor, 2, Qt::DashLine));
-            m_scene->addItem(pathItem);
-            m_trackItems[platform.id] = pathItem;
-        }
+        // 委托单目标差量更新，航迹逻辑统一在 updateSingleTrack 维护，避免重复
+        updateSingleTrack(platform.id, platform);
     }
 
     QList<QString> toRemove;
@@ -747,6 +714,51 @@ void GraphicsViewWidget::updateEventMarkers()
     }
 
     // ---- 方式2：无 targetId 的事件，按事件自身经纬度地理标绘（菱形 + 文字） ----
+    // 位置计算与图元更新统一委托 relocateGeoEventMarkers（含创建/复用/实时重定位），
+    // 它返回本轮仍有效的方式2事件ID键，并入 currentKeys 供末尾清理，避免被误删。
+    currentKeys += relocateGeoEventMarkers();
+
+    // ---- 统一清理：删除已不存在的标记（平台过期 或 事件移除） ----
+    QList<QString> toRemove;
+    for (const QString &key : m_eventMarkerItems.keys()) {
+        if (!currentKeys.contains(key)) {
+            toRemove.append(key);
+        }
+    }
+    for (const QString &key : toRemove) {
+        for (auto item : m_eventMarkerItems.take(key)) {
+            m_scene->removeItem(item);
+            delete item;
+        }
+    }
+
+    // 同步清理已消失平台的设备状态徽标条（键为平台ID，故仅需比对平台键）
+    QList<QString> stripToRemove;
+    for (const QString &pid : m_statusStripItems.keys()) {
+        if (!m_dynamicData.platforms.contains(pid)) {
+            stripToRemove.append(pid);
+        }
+    }
+    for (const QString &pid : stripToRemove) {
+        for (auto item : m_statusStripItems.take(pid)) {
+            m_scene->removeItem(item);
+            delete item;
+        }
+    }
+}
+
+/**
+ * @brief 重定位地理标绘事件标记（方式2）
+ * @return 本轮仍有效的方式2事件ID集合（供 updateEventMarkers 末尾清理比对）
+ * @details 仅处理无 targetId、按自身经纬度地理标绘的事件（菱形 + 文字）：
+ *          按当前 Enclib 中心 geoToScreen 实时计算图元位置并复用/新建图元。
+ *          海图平移（EnclViewPan）时调用，保证图标显示位置与鼠标命中测试
+ *          （isPointInEvent 同样按实时 geoToScreen）一致。方式2事件数量极少，
+ *          每帧调用开销可忽略。
+ */
+QSet<QString> GraphicsViewWidget::relocateGeoEventMarkers()
+{
+    QSet<QString> validKeys;
     for (const SpecialEvent &event : m_dynamicData.events) {
         // 仅处理不关联平台（targetId 为空）且有有效经纬度的事件
         if (!event.targetId.isEmpty()) {
@@ -756,7 +768,7 @@ void GraphicsViewWidget::updateEventMarkers()
             continue;
         }
 
-        currentKeys.insert(event.eventId);
+        validKeys.insert(event.eventId);
 
         int x, y;
         if (!geoToScreen(event.lon, event.lat, x, y)) {
@@ -817,34 +829,7 @@ void GraphicsViewWidget::updateEventMarkers()
             m_eventMarkerItems[event.eventId].append(text);
         }
     }
-
-    // ---- 统一清理：删除已不存在的标记（平台过期 或 事件移除） ----
-    QList<QString> toRemove;
-    for (const QString &key : m_eventMarkerItems.keys()) {
-        if (!currentKeys.contains(key)) {
-            toRemove.append(key);
-        }
-    }
-    for (const QString &key : toRemove) {
-        for (auto item : m_eventMarkerItems.take(key)) {
-            m_scene->removeItem(item);
-            delete item;
-        }
-    }
-
-    // 同步清理已消失平台的设备状态徽标条（键为平台ID，故仅需比对平台键）
-    QList<QString> stripToRemove;
-    for (const QString &pid : m_statusStripItems.keys()) {
-        if (!m_dynamicData.platforms.contains(pid)) {
-            stripToRemove.append(pid);
-        }
-    }
-    for (const QString &pid : stripToRemove) {
-        for (auto item : m_statusStripItems.take(pid)) {
-            m_scene->removeItem(item);
-            delete item;
-        }
-    }
+    return validKeys;
 }
 
 /**
@@ -1017,6 +1002,8 @@ void GraphicsViewWidget::mouseMoveEvent(QMouseEvent *event)
         EnclViewPan(m_lastLeftMousePt.x(), m_lastLeftMousePt.y(), currentMousePt.x(), currentMousePt.y());
         m_lastLeftMousePt = currentMousePt;
         updateMapBackground();
+        // 拖动过程中不逐帧重定位事件标记（避免无谓开销），
+        // 待 mouseReleaseEvent 拖动结束后一次性重定位，图标与命中测试保持一致
         update();
     }
 
@@ -1041,6 +1028,8 @@ void GraphicsViewWidget::mouseReleaseEvent(QMouseEvent *event)
 
         if (m_enclibReady) {
             EnclViewPan(m_lastLeftMousePt.x(), m_lastLeftMousePt.y(), event->x(), event->y());
+            // 平移收尾后同样重定位地理标绘事件标记（方式2），确保位置与命中一致
+            relocateGeoEventMarkers();
         }
 
         QPoint releasePos = event->pos();
@@ -1121,6 +1110,9 @@ void GraphicsViewWidget::wheelEvent(QWheelEvent *event)
         zoomFactor = 1.25;
     EnclViewZoom(event->x(), event->y(), zoomFactor);
     updateMapBackground();
+    // 缩放后海图中心/比例已变化：重定位地理标绘事件标记（方式2），
+    // 使图标显示位置与鼠标命中测试（isPointInEvent 实时 geoToScreen）保持一致
+    relocateGeoEventMarkers();
     update();
     emit updateGeoPosition(event->pos());
 
@@ -1247,6 +1239,255 @@ void GraphicsViewWidget::updateAllConnectingLines()
         }
         updateConnectingLine(box);
     }
+}
+
+/**
+ * @brief 单平台差量更新：传感器/武器作用范围
+ * @param id 平台ID（用作 m_sensorRangeItems / m_weaponRangeItems 键）
+ * @param platform 平台数据（提供 lon/lat/sensors/weapons）
+ * @details 仅刷新该 id 平台的传感器/武器范围图元，复用或新建，不遍历其他平台。
+ *          逻辑与 updateSensorWeaponRanges 的单平台分支一致，供 updateSinglePlatform
+ *          调用以避免每平台更新都触发 m_dynamicData.platforms.values() 全量深拷贝。
+ */
+void GraphicsViewWidget::updateSingleSensorWeaponRanges(const QString &id, const PlatformData &platform)
+{
+    bool showSensors = m_displayStates.contains(id) && m_displayStates[id].showSensors;
+    bool showWeapons = m_displayStates.contains(id) && m_displayStates[id].showWeapons;
+
+    int x, y;
+    if (!geoToScreen(platform.lon, platform.lat, x, y)) {
+        if (m_sensorRangeItems.contains(id)) {
+            for (auto item : m_sensorRangeItems[id]) {
+                item->setVisible(false);
+            }
+        }
+        if (m_weaponRangeItems.contains(id)) {
+            for (auto item : m_weaponRangeItems[id]) {
+                item->setVisible(false);
+            }
+        }
+        return;
+    }
+
+    // ---- 传感器作用范围 ----
+    if (showSensors) {
+        int sensorIndex = 0;
+        for (const SensorInfo &sensor : platform.sensors) {
+            if (sensor.range <= 0) {
+                continue;
+            }
+
+            double rangeKm = sensor.range * 1.852;
+            double rangeDegrees = rangeKm / 111.0;
+
+            int edgeX, edgeY;
+            if (geoToScreen(platform.lon + rangeDegrees, platform.lat, edgeX, edgeY)) {
+                int radius = edgeX - x;
+
+                QColor sensorColor;
+                if (sensor.type.contains("radar", Qt::CaseInsensitive)) {
+                    sensorColor = Qt::cyan;
+                } else if (sensor.type.contains("sonar", Qt::CaseInsensitive)) {
+                    sensorColor = Qt::blue;
+                } else {
+                    sensorColor = Qt::green;
+                }
+
+                int ellipseIdx = sensorIndex * 2;
+                int textIdx = sensorIndex * 2 + 1;
+
+                if (m_sensorRangeItems.contains(id) &&
+                    m_sensorRangeItems[id].size() > ellipseIdx) {
+                    QGraphicsEllipseItem *ellipse =
+                        dynamic_cast<QGraphicsEllipseItem*>(m_sensorRangeItems[id][ellipseIdx]);
+                    if (ellipse) {
+                        ellipse->setRect(x - radius, y - radius, radius * 2, radius * 2);
+                        ellipse->setVisible(true);
+                    }
+                    if (m_sensorRangeItems[id].size() > textIdx) {
+                        QGraphicsTextItem *text =
+                            dynamic_cast<QGraphicsTextItem*>(m_sensorRangeItems[id][textIdx]);
+                        if (text) {
+                            text->setPos(x + radius + 5, y + sensorIndex * 15);
+                            text->setVisible(true);
+                        }
+                    }
+                } else {
+                    QGraphicsEllipseItem *ellipse = new QGraphicsEllipseItem(x - radius, y - radius, radius * 2, radius * 2);
+                    ellipse->setPen(QPen(sensorColor, 1, Qt::DashLine));
+                    ellipse->setBrush(Qt::NoBrush);
+                    m_scene->addItem(ellipse);
+                    m_sensorRangeItems[id].append(ellipse);
+
+                    QGraphicsTextItem *text = new QGraphicsTextItem(QString("%1:S:%2(%3nm)").arg(id).arg(sensor.type).arg(sensor.range));
+                    text->setPos(x + radius + 5, y + sensorIndex * 15);
+                    text->setDefaultTextColor(sensorColor);
+                    text->setFont(QFont("Arial", 7));
+                    m_scene->addItem(text);
+                    m_sensorRangeItems[id].append(text);
+                }
+                sensorIndex++;
+            }
+        }
+
+        if (m_sensorRangeItems.contains(id)) {
+            int expectedSize = platform.sensors.size() * 2;
+            while (m_sensorRangeItems[id].size() > expectedSize) {
+                auto item = m_sensorRangeItems[id].takeLast();
+                m_scene->removeItem(item);
+                delete item;
+            }
+        }
+    } else if (m_sensorRangeItems.contains(id)) {
+        for (auto item : m_sensorRangeItems[id]) {
+            item->setVisible(false);
+        }
+    }
+
+    // ---- 武器作用范围 ----
+    if (showWeapons) {
+        int weaponIndex = 0;
+        for (const WeaponInfo &weapon : platform.weapons) {
+            if (weapon.range <= 0) {
+                continue;
+            }
+
+            double rangeKm = weapon.range * 1.852;
+            double rangeDegrees = rangeKm / 111.0;
+
+            int edgeX, edgeY;
+            if (geoToScreen(platform.lon + rangeDegrees, platform.lat, edgeX, edgeY)) {
+                int radius = edgeX - x;
+
+                QColor weaponColor;
+                if (weapon.type.contains("missile", Qt::CaseInsensitive)) {
+                    weaponColor = Qt::red;
+                } else if (weapon.type.contains("gun", Qt::CaseInsensitive)) {
+                    weaponColor = QColor(255, 165, 0);
+                } else {
+                    weaponColor = Qt::darkRed;
+                }
+
+                int ellipseIdx = weaponIndex * 2;
+                int textIdx = weaponIndex * 2 + 1;
+
+                if (m_weaponRangeItems.contains(id) &&
+                    m_weaponRangeItems[id].size() > ellipseIdx) {
+                    QGraphicsEllipseItem *ellipse =
+                        dynamic_cast<QGraphicsEllipseItem*>(m_weaponRangeItems[id][ellipseIdx]);
+                    if (ellipse) {
+                        ellipse->setRect(x - radius, y - radius, radius * 2, radius * 2);
+                        ellipse->setVisible(true);
+                    }
+                    if (m_weaponRangeItems[id].size() > textIdx) {
+                        QGraphicsTextItem *text =
+                            dynamic_cast<QGraphicsTextItem*>(m_weaponRangeItems[id][textIdx]);
+                        if (text) {
+                            text->setPos(x + radius + 5, y + weaponIndex * 15);
+                            text->setVisible(true);
+                        }
+                    }
+                } else {
+                    QGraphicsEllipseItem *ellipse = new QGraphicsEllipseItem(x - radius, y - radius, radius * 2, radius * 2);
+                    ellipse->setPen(QPen(weaponColor, 2, Qt::DotLine));
+                    ellipse->setBrush(Qt::NoBrush);
+                    m_scene->addItem(ellipse);
+                    m_weaponRangeItems[id].append(ellipse);
+
+                    QGraphicsTextItem *text = new QGraphicsTextItem(QString("%1:W:%2(%3nm)").arg(id).arg(weapon.type).arg(weapon.range));
+                    text->setPos(x + radius + 5, y + weaponIndex * 15);
+                    text->setDefaultTextColor(weaponColor);
+                    text->setFont(QFont("Arial", 7));
+                    m_scene->addItem(text);
+                    m_weaponRangeItems[id].append(text);
+                }
+                weaponIndex++;
+            }
+        }
+
+        if (m_weaponRangeItems.contains(id)) {
+            int expectedSize = platform.weapons.size() * 2;
+            while (m_weaponRangeItems[id].size() > expectedSize) {
+                auto item = m_weaponRangeItems[id].takeLast();
+                m_scene->removeItem(item);
+                delete item;
+            }
+        }
+    } else if (m_weaponRangeItems.contains(id)) {
+        for (auto item : m_weaponRangeItems[id]) {
+            item->setVisible(false);
+        }
+    }
+}
+
+/**
+ * @brief 单平台差量更新：航迹
+ * @param id 平台ID（用作 m_trackItems 键）
+ * @param platform 平台数据（提供 trackPoints / camp / lon / lat）
+ * @details 仅用该 id 平台的 trackPoints 重建其航迹路径图元，不遍历其他平台。
+ */
+void GraphicsViewWidget::updateSingleTrack(const QString &id, const PlatformData &platform)
+{
+    bool showTrack = m_displayStates.contains(id) && m_displayStates[id].showTrack;
+
+    if (m_trackItems.contains(id)) {
+        m_trackItems[id]->setVisible(showTrack);
+    }
+
+    if (!showTrack || platform.trackPoints.isEmpty()) {
+        return;
+    }
+
+    // 航迹颜色与阵营颜色保持一致（我红敌蓝）
+    QColor trackColor = campColor(platform.camp);
+
+    QPainterPath trackPath;
+    bool firstPoint = true;
+    for (const QPointF &point : platform.trackPoints) {
+        int px, py;
+        if (geoToScreen(point.x(), point.y(), px, py)) {
+            if (firstPoint) {
+                trackPath.moveTo(px, py);
+                firstPoint = false;
+            } else {
+                trackPath.lineTo(px, py);
+            }
+        }
+    }
+
+    if (m_trackItems.contains(id)) {
+        QGraphicsPathItem *pathItem = static_cast<QGraphicsPathItem*>(m_trackItems[id]);
+        pathItem->setPath(trackPath);
+        pathItem->setPen(QPen(trackColor, 2, Qt::DashLine));
+    } else {
+        QGraphicsPathItem *pathItem = new QGraphicsPathItem(trackPath);
+        pathItem->setPen(QPen(trackColor, 2, Qt::DashLine));
+        m_scene->addItem(pathItem);
+        m_trackItems[id] = pathItem;
+    }
+}
+
+/**
+ * @brief 单平台差量更新：属性框连接线
+ * @param id 平台ID
+ * @param platform 平台数据（提供 lon/lat，用于重定位附着属性框）
+ * @details 仅查找并刷新该 id 平台对应的属性框（若存在）：先按新锚点重定位附着框，
+ *          再更新其连接线。不遍历整个 m_propertyBoxes 列表。
+ */
+void GraphicsViewWidget::updateSingleConnectingLine(const QString &id, const PlatformData &platform)
+{
+    PropertyBox *box = findPropertyBoxById(id, id == "SHIP_001");
+    if (!box) {
+        return;
+    }
+
+    if (box->item && box->item->isAttached()) {
+        int shipX, shipY;
+        if (geoToScreen(platform.lon, platform.lat, shipX, shipY)) {
+            box->item->setPos(QPointF(shipX, shipY) + box->item->offset());
+        }
+    }
+    updateConnectingLine(*box);
 }
 
 /**

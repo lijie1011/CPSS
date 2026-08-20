@@ -263,7 +263,7 @@ private:
     std::vector<DataPushCallback> m_pushCallbacks; ///< 数据推送回调列表
     
     qint64 m_testStartTime;             ///< 测试开始时间
-    bool m_eventSecondPhase;             ///< 事件第二阶段标志
+    bool m_testEventsGenerated;          ///< 测试事件是否已生成标志（仅首周期生成，避免历史事件无限增长）
     int m_eventCounter;                 ///< 事件计数器
 };
 

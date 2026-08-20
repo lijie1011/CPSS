@@ -254,6 +254,16 @@ private:
     void updateEventMarkers();
 
     /**
+     * @brief 重定位地理标绘事件标记（方式2）
+     * @return 本轮仍有效的方式2事件ID集合，供 updateEventMarkers 末尾清理比对
+     * @details 仅处理无 targetId、按自身经纬度地理标绘的事件（菱形+文字），
+     *          按当前 Enclib 中心 geoToScreen 实时更新图元位置，保证图标显示
+     *          位置与鼠标命中测试（isPointInEvent 同样按实时 geoToScreen）
+     *          一致。海图平移/缩放时调用，方式2事件数量极少，开销可忽略。
+     */
+    QSet<QString> relocateGeoEventMarkers();
+
+    /**
      * @brief 更新单个平台上方的设备状态徽标条（横向一排）
      * @param platform 平台数据（提供阵营/事件关联等）
      * @param x 平台图标在场景中的 X 坐标
@@ -288,6 +298,31 @@ private:
      * @brief 更新所有连接线
      */
     void updateAllConnectingLines();
+
+    /**
+     * @brief 单平台差量更新：传感器/武器作用范围
+     * @param id 平台ID
+     * @param platform 平台数据
+     * @details 仅刷新该 id 平台的传感器/武器范围图元（复用或新建），不遍历其他平台。
+     *          供 updateSinglePlatform 调用，避免每平台更新都触发全量深拷贝遍历。
+     */
+    void updateSingleSensorWeaponRanges(const QString &id, const PlatformData &platform);
+
+    /**
+     * @brief 单平台差量更新：航迹
+     * @param id 平台ID
+     * @param platform 平台数据
+     * @details 仅刷新该 id 平台的航迹图元（用其 trackPoints 重建路径），不遍历其他平台。
+     */
+    void updateSingleTrack(const QString &id, const PlatformData &platform);
+
+    /**
+     * @brief 单平台差量更新：属性框连接线
+     * @param id 平台ID
+     * @param platform 平台数据
+     * @details 仅重定位并刷新该 id 平台对应属性框的连接线（若存在），不遍历其他属性框。
+     */
+    void updateSingleConnectingLine(const QString &id, const PlatformData &platform);
     
     /**
      * @brief 通过图元查找属性框

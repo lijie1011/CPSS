@@ -442,6 +442,7 @@ private:
     bool m_needInitialFit = true;           /**< 在设置新图后 fitToView 至少被调用一次之前为 @c true */
     QPointF m_lastWidgetPos;                /**< 上一次鼠标在控件坐标中的位置，用于拖拽/平移时的增量计算 */
     QPointF m_lastScenePos;                 /**< 上一次鼠标在场景坐标中的位置，用于节点拖拽的增量计算 */
+    QPointF m_leftPressWidgetPos;           /**< 左键在空白处按下时的控件坐标，用于区分“单击空白(取消选择)”与“左键拖动(平移)” */
     QPointF m_connectionEnd;                /**< 连接拖拽时当前的终点（场景坐标） */
     int m_selectedNodeId = -1;              /**< 当前选中节点的 ID，若无则为 -1 */
     int m_selectedEdgeIndex = -1;           /**< 当前选中边的索引，若无则为 -1 */

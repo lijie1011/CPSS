@@ -310,7 +310,7 @@ struct PlatformData {
     QList<SensorInfo> sensors;   ///< 传感器列表
 
     QList<QPointF> trackPoints;  ///< 航迹点列表
-    static const int MAX_TRACK_POINTS = 1000;  ///< 最大航迹点数量
+    static const int MAX_TRACK_POINTS = 100;  ///< 最大航迹点数量（限制航迹内存占用，超过即裁剪最旧点）
 
     DataStatus dataStatus;       ///< 数据状态
     qint64 validUntil;          ///< 有效期截止时间戳
