@@ -46,6 +46,21 @@ class NodeFlowWidget final : public QWidget
     Q_OBJECT
 
 public:
+    /**
+     * @enum AnchorSide
+     * @brief 边连接点的方位
+     *
+     * 决定边从节点的哪一侧引出/接入，支持左右与上下四种方位；
+     * Auto 表示根据两端节点的相对位置自动判断。
+     */
+    enum class AnchorSide {
+        Auto = 0,   ///< 根据两端节点相对位置自动判断
+        Right = 1,  ///< 右侧中点
+        Left = 2,   ///< 左侧中点
+        Bottom = 3, ///< 底部中点
+        Top = 4     ///< 顶部中点
+    };
+
     struct Node
     {
         int id = 0;            /**< 唯一整数标识符，由控件顺序分配 */
@@ -60,6 +75,8 @@ public:
         int from = 0;          /**< 源节点标识符（箭头尾部） */
         int to = 0;            /**< 目标节点标识符（箭头头部） */
         QString label;         /**< 可选的短标签，渲染在边的中点处 */
+        AnchorSide fromSide = AnchorSide::Auto;  /**< 源端连接方位，默认自动 */
+        AnchorSide toSide = AnchorSide::Auto;    /**< 目标端连接方位，默认自动 */
     };
 
     /**
@@ -354,11 +371,11 @@ private:
 
     /**
      * @brief 返回节点上用于边端点的锚点
-     * @param node   请求锚点的节点。
-     * @param output @c true 表示右侧（源）锚点，@c false 表示左侧（目标）锚点。
-     * @return 节点矩形左或右边的中点。
+     * @param node 请求锚点的节点。
+     * @param side 锚点方位（Left / Right / Top / Bottom，Auto 回退为右侧）。
+     * @return 节点矩形对应方位边上的中点。
      */
-    QPointF nodeAnchor(const Node &node, bool output) const;
+    QPointF nodeAnchor(const Node &node, AnchorSide side) const;
 
     /**
      * @brief 构建边的三次贝塞尔 QPainterPath（场景空间）

@@ -72,8 +72,8 @@ NodeFlowWidget::Node node(int id, const QString &title, const QString &subtitle,
  * @brief 构造 DataFlowWidget
  *
  * 初始化高亮定时器（200 毫秒，非单次触发），通过 createUI()
- * 构建分割面板 UI，加载默认流模式（Mode_SourcePipeline），
- * 并连接驱动实时更新的三个 DataManager 信号。
+ * 构建分割面板 UI，加载默认流模式（Mode_PlatformData），
+ * 并连接驱动实时更新的 DataManager 信号。
  */
 DataFlowWidget::DataFlowWidget(DataManager *dataManager, QWidget *parent)
     : QWidget(parent)
@@ -83,16 +83,13 @@ DataFlowWidget::DataFlowWidget(DataManager *dataManager, QWidget *parent)
     setStyleSheet("background-color: #f5f5f5;");
 
     createUI();
-    loadFlowMode(Mode_SourcePipeline);
+    loadFlowMode(Mode_PlatformData);
 
     if (m_dataManager) {
         // 信号1：当新采集的数据被推送到管理器时发射
         connect(m_dataManager, &DataManager::dataPushed, this, &DataFlowWidget::onDataPushed);
         // 信号2：单条平台记录变化 → 平台节点增量刷新（用于 PlatformData 模式）
         connect(m_dataManager, &DataManager::platformUpdated, this, &DataFlowWidget::onPlatformUpdated);
-        // 信号3：新增事件 → 事件高亮链回放（用于 EventAlert 模式）
-        //        改用定向的 eventAdded 信号替代已停用的全量 dynamicDataChanged
-        connect(m_dataManager, &DataManager::eventAdded, this, &DataFlowWidget::onEventUpdated);
     }
 
     m_highlightTimer->setSingleShot(false);
@@ -174,9 +171,8 @@ void DataFlowWidget::createUI()
 
     m_modeCombo = new QComboBox(panel);
     m_modeCombo->addItems({
-        QStringLiteral("源头管道"),
         QStringLiteral("平台数据流"),
-        QStringLiteral("事件告警流")
+        QStringLiteral("监控平台")
     });
 
     auto *gridCheck = new QCheckBox(QStringLiteral("显示网格"), panel);
@@ -275,38 +271,10 @@ void DataFlowWidget::createUI()
 void DataFlowWidget::loadFlowMode(FlowMode mode)
 {
     switch (mode) {
-    case Mode_SourcePipeline: setupSourcePipeline(); break;
     case Mode_PlatformData: setupPlatformDataFlow(); break;
-    case Mode_EventAlert: setupEventAlertFlow(); break;
+    case Mode_MonitorPlatform: setupMonitorPlatform(); break;
     }
     m_flow->fitToView();
-}
-
-/**
- * @brief 用静态源流水线图填充画布
- *
- * 六个节点水平排列在 y=100，单个分支节点（数据缓存 → 过期清理）
- * 放置在主流程下方。
- */
-void DataFlowWidget::setupSourcePipeline()
-{
-    QVector<NodeFlowWidget::Node> nodes = {
-        node(1, QStringLiteral("数据源"), QStringLiteral("HTTP/原始"), nodeColor(0), 40, 100),
-        node(2, QStringLiteral("协议适配"), QStringLiteral("解析/校验"), nodeColor(1), 270, 100),
-        node(3, QStringLiteral("数据缓存"), QStringLiteral("存储/去重"), nodeColor(2), 500, 100),
-        node(4, QStringLiteral("数据推送"), QStringLiteral("分发/回调"), nodeColor(3), 730, 100),
-        node(5, QStringLiteral("态势显示"), QStringLiteral("渲染/交互"), nodeColor(4), 960, 100),
-        node(6, QStringLiteral("过期清理"), QStringLiteral("定时/TTL"), nodeColor(5), 500, 270),
-    };
-    QVector<NodeFlowWidget::Edge> edges = {
-        {1, 2, QStringLiteral("原始")},
-        {2, 3, QStringLiteral("解析")},
-        {3, 4, QStringLiteral("缓存")},
-        {4, 5, QStringLiteral("显示")},
-        {3, 6, QStringLiteral("过期")},
-    };
-    m_flow->setNodes(nodes);
-    m_flow->setEdges(edges);
 }
 
 /**
@@ -329,29 +297,58 @@ void DataFlowWidget::setupPlatformDataFlow()
 }
 
 /**
- * @brief 用静态事件告警图填充画布
+ * @brief 用监控平台树形结构图填充画布
  *
- * 七个节点：直线路径 武器发射 → 事件创建 → 导弹飞行 →
- * 告警事件，加上三个侧分支分别指向属性框、事件历史和态势图标。
+ * 自上而下的树形层级（连线方向全部为上层指向下层）：
+ *   - 第一排：传感器1 ~ 传感器5（数据采集末端）
+ *   - 第二排：态势（汇总传感器信息）
+ *   - 第三排：本指（本级指挥）
+ *   - 第四排：对空分系统 / 对水分系统
+ *   - 第五排：对空分系统下挂 H10 / jp / 电子对抗；
+ *             对水分系统下挂 声纳 / 鱼雷
  */
-void DataFlowWidget::setupEventAlertFlow()
+void DataFlowWidget::setupMonitorPlatform()
 {
     QVector<NodeFlowWidget::Node> nodes = {
-        node(1, QStringLiteral("武器发射"), QStringLiteral("攻击事件"), nodeColor(0), 40, 120),
-        node(2, QStringLiteral("事件创建"), QStringLiteral("导弹平台"), nodeColor(1), 270, 120),
-        node(3, QStringLiteral("导弹飞行"), QStringLiteral("位置更新"), nodeColor(2), 500, 120),
-        node(4, QStringLiteral("告警事件"), QStringLiteral("告警生成"), nodeColor(3), 730, 120),
-        node(5, QStringLiteral("属性框"), QStringLiteral("详情"), nodeColor(4), 960, 120),
-        node(6, QStringLiteral("事件历史"), QStringLiteral("记录列表"), nodeColor(5), 500, 290),
-        node(7, QStringLiteral("态势图标"), QStringLiteral("A/!/D 标记"), nodeColor(0), 730, 290),
+        // 第一排：五个传感器
+        node(1, QStringLiteral("传感器1"), QStringLiteral("传感/采集"), nodeColor(0), 40, 40),
+        node(2, QStringLiteral("传感器2"), QStringLiteral("传感/采集"), nodeColor(1), 238, 40),
+        node(3, QStringLiteral("传感器3"), QStringLiteral("传感/采集"), nodeColor(2), 436, 40),
+        node(4, QStringLiteral("传感器4"), QStringLiteral("传感/采集"), nodeColor(3), 634, 40),
+        node(5, QStringLiteral("传感器5"), QStringLiteral("传感/采集"), nodeColor(4), 832, 40),
+        // 第二排：态势
+        node(6, QStringLiteral("态势"), QStringLiteral("综合态势"), nodeColor(5), 436, 210),
+        // 第三排：本指
+        node(7, QStringLiteral("本指"), QStringLiteral("本级指挥"), nodeColor(0), 436, 380),
+        // 第四排：对空分系统 / 对水分系统
+        node(8, QStringLiteral("对空分系统"), QStringLiteral("防空/对空"), nodeColor(1), 196, 550),
+        node(9, QStringLiteral("对水分系统"), QStringLiteral("反潜/对水"), nodeColor(2), 696, 550),
+        // 第五排：对空下挂 H10 / jp / 电子对抗；对水下挂 声纳 / 鱼雷
+        node(10, QStringLiteral("H10"), QStringLiteral("装备/H10"), nodeColor(3), 4, 720),
+        node(11, QStringLiteral("jp"), QStringLiteral("装备/jp"), nodeColor(4), 196, 720),
+        node(12, QStringLiteral("电子对抗"), QStringLiteral("电子战"), nodeColor(5), 388, 720),
+        node(13, QStringLiteral("声纳"), QStringLiteral("水声探测"), nodeColor(0), 600, 720),
+        node(14, QStringLiteral("鱼雷"), QStringLiteral("水声武器"), nodeColor(1), 792, 720),
     };
     QVector<NodeFlowWidget::Edge> edges = {
-        {1, 2, QStringLiteral("发射")},
-        {2, 3, QStringLiteral("飞行")},
-        {3, 4, QStringLiteral("告警")},
-        {4, 5, QStringLiteral("显示")},
-        {4, 6, QStringLiteral("记录")},
-        {4, 7, QStringLiteral("标记")},
+        // 传感器 → 态势（上下连接：源底 → 目标顶）
+        {1, 6, QStringLiteral("传感"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
+        {2, 6, QStringLiteral("传感"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
+        {3, 6, QStringLiteral("传感"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
+        {4, 6, QStringLiteral("传感"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
+        {5, 6, QStringLiteral("传感"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
+        // 态势 → 本指
+        {6, 7, QStringLiteral("汇总"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
+        // 本指 → 对空/对水分系统
+        {7, 8, QStringLiteral("对空"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
+        {7, 9, QStringLiteral("对水"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
+        // 对空分系统 → 下挂装备
+        {8, 10, QStringLiteral("装备"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
+        {8, 11, QStringLiteral("装备"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
+        {8, 12, QStringLiteral("装备"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
+        // 对水分系统 → 下挂装备
+        {9, 13, QStringLiteral("探测"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
+        {9, 14, QStringLiteral("武器"), NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top},
     };
     m_flow->setNodes(nodes);
     m_flow->setEdges(edges);
@@ -395,9 +392,8 @@ void DataFlowWidget::updateZoomInfo(double zoom)
  *
  * 构建特定于模式的高亮链，使画布动画显示传播路径，并向
  * 状态标签写入摘要行。
- *   - Mode_SourcePipeline: 高亮完整管道 [1..5]。
  *   - Mode_PlatformData:   高亮默认平台数据路径。
- *   - Mode_EventAlert:     根据是否包含事件进行分支。
+ *   - Mode_MonitorPlatform: 高亮传感器 → 态势 → 本指 主链路。
  *
  * @param data 新推送的动态对象。
  */
@@ -406,22 +402,14 @@ void DataFlowWidget::onDataPushed(const DynamicObjects &data)
     Q_UNUSED(data);
     FlowMode mode = static_cast<FlowMode>(m_modeCombo->currentIndex());
     switch (mode) {
-    case Mode_SourcePipeline:
-        m_pendingHighlightChain = {1, 2, 3, 4, 5};
-        m_statusLabel->setText(QStringLiteral("已推送数据，平台数: %1").arg(data.platforms.size()));
-        break;
     case Mode_PlatformData:
         m_pendingHighlightChain = {1, 2, 3, 4, 5, 7};
         m_statusLabel->setText(QStringLiteral("平台已更新: %1 条").arg(data.platforms.size()));
         break;
-    case Mode_EventAlert:
-        if (!data.events.isEmpty()) {
-            m_pendingHighlightChain = {4, 5, 6, 7};
-            m_statusLabel->setText(QStringLiteral("新事件: %1").arg(data.events.size()));
-        } else {
-            m_pendingHighlightChain = {3, 7};
-            m_statusLabel->setText(QStringLiteral("态势已更新"));
-        }
+    case Mode_MonitorPlatform:
+        // 高亮 传感器 → 态势 → 本指 主链路，示意监控数据汇总上报
+        m_pendingHighlightChain = {1, 2, 3, 4, 5, 6, 7};
+        m_statusLabel->setText(QStringLiteral("监控平台数据已更新"));
         break;
     }
 }
@@ -462,38 +450,6 @@ void DataFlowWidget::onPlatformUpdated(const PlatformData &platform)
     if (mode == Mode_PlatformData) {
         addPlatformNode(platform);
         m_statusLabel->setText(QStringLiteral("平台 %1 已更新").arg(platform.id));
-    }
-}
-
-/**
- * @brief DataManager::specialEventProduced 的槽
- *
- * 构建特定于事件类型的高亮链，并用事件名称更新状态标签。
- * 分支：
- *   - Event_Attack → [1,2,3,4,7]  （创建路径 + 态势标记）
- *   - Event_Alert  → [4,5,6,7]    （告警路径 + 详情/历史/标记）
- *   - default      → [4,6]        （仅告警节点 + 历史）
- *
- * @param event 新产生的特殊事件。
- */
-void DataFlowWidget::onEventUpdated(const SpecialEvent &event)
-{
-    FlowMode mode = static_cast<FlowMode>(m_modeCombo->currentIndex());
-    if (mode == Mode_EventAlert) {
-        switch (event.eventType) {
-        case Event_Attack:
-            m_pendingHighlightChain = {1, 2, 3, 4, 7};
-            m_statusLabel->setText(QStringLiteral("攻击事件: %1").arg(event.eventName));
-            break;
-        case Event_Alert:
-            m_pendingHighlightChain = {4, 5, 6, 7};
-            m_statusLabel->setText(QStringLiteral("告警事件: %1").arg(event.eventName));
-            break;
-        default:
-            m_pendingHighlightChain = {4, 6};
-            m_statusLabel->setText(QStringLiteral("事件: %1").arg(event.eventName));
-            break;
-        }
     }
 }
 

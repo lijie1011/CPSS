@@ -50,12 +50,11 @@ public:
 
     /**
      * @enum FlowMode
-     * @brief 三种可视化模式选择器
+     * @brief 可视化模式选择器
      */
     enum FlowMode {
-        Mode_SourcePipeline,  ///< 数据源处理管道静态示意图
-        Mode_PlatformData,    ///< 动态矩形网格，每个已知平台 ID 一个
-        Mode_EventAlert       ///< 事件创建 → 告警传播静态示意图
+        Mode_PlatformData,      ///< 动态矩形网格，每个已知平台 ID 一个
+        Mode_MonitorPlatform    ///< 监控平台树形结构静态示意图
     };
 
 private slots:
@@ -94,17 +93,6 @@ private slots:
     void onPlatformUpdated(const PlatformData &platform);
 
     /**
-     * @brief 事件更新处理
-     *
-     * 每当 DataManager 产生特殊事件时触发。
-     * 构建特定于事件类型（攻击、告警或通用）的高亮链，
-     * 使画布动画显示正确的传播路径。
-     *
-     * @param event 新产生的特殊事件。
-     */
-    void onEventUpdated(const SpecialEvent &event);
-
-    /**
      * @brief 高亮动画定时器
      *
      * 周期性触发（200 毫秒），逐步遍历待高亮链。
@@ -132,14 +120,6 @@ private:
     void loadFlowMode(FlowMode mode);
 
     /**
-     * @brief 加载静态的源流水线示意图
-     *
-     * 节点表示 数据源 → 协议适配器 → 数据缓存 → 数据推送
-     * → 态势显示，并有一个分支指向过期清理。
-     */
-    void setupSourcePipeline();
-
-    /**
      * @brief 初始化平台数据流
      *
      * 清除之前的平台节点，遍历 DataManager 已知的每个平台，
@@ -149,12 +129,16 @@ private:
     void setupPlatformDataFlow();
 
     /**
-     * @brief 加载静态的事件告警示意图
+     * @brief 加载静态的监控平台树形结构示意图
      *
-     * 节点表示 武器发射 → 事件创建 → 导弹飞行 →
-     * 告警事件，并有分支指向属性框、事件历史和态势图标。
+     * 自上而下的树形层级：
+     *   第一排 传感器1 ~ 传感器5
+     *   第二排 态势
+     *   第三排 本指
+     *   第四排 对空分系统 / 对水分系统
+     *   第五排 对空下挂 H10 / jp / 电子对抗；对水下挂 声纳 / 鱼雷
      */
-    void setupEventAlertFlow();
+    void setupMonitorPlatform();
 
     /**
      * @brief 更新图信息，更新控制面板中的节点/边计数行

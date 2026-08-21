@@ -27,6 +27,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPainterPathStroker>
+#include <QPair>
 #include <QSet>
 #include <QWheelEvent>
 
@@ -39,6 +40,40 @@ constexpr double MinZoom = 0.25;   /**< 最小缩放 */
 constexpr double MaxZoom = 3.5;    /**< 最大缩放 */
 constexpr double NodeWidth = 168.0;  /**< 节点宽度 */
 constexpr double NodeHeight = 78.0;  /**< 节点高度 */
+
+/**
+ * @brief 解析一条边的两端锚点方位
+ *
+ * 当任一端未显式指定（Auto）时，根据两端节点的相对位置自动判断：
+ * 水平偏移占主导则左右相连，垂直偏移占主导则上下相连。
+ * 两端都显式指定时，直接使用显式值。
+ *
+ * @param edge 需要解析的边。
+ * @param from 源节点。
+ * @param to   目标节点。
+ * @return 源端与目标端的锚点方位。
+ */
+QPair<NodeFlowWidget::AnchorSide, NodeFlowWidget::AnchorSide>
+resolveAnchors(const NodeFlowWidget::Edge &edge,
+               const NodeFlowWidget::Node &from,
+               const NodeFlowWidget::Node &to)
+{
+    if (edge.fromSide != NodeFlowWidget::AnchorSide::Auto &&
+        edge.toSide != NodeFlowWidget::AnchorSide::Auto) {
+        return qMakePair(edge.fromSide, edge.toSide);
+    }
+    // 依据两端节点中心的水平/垂直偏移大小自动判断连接方向
+    const double dx = to.rect.center().x() - from.rect.center().x();
+    const double dy = to.rect.center().y() - from.rect.center().y();
+    if (std::abs(dx) >= std::abs(dy)) {
+        // 水平为主：目标在右 → 源右接目标左；目标在左 → 源左接目标右
+        if (dx >= 0) return qMakePair(NodeFlowWidget::AnchorSide::Right, NodeFlowWidget::AnchorSide::Left);
+        return qMakePair(NodeFlowWidget::AnchorSide::Left, NodeFlowWidget::AnchorSide::Right);
+    }
+    // 垂直为主：目标在下 → 源底接目标顶；目标在上 → 源顶接目标底
+    if (dy >= 0) return qMakePair(NodeFlowWidget::AnchorSide::Bottom, NodeFlowWidget::AnchorSide::Top);
+    return qMakePair(NodeFlowWidget::AnchorSide::Top, NodeFlowWidget::AnchorSide::Bottom);
+}
 }
 
 /**
@@ -782,18 +817,28 @@ QRectF NodeFlowWidget::graphBounds() const
 }
 
 /**
- * @brief 返回节点右边缘中点作为输出锚点，或左边缘中点作为输入锚点
+ * @brief 返回节点指定方位边上的中点锚点
+ * @param node 请求锚点的节点。
+ * @param side 锚点方位；Auto 回退为右侧中点。
+ * @return 节点矩形对应方位边上的中点。
  */
-QPointF NodeFlowWidget::nodeAnchor(const Node &node, bool output) const
+QPointF NodeFlowWidget::nodeAnchor(const Node &node, AnchorSide side) const
 {
     const QRectF r = node.rect;
-    if (output) return QPointF(r.right(), r.center().y());
-    return QPointF(r.left(), r.center().y());
+    switch (side) {
+    case AnchorSide::Top:    return QPointF(r.center().x(), r.top());
+    case AnchorSide::Bottom: return QPointF(r.center().x(), r.bottom());
+    case AnchorSide::Left:   return QPointF(r.left(), r.center().y());
+    case AnchorSide::Right:  return QPointF(r.right(), r.center().y());
+    case AnchorSide::Auto:
+    default:                 return QPointF(r.right(), r.center().y());
+    }
 }
 
 /**
  * @brief 构建边的三次贝塞尔路径
- * @details 控制点从起始/结束锚点水平偏移，偏移量取 80 像素和锚点间水平距离 45% 中较大者。
+ * @details 控制点从起始/结束锚点沿连接方向偏移，偏移量取 80 像素和
+ *          两端锚点间距中较大者。左右连接时水平外扩，上下连接时垂直外扩。
  */
 QPainterPath NodeFlowWidget::edgePath(const Edge &edge) const
 {
@@ -801,12 +846,27 @@ QPainterPath NodeFlowWidget::edgePath(const Edge &edge) const
     const Node *to = findNode(edge.to);
     QPainterPath path;
     if (!from || !to) return path;
-    const QPointF start = nodeAnchor(*from, true);
-    const QPointF end = nodeAnchor(*to, false);
+
+    // 解析两端连接方位（显式指定优先，否则按相对位置自动判断）
+    const QPair<AnchorSide, AnchorSide> sides = resolveAnchors(edge, *from, *to);
+    const QPointF start = nodeAnchor(*from, sides.first);
+    const QPointF end = nodeAnchor(*to, sides.second);
     path.moveTo(start);
-    const double handle = std::max(80.0, std::abs(end.x() - start.x()) * 0.45);
-    path.cubicTo(QPointF(start.x() + handle, start.y()),
-                 QPointF(end.x() - handle, end.y()), end);
+
+    // 判断是否为上下连接（两端都为顶部/底部）
+    const bool vertical = (sides.first == AnchorSide::Top || sides.first == AnchorSide::Bottom) &&
+                          (sides.second == AnchorSide::Top || sides.second == AnchorSide::Bottom);
+    const double handle = std::max(80.0, std::max(std::abs(end.x() - start.x()),
+                                                  std::abs(end.y() - start.y())) * 0.45);
+    if (vertical) {
+        const double dirY = (end.y() >= start.y()) ? 1.0 : -1.0;
+        path.cubicTo(QPointF(start.x(), start.y() + handle * dirY),
+                     QPointF(end.x(), end.y() - handle * dirY), end);
+    } else {
+        const double dirX = (end.x() >= start.x()) ? 1.0 : -1.0;
+        path.cubicTo(QPointF(start.x() + handle * dirX, start.y()),
+                     QPointF(end.x() - handle * dirX, end.y()), end);
+    }
     return path;
 }
 
@@ -898,6 +958,9 @@ void NodeFlowWidget::drawEdge(QPainter *painter, const Edge &edge, bool active, 
     const Node *to = findNode(edge.to);
     if (!from || !to) return;
 
+    // 解析两端连接方位，箭头绘制在目标端实际锚点处
+    const QPair<AnchorSide, AnchorSide> sides = resolveAnchors(edge, *from, *to);
+
     QPainterPath path;
     const QPainterPath scenePath = edgePath(edge);
     for (int i = 0; i < scenePath.elementCount(); ++i) {
@@ -914,7 +977,7 @@ void NodeFlowWidget::drawEdge(QPainter *painter, const Edge &edge, bool active, 
             i += 2;
         }
     }
-    const QPointF end = sceneToWidget(nodeAnchor(*to, false));
+    const QPointF end = sceneToWidget(nodeAnchor(*to, sides.second));
 
     painter->save();
     if (selected) {
@@ -988,30 +1051,54 @@ void NodeFlowWidget::drawNode(QPainter *painter, const Node &node, bool selected
 
     painter->setPen(QPen(QColor("#CDD7DF"), 1));
     painter->setBrush(QColor("#FFFFFF"));
-    painter->drawEllipse(sceneToWidget(nodeAnchor(node, false)), 4, 4);
-    painter->drawEllipse(sceneToWidget(nodeAnchor(node, true)), 4, 4);
+    painter->drawEllipse(sceneToWidget(nodeAnchor(node, AnchorSide::Left)), 4, 4);
+    painter->drawEllipse(sceneToWidget(nodeAnchor(node, AnchorSide::Right)), 4, 4);
+    painter->drawEllipse(sceneToWidget(nodeAnchor(node, AnchorSide::Top)), 4, 4);
+    painter->drawEllipse(sceneToWidget(nodeAnchor(node, AnchorSide::Bottom)), 4, 4);
     painter->restore();
 }
 
 /**
- * @brief 在连接拖拽期间，从源节点的输出锚点到当前光标位置绘制蓝色虚线预览曲线
+ * @brief 在连接拖拽期间，从源节点的对应方位锚点到当前光标位置绘制蓝色虚线预览曲线
+ *
+ * 根据光标相对源节点的位置自动选择引出方位：上下偏移占主导则从顶部/底部
+ * 引出，左右偏移占主导则从左侧/右侧引出。
  */
 void NodeFlowWidget::drawConnectionDraft(QPainter *painter) const
 {
-    if (m_connecting) {
-        const Node *from = findNode(m_connectionFromId);
-        if (from) {
-            const QPointF start = sceneToWidget(nodeAnchor(*from, true));
-            const QPointF end = sceneToWidget(m_connectionEnd);
-            QPainterPath path(start);
-            const double handle = std::max(80.0, std::abs(end.x() - start.x()) * 0.45);
-            path.cubicTo(QPointF(start.x() + handle, start.y()),
-                         QPointF(end.x() - handle, end.y()), end);
-            painter->save();
-            painter->setPen(QPen(QColor("#2E7DD1"), 2, Qt::DashLine));
-            painter->setBrush(Qt::NoBrush);
-            painter->drawPath(path);
-            painter->restore();
-        }
+    if (!m_connecting) return;
+    const Node *from = findNode(m_connectionFromId);
+    if (!from) return;
+
+    // 依据鼠标位置相对源节点的方向，决定预览曲线从哪个方位引出
+    const QPointF fromCenter = from->rect.center();
+    const double dx = m_connectionEnd.x() - fromCenter.x();
+    const double dy = m_connectionEnd.y() - fromCenter.y();
+    AnchorSide side = AnchorSide::Right;
+    if (std::abs(dy) > std::abs(dx)) {
+        side = (dy >= 0) ? AnchorSide::Bottom : AnchorSide::Top;
+    } else {
+        side = (dx >= 0) ? AnchorSide::Right : AnchorSide::Left;
     }
+
+    const QPointF start = sceneToWidget(nodeAnchor(*from, side));
+    const QPointF end = sceneToWidget(m_connectionEnd);
+    QPainterPath path(start);
+    const double handle = std::max(80.0, std::max(std::abs(end.x() - start.x()),
+                                                  std::abs(end.y() - start.y())) * 0.45);
+    const bool vertical = (side == AnchorSide::Top || side == AnchorSide::Bottom);
+    if (vertical) {
+        const double dirY = (end.y() >= start.y()) ? 1.0 : -1.0;
+        path.cubicTo(QPointF(start.x(), start.y() + handle * dirY),
+                     QPointF(end.x(), end.y() - handle * dirY), end);
+    } else {
+        const double dirX = (end.x() >= start.x()) ? 1.0 : -1.0;
+        path.cubicTo(QPointF(start.x() + handle * dirX, start.y()),
+                     QPointF(end.x() - handle * dirX, end.y()), end);
+    }
+    painter->save();
+    painter->setPen(QPen(QColor("#2E7DD1"), 2, Qt::DashLine));
+    painter->setBrush(Qt::NoBrush);
+    painter->drawPath(path);
+    painter->restore();
 }
