@@ -72,11 +72,11 @@ void IconManager::init()
 {
     if (m_initialized) return;
 
-    Logger::info("[IconManager] 初始化开始...");
+    Logger::info("[IconManager] init start...");
     ensureTemplatesExist();
     loadAllTemplates();
     m_initialized = true;
-    Logger::info("[IconManager] 初始化完成，已加载 %d 个模板图标", m_templates.size());
+    Logger::info("[IconManager] init done, loaded %d template icon(s)", m_templates.size());
 }
 
 /**
@@ -87,11 +87,11 @@ void IconManager::ensureTemplatesExist()
 {
     QDir tpDir(templatePath());
     if (tpDir.exists() && !tpDir.entryList(QStringList() << "*.png", QDir::Files).isEmpty()) {
-        Logger::info("[IconManager] JB_Souce 目录已存在，跳过转换");
+        Logger::info("[IconManager] JB_Souce dir exists, skip convert");
         return;
     }
 
-    Logger::info("[IconManager] JB_Souce 目录不存在或为空，从 JB/ 转换...");
+    Logger::info("[IconManager] JB_Souce dir missing or empty, converting from JB/ ...");
     convertAllFromSource();
 }
 
@@ -104,7 +104,7 @@ void IconManager::convertAllFromSource()
 {
     QDir srcDir(sourcePath());
     if (!srcDir.exists()) {
-        Logger::warn("[IconManager] 源目录不存在: %s",
+        Logger::warn("[IconManager] source dir not exist: %s",
                      sourcePath().toUtf8().constData());
         return;
     }
@@ -122,7 +122,7 @@ void IconManager::convertAllFromSource()
         QImage srcImg(srcFile);
 
         if (srcImg.isNull()) {
-            Logger::warn("[IconManager] 无法加载: %s",
+            Logger::warn("[IconManager] cannot load: %s",
                          fileName.toUtf8().constData());
             continue;
         }
@@ -131,16 +131,16 @@ void IconManager::convertAllFromSource()
         QString dstFile = tpDir.absoluteFilePath(fileName);
 
         if (tmpl.save(dstFile, "PNG")) {
-            Logger::info("[IconManager] 转换 OK: %s",
+            Logger::info("[IconManager] convert OK: %s",
                          fileName.toUtf8().constData());
             success++;
         } else {
-            Logger::warn("[IconManager] 转换失败: %s",
+            Logger::warn("[IconManager] convert FAILED: %s",
                          fileName.toUtf8().constData());
         }
     }
 
-    Logger::info("[IconManager] 转换完成: %d/%d", success, pngFiles.size());
+    Logger::info("[IconManager] convert done: %d/%d", success, pngFiles.size());
 }
 
 /**
@@ -179,7 +179,7 @@ QImage IconManager::getIcon(const QString &iconName, const QColor &color)
     // 获取模板
     QImage tmpl = getTemplate(iconName);
     if (tmpl.isNull()) {
-        Logger::warn("[IconManager] 模板不存在: %s",
+        Logger::warn("[IconManager] template not exist: %s",
                      iconName.toUtf8().constData());
         return QImage();
     }

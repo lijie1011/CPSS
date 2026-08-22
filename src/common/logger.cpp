@@ -25,6 +25,8 @@ void Logger::init(const QString &filename)
     s_file.setFileName(filename);
     bool opened = s_file.open(QIODevice::Append | QIODevice::Text);
     s_stream.setDevice(&s_file);
+    // 统一以 UTF-8 写入日志文件（日志文本已尽量使用英文，UTF-8 兜底非 ASCII 字符）
+    s_stream.setCodec("UTF-8");
     
     if (!opened) {
         fprintf(stderr, "[LOGGER] Failed to open log file: %s\n", filename.toStdString().c_str());

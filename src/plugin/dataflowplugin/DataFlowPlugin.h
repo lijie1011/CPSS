@@ -95,6 +95,12 @@ public:
     void shutdown() override;
 
     /**
+     * @brief 获取插件实例对应的 QObject 指针
+     * @return 插件自身的 QObject 指针
+     */
+    QObject *object() override { return this; }
+
+    /**
      * @brief 创建界面
      *
      * @param parent 新 DataFlowWidget 的可选父界面。默认为

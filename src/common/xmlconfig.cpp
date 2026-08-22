@@ -13,6 +13,7 @@
 #include <QDir>
 #include <QDomDocument>
 #include <QDomElement>
+#include <QDomComment>
 #include <QTextStream>
 
 static const int DEFAULT_CLOSE_MODE = 1;          ///< 默认插件关闭模式
@@ -191,6 +192,12 @@ void XmlConfig::save()
     QDomElement root = doc.createElement(TAG_CPSSS);
     doc.appendChild(root);
 
+    // 注释：说明 closeMode 取值含义（1=隐藏模式，2=删除模式）
+    root.appendChild(doc.createComment(
+        QStringLiteral("插件关闭模式 closeMode 含义：")
+        + QStringLiteral(" 1=隐藏模式(关闭面板仅隐藏、保留实例，再次点击直接显示)；")
+        + QStringLiteral(" 2=删除模式(关闭面板即销毁实例，再次点击时重新创建)。")));
+
     // 关闭模式节
     QDomElement closeNode = doc.createElement(TAG_PLUGIN_CLOSE);
     closeNode.setAttribute(ATTR_CLOSE_MODE, QString::number(m_defaultCloseMode));
@@ -203,6 +210,10 @@ void XmlConfig::save()
         child.setAttribute(ATTR_CLOSE_MODE, QString::number(it.value()));
         closeNode.appendChild(child);
     }
+
+    // 注释：插件清单说明
+    root.appendChild(doc.createComment(
+        QStringLiteral("插件清单：记录最近一次启动加载的插件元数据(id/名称/版本)，仅存档，不参与加载判断。")));
 
     // 清单节
     if (!m_pluginManifest.isEmpty()) {

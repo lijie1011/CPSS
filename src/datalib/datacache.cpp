@@ -383,7 +383,6 @@ bool DataCache::isPushRunning() const
  */
 void DataCache::startTestDataTimer(int intervalMs)
 {
-    return;
     initTestData();
     if (m_testDataTimer.isActive()) {
         m_testDataTimer.stop();

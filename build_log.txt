@@ -1,32 +1,37 @@
 ======================================== 
-[周五 2026/08/21  9:28:19.17] cmake configure 
+[周日 2026/08/23  0:23:03.21] cmake configure 
 ======================================== 
 -- Selecting Windows SDK version 10.0.19041.0 to target Windows 10.0.19045.
 -- Building CPSS for platform: windows
 -- Using MSVC Qt5: E:/Qt5.12.11/5.12.11/msvc2017_64/lib/cmake/Qt5
--- Configuring done (0.3s)
--- Generating done (0.8s)
+-- Configuring done (0.1s)
+-- Generating done (0.6s)
 -- Build files have been written to: D:/ZCHH/CPSS/src/build
 ======================================== 
-[周五 2026/08/21  9:28:20.40] cmake build 
+[周日 2026/08/23  0:23:04.15] cmake build 
 ======================================== 
 用于 .NET Framework 的 Microsoft (R) 生成引擎版本 16.11.6+a918ceb31
 版权所有(C) Microsoft Corporation。保留所有权利。
 
   Automatic MOC and UIC for target cpss_common
+  xmlconfig.cpp
+    正在创建库 D:/ZCHH/CPSS/src/build/lib/Debug/cpss_common.lib 和对象 D:/ZCHH/CPSS/src/build/lib/Debug/cpss_common.exp
   cpss_common.vcxproj -> D:\ZCHH\CPSS\src\build\bin\Debug\cpss_common.dll
+  'pwsh.exe' 不是内部或外部命令，也不是可运行的程序
+  或批处理文件。
   Automatic MOC and UIC for target cpss_data
   cpss_data.vcxproj -> D:\ZCHH\CPSS\src\build\bin\Debug\cpss_data.dll
   Automatic MOC and UIC for target cpss_plugin_framework
   cpss_plugin_framework.vcxproj -> D:\ZCHH\CPSS\src\build\lib\Debug\cpss_plugin_framework.lib
+  Automatic MOC and UIC for target chartplugin
+  LINK : 没有找到 D:\ZCHH\CPSS\src\build\bin\Debug\plugins\chartplugin.dll 或上一个增量链接没有生成它；正在执行完全链接
+    正在创建库 D:/ZCHH/CPSS/src/build/lib/Debug/chartplugin.lib 和对象 D:/ZCHH/CPSS/src/build/lib/Debug/chartplugin.exp
+  chartplugin.vcxproj -> D:\ZCHH\CPSS\src\build\bin\Debug\plugins\chartplugin.dll
+  'pwsh.exe' 不是内部或外部命令，也不是可运行的程序
+  或批处理文件。
   Automatic MOC and UIC for target cpss
   cpss.vcxproj -> D:\ZCHH\CPSS\src\build\bin\Debug\cpss.exe
   Automatic MOC and UIC for target dataflowplugin
-  mocs_compilation_Debug.cpp
-  DataFlowPlugin.cpp
-  DataFlowWidget.cpp
-  NodeFlowWidget.cpp
-  正在生成代码...
   LINK : 没有找到 D:\ZCHH\CPSS\src\build\bin\Debug\plugins\dataflowplugin.dll 或上一个增量链接没有生成它；正在执行完全链接
     正在创建库 D:/ZCHH/CPSS/src/build/lib/Debug/dataflowplugin.lib 和对象 D:/ZCHH/CPSS/src/build/lib/Debug/dataflowplugin.exp
   dataflowplugin.vcxproj -> D:\ZCHH\CPSS\src\build\bin\Debug\plugins\dataflowplugin.dll
@@ -45,4 +50,4 @@
   'pwsh.exe' 不是内部或外部命令，也不是可运行的程序
   或批处理文件。
 ======================================== 
-[周五 2026/08/21  9:29:10.18] build complete 
+[周日 2026/08/23  0:23:40.85] build complete 

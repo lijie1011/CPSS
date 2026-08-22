@@ -63,6 +63,14 @@ public:
     virtual void shutdown() = 0;
 
     /**
+     * @brief 获取插件实例对应的 QObject 指针
+     * @details 所有插件实现类均为 QObject 子类，此方法用于宿主跨 DLL
+     *          qobject_cast 到扩展接口（如 IChartPlugin）。
+     * @return 插件自身的 QObject 指针
+     */
+    virtual QObject *object() = 0;
+
+    /**
      * @brief 创建插件界面
      * @param parent 父窗口部件
      * @return 插件界面部件指针

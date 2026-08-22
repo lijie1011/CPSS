@@ -2,8 +2,8 @@
  * @file mainwindow.cpp
  * @brief 主窗口类实现
  * @details 顶层窗口初始化、工具栏信号连接、插件 Dock 管理、海图视图创建。
- *          海图功能和 Enclib 初始化委托给内置 ChartPlugin，插件系统通过
- *          PluginManager 统一管理，每个插件包装为 QDockWidget 嵌入布局。
+ *          海图功能和 Enclib 初始化由独立 DLL 插件（chartplugin）提供，
+ *          插件系统通过 PluginManager 统一管理，每个插件包装为 QDockWidget 嵌入布局。
  */
 
 #include <QMenuBar>
@@ -40,8 +40,7 @@
 #include "waterdepthsetting.h"
 #include "platformcontrolpanel.h"
 #include "eventhistorydialog.h"
-#include "plugin/chartplugin/ChartPlugin.h"
-#include "graphicsviewwidget.h"
+#include "plugin/chartplugin/IChartPlugin.h"
 
 #include <QApplication>
 #include "common/logger.h"
@@ -57,7 +56,7 @@ static inline void logInfo(const QString &msg) {
 /**
  * @brief 构造函数
  * @details 执行 UI 初始化、Dock 布局设置、工具栏信号连接、插件管理器创建，
- *          注册 ChartPlugin（内置），加载外部 DLL 插件，最后初始化状态栏。
+ *          加载全部 DLL 插件（含海图插件 chartplugin），最后初始化状态栏。
  */
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
@@ -88,20 +87,22 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionPlatformControl, &QAction::triggered, this, &MainWindow::showPlatformControl);
     connect(ui->actionHelp, &QAction::triggered, this, &MainWindow::showEventLegend);
 
-    // 插件管理器：先注册内置 ChartPlugin，再扫描 plugins/ 目录加载外部 DLL 插件
+    // 插件管理器：创建后扫描 plugins/ 目录加载所有 DLL 插件（含海图插件）
     m_pluginManager = new PluginManager(this);
     m_pluginManager->setPluginHost(this);
     connect(m_pluginManager, &PluginManager::pluginLoaded,
             this, &MainWindow::onPluginLoaded);
-
-    m_pluginManager->registerPlugin(new ChartPlugin());
-
-    createChartDock();
+    connect(m_pluginManager, &PluginManager::pluginUnloaded,
+            this, &MainWindow::onPluginUnloaded);
 
     loadPlugins();
 
-    addToolBar(Qt::LeftToolBarArea, ui->toolBar);
-    addToolBar(Qt::BottomToolBarArea, ui->pluginToolBar);
+    // 海图插件为独立 DLL 插件，需在其加载完成后创建海图 Dock
+    createChartDock();
+
+    addToolBar(Qt::TopToolBarArea, ui->toolBar);       // 主工具栏→最上
+    addToolBar(Qt::LeftToolBarArea, ui->pluginToolBar);  // 插件栏→最左
+
     // 工具栏按钮当前无图标，默认 IconOnly 样式会显示为空白按钮；
     // 改为“文字在图标旁”样式，使按钮文字（放大/缩小/插件名等）正常显示。
     ui->toolBar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
@@ -156,15 +157,15 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 /**
  * @brief 创建海图 Dock 并初始化信号连接
- * @details 从 PluginManager 获取 ChartPlugin，调用其 createWidget() 创建
- *          GraphicsViewWidget，包装为 QDockWidget 停靠到左侧区域，
- *          并将 ChartPlugin::geoPositionUpdated 信号连接到状态栏更新槽。
+ * @details 从 PluginManager 获取海图 DLL 插件（IChartPlugin），调用其
+ *          createWidget() 创建海图视图，包装为 QDockWidget 停靠到左侧区域，
+ *          并将海图视图的地理坐标更新信号连接到状态栏更新槽。
  */
 void MainWindow::createChartDock()
 {
-    ChartPlugin *cp = chartPlugin();
+    IChartPlugin *cp = chartPlugin();
     if (!cp) {
-        logInfo("[Chart] chartPlugin not registered");
+        logInfo("[Chart] chartPlugin not loaded");
         return;
     }
 
@@ -189,9 +190,9 @@ void MainWindow::createChartDock()
     m_pluginDocks["chart.plugin"] = dock;
     m_pluginWidgets["chart.plugin"] = chartWidget;
 
-    // 连接 ChartPlugin 的地理坐标更新信号 → 主窗口状态栏槽
-    connect(cp, &ChartPlugin::geoPositionUpdated,
-            this, &MainWindow::updateGeoPosition);
+    // 连接海图视图的地理坐标更新信号 → 主窗口状态栏槽
+    connect(chartWidget, SIGNAL(updateGeoPosition(QPoint)),
+            this, SLOT(updateGeoPosition(QPoint)));
 
     // 工具栏按钮 checked 状态与 Dock 可见性双向同步
     QAction *action = m_pluginActions.value("chart.plugin", nullptr);
@@ -211,13 +212,14 @@ void MainWindow::createChartDock()
 }
 
 /**
- * @brief 便捷方法：从 PluginManager 获取内置 ChartPlugin 实例
- * @return ChartPlugin 指针，未注册则返回 nullptr
+ * @brief 便捷方法：从 PluginManager 获取海图 DLL 插件实例
+ * @return IChartPlugin 指针，未加载则返回 nullptr
  */
-ChartPlugin* MainWindow::chartPlugin() const
+IChartPlugin* MainWindow::chartPlugin() const
 {
     IPlugin *p = m_pluginManager->getPlugin("chart.plugin");
-    return dynamic_cast<ChartPlugin*>(p);
+    if (!p) return nullptr;
+    return qobject_cast<IChartPlugin*>(p->object());
 }
 
 /**
@@ -228,15 +230,15 @@ ChartPlugin* MainWindow::chartPlugin() const
 void MainWindow::loadPlugins()
 {
     QString pluginDir = QCoreApplication::applicationDirPath() + "/plugins";
-    logInfo("loadPlugins() dir=" + pluginDir);
+    logInfo("[plug] loadPlugins() dir=" + pluginDir);
 
     QDir d(pluginDir);
-    logInfo("dir exists=" + QString::number(d.exists()));
+    logInfo("[plug] dir exists=" + QString::number(d.exists()));
     if (d.exists()) {
         auto files = d.entryInfoList(QStringList() << "*.dll", QDir::Files);
-        logInfo("dll count=" + QString::number(files.size()));
+        logInfo("[plug] dll count=" + QString::number(files.size()));
         for (auto &f : files) {
-            logInfo("  found: " + f.fileName());
+            logInfo("[plug]   found: " + f.fileName());
         }
     }
 
@@ -257,8 +259,19 @@ void MainWindow::loadPlugins()
  */
 void MainWindow::onPluginLoaded(IPlugin *plugin)
 {
-    logInfo("onPluginLoaded: " + plugin->pluginName() + " id=" + plugin->pluginId());
+    logInfo("[plug] plugin loaded: id=" + plugin->pluginId());
     registerPluginButton(plugin->pluginId(), plugin->pluginName());
+}
+
+/**
+ * @brief 插件卸载完成回调
+ * @param plugin 已卸载的插件实例
+ * @details 由 PluginManager::pluginUnloaded 信号触发，注销该插件的工具栏按钮
+ */
+void MainWindow::onPluginUnloaded(IPlugin *plugin)
+{
+    logInfo("[plug] plugin unloaded: id=" + plugin->pluginId());
+    unregisterPluginButton(plugin->pluginId());
 }
 
 /**
@@ -271,7 +284,7 @@ void MainWindow::onPluginLoaded(IPlugin *plugin)
  */
 bool MainWindow::registerPluginButton(const QString &pluginId, const QString &buttonText)
 {
-    logInfo("registerPluginButton id=" + pluginId + " text=" + buttonText);
+    logInfo("[plug] register plugin button id=" + pluginId);
     QAction *action = new QAction(buttonText, this);
     action->setObjectName("action_" + pluginId);
     action->setProperty("pluginId", pluginId);
@@ -280,20 +293,24 @@ bool MainWindow::registerPluginButton(const QString &pluginId, const QString &bu
 
     ui->pluginToolBar->addAction(action);
     m_pluginActions[pluginId] = action;
-    logInfo("pluginToolBar action count=" + QString::number(ui->pluginToolBar->actions().size()));
+    logInfo("[plug] pluginToolBar action count=" + QString::number(ui->pluginToolBar->actions().size()));
     return true;
 }
 
 /**
  * @brief 注销插件工具栏按钮
  * @param pluginId 插件唯一标识符
- * @details 从 pluginToolBar 移除并删除对应的 QAction
+ * @details 从 pluginToolBar 移除并删除对应的 QAction，并在日志中记录注销信息
  */
 void MainWindow::unregisterPluginButton(const QString &pluginId)
 {
+    logInfo("[plug] unregisterPluginButton id=" + pluginId);
     QAction *action = m_pluginActions.take(pluginId);
     if (action) {
         delete action;
+        logInfo("[plug] unregisterPluginButton removed action id=" + pluginId);
+    } else {
+        logInfo("[plug] unregisterPluginButton no action id=" + pluginId);
     }
 }
 
@@ -485,11 +502,11 @@ void MainWindow::showMapView()
 
 /**
  * @brief 获取海图视图部件（IPluginHost 接口实现）
- * @return ChartPlugin 内部的 GraphicsViewWidget 指针
+ * @return IChartPlugin 创建的海图视图控件指针
  */
 QWidget* MainWindow::getViewWidget() const
 {
-    ChartPlugin *cp = chartPlugin();
+    IChartPlugin *cp = chartPlugin();
     return cp ? cp->chartWidget() : nullptr;
 }
 
@@ -547,36 +564,36 @@ void MainWindow::createStatusBar()
     statusBar()->showMessage(QStringLiteral("CPSS v1.0 - 就绪"));
 }
 
-/** @brief 放大海图，委托给 ChartPlugin */
+/** @brief 放大海图，委托给海图插件 */
 void MainWindow::zoomIn()
 {
-    ChartPlugin *cp = chartPlugin();
+    IChartPlugin *cp = chartPlugin();
     if (cp) cp->zoomIn();
 }
 
-/** @brief 缩小海图，委托给 ChartPlugin */
+/** @brief 缩小海图，委托给海图插件 */
 void MainWindow::zoomOut()
 {
-    ChartPlugin *cp = chartPlugin();
+    IChartPlugin *cp = chartPlugin();
     if (cp) cp->zoomOut();
 }
 
-/** @brief 重置海图视图，委托给 ChartPlugin */
+/** @brief 重置海图视图，委托给海图插件 */
 void MainWindow::resetView()
 {
-    ChartPlugin *cp = chartPlugin();
+    IChartPlugin *cp = chartPlugin();
     if (cp) cp->resetView();
 }
 
 /**
  * @brief 状态栏地理坐标更新槽
  * @param pos 鼠标在海图视图上的屏幕坐标
- * @details 调用 ChartPlugin::screenToGeo 转换为经纬度，
+ * @details 调用 IChartPlugin::screenToGeo 转换为经纬度，
  *          连同当前比例尺一起显示在状态栏右侧。
  */
 void MainWindow::updateGeoPosition(QPoint pos)
 {
-    ChartPlugin *cp = chartPlugin();
+    IChartPlugin *cp = chartPlugin();
     if (!cp || !cp->isEnclibReady()) {
         statusBar()->showMessage(QStringLiteral("海图未初始化"));
         return;
@@ -779,8 +796,7 @@ void MainWindow::showEventLegend()
  */
 void MainWindow::showDisplaySetting()
 {
-    ChartPlugin *cp = chartPlugin();
-    GraphicsViewWidget *view = cp ? cp->chartWidget() : nullptr;
+    IChartPlugin *cp = chartPlugin();
 
     QDialog* dialog = new QDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
@@ -793,11 +809,11 @@ void MainWindow::showDisplaySetting()
     gridLayout->addWidget(tabWidget);
 
     DisplayCategory* pDcd = new DisplayCategory(this);
-    if (view) connect(pDcd, SIGNAL(updateChartView()), view, SLOT(updateChart()));
+    if (cp) connect(pDcd, &DisplayCategory::updateChartView, this, [cp]() { if (cp) cp->updateChartView(); });
     tabWidget->addTab(pDcd, QString::fromUtf8("显示模式"));
 
     ViewingGroupDialog* pVgd = new ViewingGroupDialog(this);
-    if (view) connect(pVgd, SIGNAL(updateChartView()), view, SLOT(updateChart()));
+    if (cp) connect(pVgd, &ViewingGroupDialog::updateChartView, this, [cp]() { if (cp) cp->updateChartView(); });
     tabWidget->addTab(pVgd, QString::fromUtf8("显示分组"));
 
     dialog->show();
@@ -808,11 +824,10 @@ void MainWindow::showDisplaySetting()
  */
 void MainWindow::showDepthAndContour()
 {
-    ChartPlugin *cp = chartPlugin();
-    GraphicsViewWidget *view = cp ? cp->chartWidget() : nullptr;
+    IChartPlugin *cp = chartPlugin();
 
     WaterDepthSetting* depthAndContour = new WaterDepthSetting(this);
-    if (view) connect(depthAndContour, SIGNAL(updatChartView()), view, SLOT(updateChart()));
+    if (cp) connect(depthAndContour, &WaterDepthSetting::updatChartView, this, [cp]() { if (cp) cp->updateChartView(); });
     depthAndContour->show();
     depthAndContour->setAttribute(Qt::WA_DeleteOnClose);
 }
@@ -853,15 +868,15 @@ void MainWindow::showEventHistory()
  */
 void MainWindow::showPlatformControl()
 {
-    ChartPlugin *cp = chartPlugin();
-    GraphicsViewWidget *view = cp ? cp->chartWidget() : nullptr;
+    IChartPlugin *cp = chartPlugin();
 
     PlatformControlPanel *panel = new PlatformControlPanel(this);
     panel->setAttribute(Qt::WA_DeleteOnClose);
-    if (view) {
-        panel->initWithData(view->getDynamicData(), view->getDisplayStates());
+    if (cp) {
+        panel->initWithData(cp->getDynamicData(), cp->getDisplayStates());
+        // 通过接口转发显示状态变更，避免跨 DLL 直接调用具体类型
         connect(panel, &PlatformControlPanel::displayStateChanged,
-                view, &GraphicsViewWidget::updateDisplayState);
+                this, [cp](const DisplayStateMap &stateMap) { if (cp) cp->updateDisplayState(stateMap); });
     }
     panel->show();
 }

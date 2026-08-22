@@ -53,9 +53,6 @@ add_subdirectory(plugin)
 set(SOURCES
     main.cpp
     mainwindow.cpp
-    graphicsviewwidget.cpp
-    platformitem.cpp
-    propertyboxitem.cpp
     eventhistorydialog.cpp
     platformcontrolpanel.cpp
     mainwindow.ui
@@ -65,21 +62,16 @@ set(SOURCES
     settings/viewinggroupdialog.ui
     settings/waterdepthsetting.cpp
     settings/waterdepthsetting.ui
-    plugin/chartplugin/ChartPlugin.cpp
 )
 
 set(HEADERS
     mainwindow.h
-    graphicsviewwidget.h
-    platformitem.h
-    propertyboxitem.h
     eventhistorydialog.h
     platformcontrolpanel.h
     displaystate.h
     settings/displaycategory.h
     settings/viewinggroupdialog.h
     settings/waterdepthsetting.h
-    plugin/chartplugin/ChartPlugin.h
 )
 
 add_executable(cpss WIN32 ${SOURCES} ${HEADERS})
@@ -193,7 +185,7 @@ install(TARGETS cpss cpss_common cpss_data
 )
 
 # ---- 外部插件 DLL：安装到 bin/plugins，供运行期 PluginManager 扫描加载 ----
-install(TARGETS sampleplugin helloplugin dataflowplugin
+install(TARGETS sampleplugin helloplugin dataflowplugin chartplugin
     RUNTIME DESTINATION ${CPSS_INSTALL_PLUGINS}
     LIBRARY DESTINATION ${CPSS_INSTALL_PLUGINS}
 )

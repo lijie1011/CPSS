@@ -67,6 +67,21 @@ public:
      */
     IPlugin* getPlugin(const QString &pluginId) const;
 
+    /**
+     * @brief 卸载指定插件
+     * @param pluginId 插件ID
+     * @return 卸载成功返回true，插件不存在返回false
+     * @details 调用插件 shutdown() 清理资源、从插件表中移除、卸载动态库，
+     *          并在日志中记录卸载信息，最后发出 pluginUnloaded 信号。
+     */
+    bool unloadPlugin(const QString &pluginId);
+
+    /**
+     * @brief 卸载所有已加载插件
+     * @details 逐个卸载全部插件并记录日志，供程序退出或插件重置时调用
+     */
+    void unloadAllPlugins();
+
 signals:
     /**
      * @brief 插件加载完成信号

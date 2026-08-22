@@ -47,3 +47,4 @@ set_target_properties(cpss_plugin_framework PROPERTIES
 add_subdirectory(sampleplugin)
 add_subdirectory(helloplugin)
 add_subdirectory(dataflowplugin)
+add_subdirectory(chartplugin)

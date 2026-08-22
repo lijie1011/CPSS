@@ -1,8 +1,9 @@
 /**
  * @file ChartPlugin.cpp
- * @brief Chart 内置插件实现
+ * @brief Chart 插件实现
  * @details 封装 Enclib 初始化、GraphicsViewWidget 创建、海图控制接口。
- *          本插件不编译为独立 DLL，作为内置插件由 MainWindow 直接注册。
+ *          本插件编译为独立 DLL（chartplugin.dll），由 PluginManager
+ *          运行时通过 plugins/ 目录扫描并动态加载。
  */
 
 #include "ChartPlugin.h"
@@ -257,4 +258,44 @@ double ChartPlugin::currentScale() const
 {
     if (!m_enclibReady) return 0;
     return EnclViewGetScale();
+}
+
+/**
+ * @brief 刷新海图视图
+ * @details 供主窗口的设置对话框（显示模式/显示分组/水深等高线）在
+ *          修改显示选项后调用，实时刷新海图。
+ */
+void ChartPlugin::updateChartView()
+{
+    if (m_viewWidget) m_viewWidget->updateChart();
+}
+
+/**
+ * @brief 更新海图显示状态
+ * @param stateMap 显示状态映射
+ * @details 由平台控制面板的 displayStateChanged 信号转发调用。
+ */
+void ChartPlugin::updateDisplayState(const DisplayStateMap &stateMap)
+{
+    if (m_viewWidget) m_viewWidget->updateDisplayState(stateMap);
+}
+
+/**
+ * @brief 获取海图视图当前的动态目标数据
+ * @return 动态目标数据（平台控制面板初始化用）
+ */
+DynamicObjects ChartPlugin::getDynamicData() const
+{
+    if (m_viewWidget) return m_viewWidget->getDynamicData();
+    return DynamicObjects();
+}
+
+/**
+ * @brief 获取海图视图当前的显示状态映射
+ * @return 显示状态映射（平台控制面板初始化用）
+ */
+DisplayStateMap ChartPlugin::getDisplayStates() const
+{
+    if (m_viewWidget) return m_viewWidget->getDisplayStates();
+    return DisplayStateMap();
 }

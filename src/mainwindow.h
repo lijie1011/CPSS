@@ -2,7 +2,7 @@
  * @file mainwindow.h
  * @brief 主窗口类定义
  * @details 顶层主窗口，负责菜单栏、工具栏、状态栏以及插件 Dock 管理。
- *          海图功能由内置的 ChartPlugin 提供，主窗口通过 IPluginHost 接口
+ *          海图功能由独立 DLL 插件（chartplugin）提供，主窗口通过 IPluginHost 接口
  *          为已加载的插件提供宿主服务（获取数据管理器、显示状态消息等）。
  */
 
@@ -22,14 +22,14 @@ namespace Ui {
 class MainWindow;
 }
 
-class ChartPlugin;
+class IChartPlugin;
 
 /**
  * @class MainWindow
  * @brief 主应用窗口类
  * @details 继承自 QMainWindow 并实现 IPluginHost 接口。
  *          内部维护插件管理器，将每个已加载插件包装为 QDockWidget
- *          并添加到主窗口布局中。海图视图通过 ChartPlugin 创建，
+ *          并添加到主窗口布局中。海图视图由 DLL 插件 chartplugin 创建，
  *          默认停靠在左侧，其他插件默认停靠在右侧。
  */
 class MainWindow : public QMainWindow, public IPluginHost
@@ -116,8 +116,8 @@ public:
 private:
     /**
      * @brief 初始化子系统
-     * @details 设置工具栏连接、创建插件管理器、注册 ChartPlugin、
-     *          加载外部 DLL 插件、添加工具栏和状态栏。
+     * @details 设置工具栏连接、创建插件管理器、加载 DLL 插件、
+     *          添加工具栏和状态栏。
      */
     void init();
 
@@ -138,6 +138,12 @@ private:
     void onPluginLoaded(IPlugin *plugin);
 
     /**
+     * @brief 插件卸载完成回调
+     * @param plugin 已卸载的插件
+     */
+    void onPluginUnloaded(IPlugin *plugin);
+
+    /**
      * @brief 将插件包装为 QDockWidget
      * @param plugin 要包装的插件
      * @return 创建的 Dock 指针，失败返回 nullptr
@@ -156,10 +162,10 @@ private:
     void createChartDock();
 
     /**
-     * @brief 获取海图内置插件实例
-     * @return ChartPlugin 指针
+     * @brief 获取海图插件接口实例
+     * @return IChartPlugin 指针，未加载返回 nullptr
      */
-    ChartPlugin* chartPlugin() const;
+    IChartPlugin* chartPlugin() const;
 
     /**
      * @brief 首次显示事件处理

@@ -12,9 +12,9 @@
 #include <QFileInfo>
 #include <QLibrary>
 
-// 日志辅助函数：通过 Logger 输出信息级别日志
+// 日志辅助函数：通过 Logger 输出信息级别日志，统一以 [plug] 为前缀标识插件加载/卸载日志
 static inline void logInfo(const QString &msg) {
-    Logger::info("%s", msg.toUtf8().constData());
+    Logger::info("[plug] %s", msg.toUtf8().constData());
 }
 
 // 插件实例工厂函数类型：无参数、返回 QObject*
@@ -32,14 +32,22 @@ PluginManager::PluginManager(QObject *parent)
 
 /**
  * @brief 析构函数
- * @details 卸载所有已加载的插件 DLL 并释放资源
+ * @details 卸载所有已加载的插件 DLL 并释放资源，同时在日志中记录每个插件的卸载信息
  */
 PluginManager::~PluginManager()
 {
+    // 记录每个已加载插件的卸载日志（退出清理阶段）
+    for (auto it = m_plugins.constBegin(); it != m_plugins.constEnd(); ++it) {
+        logInfo(QString("PluginManager: UNLOADING id=%1 (destructor)")
+                .arg(it.key()));
+    }
     for (auto lib : m_libraries.values()) {
         lib->unload();
         delete lib;
     }
+    m_libraries.clear();
+    m_plugins.clear();
+    logInfo("PluginManager: destructor unload all done");
 }
 
 /**
@@ -115,7 +123,7 @@ bool PluginManager::loadPlugins(const QString &pluginDir)
         }
 
         if (!plugin->init(m_host)) {
-            logInfo("PluginManager: init FAILED: " + plugin->pluginName());
+            logInfo("PluginManager: init FAILED: " + plugin->pluginId());
             delete pluginObj;
             lib->unload();
             delete lib;
@@ -124,8 +132,8 @@ bool PluginManager::loadPlugins(const QString &pluginDir)
 
         m_plugins[plugin->pluginId()] = plugin;
         m_libraries[plugin->pluginId()] = lib;
-        logInfo(QString("PluginManager: LOADED %1 id=%2")
-                .arg(plugin->pluginName()).arg(plugin->pluginId()));
+        logInfo(QString("PluginManager: LOADED id=%1")
+                .arg(plugin->pluginId()));
         emit pluginLoaded(plugin);
     }
 
@@ -153,12 +161,12 @@ bool PluginManager::registerPlugin(IPlugin *plugin)
         return false;
     }
     if (!plugin->init(m_host)) {
-        logInfo("PluginManager: registerPlugin init FAILED: " + plugin->pluginName());
+        logInfo("PluginManager: registerPlugin init FAILED: " + plugin->pluginId());
         return false;
     }
     m_plugins[plugin->pluginId()] = plugin;
-    logInfo(QString("PluginManager: REGISTERED %1 id=%2 (built-in)")
-            .arg(plugin->pluginName()).arg(plugin->pluginId()));
+    logInfo(QString("PluginManager: REGISTERED id=%1 (built-in)")
+            .arg(plugin->pluginId()));
     emit pluginLoaded(plugin);
     return true;
 }
@@ -180,4 +188,63 @@ QList<IPlugin*> PluginManager::getLoadedPlugins() const
 IPlugin* PluginManager::getPlugin(const QString &pluginId) const
 {
     return m_plugins.value(pluginId, nullptr);
+}
+
+/**
+ * @brief 卸载指定插件
+ * @param pluginId 插件 ID
+ * @return 卸载成功返回 true，插件不存在返回 false
+ * @details 调用插件 shutdown() 清理资源、从插件表中移除、卸载动态库，
+ *          并在日志中记录卸载信息，最后发出 pluginUnloaded 信号。
+ */
+bool PluginManager::unloadPlugin(const QString &pluginId)
+{
+    // 查找待卸载插件，不存在则记录日志并返回失败
+    IPlugin *plugin = m_plugins.value(pluginId, nullptr);
+    if (!plugin) {
+        logInfo("PluginManager: unloadPlugin not found id=" + pluginId);
+        return false;
+    }
+
+    logInfo(QString("PluginManager: UNLOADING id=%1")
+            .arg(pluginId));
+
+    // 调用插件关闭接口，释放插件自身资源（界面、按钮等）
+    plugin->shutdown();
+
+    // 从插件映射表中移除该插件
+    m_plugins.remove(pluginId);
+
+    // 若为动态库插件，则卸载并释放对应的 QLibrary
+    QLibrary *lib = m_libraries.take(pluginId);
+    if (lib) {
+        lib->unload();
+        delete lib;
+        logInfo(QString("PluginManager: UNLOADED id=%1 (library unloaded)")
+                .arg(pluginId));
+    }
+
+    // 发出插件卸载信号，通知宿主清理对应的界面与按钮
+    emit pluginUnloaded(plugin);
+
+    logInfo(QString("PluginManager: UNLOADED id=%1")
+            .arg(pluginId));
+    return true;
+}
+
+/**
+ * @brief 卸载所有已加载插件
+ * @details 逐个卸载全部插件并记录日志，供程序退出或插件重置时调用
+ */
+void PluginManager::unloadAllPlugins()
+{
+    logInfo(QString("PluginManager::unloadAllPlugins start, count=%1")
+            .arg(m_plugins.size()));
+    // 复制 ID 列表，避免卸载过程中迭代器失效
+    QList<QString> ids = m_plugins.keys();
+    for (const QString &id : ids) {
+        unloadPlugin(id);
+    }
+    logInfo(QString("PluginManager::unloadAllPlugins done, remain=%1")
+            .arg(m_plugins.size()));
 }
