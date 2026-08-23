@@ -25,8 +25,10 @@ endif()
 message(STATUS "Building CPSS for platform: ${PLATFORM_NAME}")
 
 if(WIN32)
-    set(Qt5_DIR "E:/Qt5.12.11/5.12.11/msvc2017_64/lib/cmake/Qt5")
-    message(STATUS "Using MSVC Qt5: ${Qt5_DIR}")
+    # 使用工程内随附的本地 Qt 环境（src/3dParty/qt），路径相对源码树，
+    # 迁移到其他电脑无需单独安装 Qt 即可配置/编译。
+    set(Qt5_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3dParty/qt/lib/cmake/Qt5")
+    message(STATUS "Using bundled MSVC Qt5: ${Qt5_DIR}")
 endif()
 
 find_package(Qt5 5.12 REQUIRED COMPONENTS
