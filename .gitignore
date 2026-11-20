@@ -14,10 +14,9 @@ build/
 .DS_Store
 __pycache__/
 *.pyc
-*.py
-*.ps1
+*.pyo
 
-# 第三方环境：只提交 7z 压缩包（cpss_qt5.12.11.7z / cpss_enclib_version1.0.0.7z），
+# 第三方环境：只提交 zip 分卷压缩包（cpss_qt5.12.11.zip.001~003 / cpss_enclib.zip.001~007），
 # 不提交解压后的目录（体积大，约 9700+ 个文件）
 src/3dParty/qt/
 src/3dParty/Enclib/

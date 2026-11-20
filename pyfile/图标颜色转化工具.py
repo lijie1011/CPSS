@@ -10,7 +10,6 @@
   3. 输出到 JB_Souce/ 目录，保持相同文件名
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -21,8 +20,8 @@ except ImportError:
     print("运行: pip install Pillow")
     sys.exit(1)
 
-# 路径配置
-SCRIPT_DIR = Path(__file__).parent.absolute()
+# 路径配置：本脚本位于 <工程根>/pyfile/，工程根是其上一级目录
+SCRIPT_DIR = Path(__file__).parent.parent.absolute()
 SRC_DIR = SCRIPT_DIR / "src" / "resource" / "JB"
 DST_DIR = SCRIPT_DIR / "src" / "resource" / "JB_Souce"
 

@@ -1,10 +1,11 @@
 # CPSS - Combat Process Simulation Software
 
 > 作战过程仿真软件
-> 版本: v0.1
+> 版本: 1.0（与 `src/CMakeLists.txt` 的 `project(CPSS VERSION 1.0)` 一致）
 > 创建日期: 2026-07-20
+> 最近更新: 2026-11-21（按实际代码校正文档，去除未实现的设计稿）
 > 创建人: lj
-> git:
+> git: https://github.com/lijie1011/CPSS.git
 
 ---
 
@@ -14,42 +15,65 @@
 |---------|------|
 | 项目名称 | CPSS (Combat Process Simulation Software) |
 | 项目类型 | 作战过程仿真软件 |
-| 技术栈 | Qt 5.12 (C++) + Vue 3 (TypeScript) + WebSocket |
-| 跨平台 | Windows 10/11 + Linux (Kylin V10) |
-| 关联项目 | [ChartDemo](file:///d:/ZCHH/ChartDemo) - 海图引擎基础 |
+| 当前技术栈 | Qt 5.12 (C++) + Enclib 电子海图 SDK |
+| 规划中技术栈 | Vue 3 + WebSocket（**尚未实现，见下方说明**） |
+| 跨平台 | Windows 已完成；Linux (Kylin V10) 代码有分支但未验证 |
+| 关联项目 | ChartDemo（Enclib SDK 来源，闭源） |
+
+> **重要说明**：本工程的**当前实际形态是一个 Qt 桌面程序**，通过 Enclib SDK 显示电子海图，
+> 并通过动态库插件（DLL）扩展功能。文档早期版本中的"浏览器访问 / WebSocket 服务 /
+> Vue 3 前端 / 10 个 API 接口"均为**设计规划，代码中尚未实现**，已在本版中改标为"设计中"。
+> 请以 `src/` 下的源码和 `src/CMakeLists.txt` 为准。
 
 ### 核心目标
-- 基于海图的作战过程仿真
-- 支持浏览器访问（WebSocket 通信）
-- 跨平台部署（Windows + Linux）
-- 100ms 高频动态刷新
+- 基于海图的作战过程仿真（桌面端已实现基础框架）
+- 动态目标绘制与仿真数据展示（已实现：本船/AIS/传感器/武器/航迹）
+- 通过 DLL 插件扩展功能（已实现插件框架与 4 个插件）
+- 浏览器访问与 WebSocket 通信（**设计中，未实现**）
 
 ---
 
-## 📁 当前文件结构
+## 📁 当前文件结构（按实际代码）
 
 ```
 CPSS/
-├── redme.md                     # 本文件，项目说明
+├── redme.md                     # 本文件，项目说明（已按实际代码校正）
+├── README.md                    # 占位文件
+├── .gitignore                   # Git 忽略规则
+├── build_debug.bat              # Debug 构建/安装脚本
+├── build_release.bat            # Release 构建/安装脚本（转调 build_debug.bat Release）
+├── rebuild_debug.bat            # Debug 全量重建脚本
+├── rebuild_release.bat          # Release 全量重建脚本（转调 rebuild_debug.bat Release）
+├── run_tests.bat                # 测试脚本（引用旧路径，待修复）
+├── pyfile/                      # 辅助脚本目录
+│   ├── check_dll.py             # 检查插件 DLL 元数据
+│   ├── test_client.py           # 数据模拟脚本（UDP，与规划 WebSocket 不符）
+│   └── 图标颜色转化工具.py       # 图标线稿转换工具
+├── verify_ui.ps1                # UI 自动化验证脚本（相对路径）
 ├── aifile/                      # AI 记录文件目录
 │   ├── aireade.md               # aifile 目录说明
 │   ├── AI_CONTEXT/              # AI 交接文档存档
-│   │   └── AI_CONTEXT_V1.md     # AI 模型交接文档 v1
+│   │   └── AI_CONTEXT_V1.md     # AI 模型交接文档 v1（已校正）
 │   └── PROJECT_STATUS/          # 项目状态文档存档
-│       └── PROJECT_STATUS_V1.md # 项目状态跟踪 v1
-├── src/                         # 服务端源代码（所有代码在此目录）
-│   ├── CMakeLists.txt           # CMake 构建配置
-│   ├── main.cpp                 # 程序入口
-│   ├── mainwindow.h/cpp         # 主窗口类
-│   ├── viewwidget.h/cpp         # 海图视口类
-│   ├── webserver.h/cpp          # WebSocket 服务端
-│   ├── chartbridge.h/cpp        # 海图桥接 API
-│   ├── common/                  # 通用模块
-│   │   ├── logger.h/cpp         # 日志系统
-│   │   └── config.h/cpp         # 配置管理
-│   └── 3dParty/                 # 第三方库
-│       └── Enclib/              # Enclib SDK（电子海图引擎）
-└── (待创建: web/)               # 前端代码目录
+│       └── PROJECT_STATUS_V1.md # 项目状态跟踪 v1（已校正）
+└── src/                         # 服务端源代码（所有代码在此目录）
+    ├── CMakeLists.txt           # CMake 构建配置（VERSION 1.0，要求 CMake 3.13+）
+    ├── main.cpp                 # 程序入口（--headless / --chart-dir）
+    ├── mainwindow.h/cpp/ui      # 主窗口类（含事件历史、平台控制等面板）
+    ├── eventhistorydialog.h/cpp # 事件历史对话框
+    ├── platformcontrolpanel.h/cpp # 平台控制面板
+    ├── displaystate.h           # 显示状态定义
+    ├── resource.qrc             # Qt 资源文件
+    ├── common/                  # 通用模块（logger / config / xmlconfig / IconManager）
+    ├── datalib/                 # 数据模块（DataManager / DataCache / httpadapter / 动态数据）
+    ├── plugin/                  # 插件框架 + 4 个插件（chart / hello / sample / dataflow）
+    ├── settings/                # 设置对话框（显示类别 / 视图分组 / 水深等高线）
+    ├── resource/                # 平台图标等资源（JB / JB_Souce 等）
+    └── 3dParty/                 # 第三方库
+        ├── qt/                  # 随附 Qt 5.12.11（由 zip 分卷解压，被 gitignore）
+        ├── Enclib/              # Enclib SDK（由 zip 分卷解压，被 gitignore）
+        ├── cpss_qt5.12.11.zip.001~003  # Qt 分卷压缩包（已提交）
+        └── cpss_enclib.zip.001~007     # Enclib 分卷压缩包（已提交）
 ```
 
 ### 文件说明
@@ -58,139 +82,156 @@ CPSS/
 |-----------|------|------|
 | `redme.md` | 项目说明文档 | ✅ |
 | `aifile/` | AI 记录文件目录 | ✅ |
-| `aifile/AI_CONTEXT/` | AI 交接文档存档 | ✅ |
-| `aifile/PROJECT_STATUS/` | 项目状态文档存档 | ✅ |
-| `src/` | 服务端源代码目录（所有代码在此） | ✅ |
 | `src/CMakeLists.txt` | CMake 构建配置 | ✅ |
 | `src/main.cpp` | 程序入口 | ✅ |
 | `src/mainwindow.h/cpp` | 主窗口类 | ✅ |
-| `src/viewwidget.h/cpp` | 海图视口类 | ✅ |
-| `src/webserver.h/cpp` | WebSocket 服务端 | ✅ |
-| `src/chartbridge.h/cpp` | 海图桥接 API | ✅ |
-| `src/common/logger.h/cpp` | 日志系统 | ✅ |
-| `src/common/config.h/cpp` | 配置管理 | ✅ |
-| `src/3dParty/Enclib/` | Enclib SDK | ✅ |
-| `web/` | 前端代码目录 | ❌ 待创建 |
+| `src/common/` | 日志、配置、图标管理 | ✅ |
+| `src/datalib/` | 数据管理与动态数据模型 | ✅ |
+| `src/plugin/` | 插件框架 + 4 个插件 DLL | ✅ |
+| `src/settings/` | 显示/视图/水深设置对话框 | ✅ |
+| `src/3dParty/` | Qt 与 Enclib（分卷压缩包 + 解压目录） | ✅ |
 
 ---
 
-## 🔧 开发环境要求
+## 🔧 开发环境要求（实际使用）
 
-### Windows
-| 工具 | 版本 | 路径示例 |
-|------|------|---------|
-| Qt | 5.12.11 | `C:\Qt\5.12.11\msvc2017_64` |
-| Visual Studio | 2017 | `C:\Program Files (x86)\Microsoft Visual Studio\2017\Community` |
-| CMake | 3.10+ | - |
+### Windows（已验证）
+| 工具 | 版本 | 说明 |
+|------|------|------|
+| Qt | 5.12.11（MSVC x64） | 使用工程内随附的 `src/3dParty/qt`，无需单独安装 |
+| Visual Studio | 2019（生成器 `Visual Studio 16 2019`，架构 x64） | 实际构建环境 |
+| CMake | 3.13+ | `cmake_minimum_required(VERSION 3.13)` |
+| Windows SDK | 10.0.19041.0 | 构建日志中使用 |
 
-### Linux (Kylin V10)
-| 工具 | 版本 | 路径示例 |
-|------|------|---------|
-| Qt | 5.12.x | `/opt/Qt/5.12.11/gcc_64` |
+### Linux (Kylin V10)（有代码分支，未验证）
+| 工具 | 版本 | 说明 |
+|------|------|------|
+| Qt | 5.12.x | 需自行准备，CMake 中 `Qt5_DIR` 仅在 WIN32 下指向随附 Qt |
 | GCC | 5.4+ | - |
-| CMake | 3.10+ | - |
-| linuxdeployqt | - | - |
+| CMake | 3.13+ | - |
+| Enclib | `libenccore.so` | 需从 ChartDemo 获取 |
+| linuxdeployqt | - | 部署用 |
+
+> ⚠️ **Linux 构建当前不可直接通过**：`src/datalib/dynamicdata.h`、`src/common/logger.h`
+> 中无条件使用了 MSVC 专有的 `__declspec(dllexport/dllimport)`，GCC 无法识别，
+> 且 Linux 下的 Enclib 头文件/库未随仓库分发。跨平台分支属于待完善状态。
 
 ---
 
 ## 🚀 构建与运行
 
-### Windows 构建
+### 首次准备（重要）
+仓库只提交了分卷压缩包，解压目录被 `.gitignore` 忽略。首次构建前需合并并解压：
+
+```powershell
+# PowerShell（在 src/3dParty 目录下）
+Set-Location D:\CPSS\src\3dParty
+cmd /c "copy /B cpss_enclib.zip.001+cpss_enclib.zip.002+cpss_enclib.zip.003+cpss_enclib.zip.004+cpss_enclib.zip.005+cpss_enclib.zip.006+cpss_enclib.zip.007 cpss_enclib.zip"
+cmd /c "copy /B cpss_qt5.12.11.zip.001+cpss_qt5.12.11.zip.002+cpss_qt5.12.11.zip.003 cpss_qt5.12.11.zip"
+Expand-Archive -Path cpss_enclib.zip -DestinationPath . -Force
+Expand-Archive -Path cpss_qt5.12.11.zip -DestinationPath . -Force
+```
+
+解压后应存在 `src/3dParty/Enclib/include/encl.h` 和 `src/3dParty/qt/lib/cmake/Qt5/Qt5Config.cmake`。
+
+### Windows 构建（推荐）
+直接运行根目录下的批处理脚本（内部已配置好生成器、Qt、部署与安装）：
+
 ```bat
-set Qt5_DIR=C:\Qt\5.12.11\msvc2017_64
-mkdir build_windows
-cd build_windows
-cmake -G "Visual Studio 15 2017 Win64" ../src
-cmake --build . --config Release
+rebuild_release.bat    :: 全量重建 Release（清理 → configure → build → windeployqt → install）
+rebuild_debug.bat      :: 全量重建 Debug
+build_release.bat      :: 增量构建 Release
+build_debug.bat        :: 增量构建 Debug
 ```
 
-### Linux 构建
+产物位置：
+- 直接运行：`src\build\bin\Release\cpss.exe`
+- 安装版本：`src\build\install\Release\bin\cpss.exe`（含 Qt 运行时与 Enclib 数据，推荐）
+- 构建日志：`build_log.txt`（仅 rebuild 脚本生成，被 `.gitignore` 忽略）
+
+### 手动 CMake 命令（等价于脚本内部步骤）
+```bat
+cmake -S src -B src\build -G "Visual Studio 16 2019" -A x64
+cmake --build src\build --config Release
+cmake --install src\build --config Release
+```
+
+### 运行模式（实际支持的命令行参数）
 ```bash
-export Qt5_DIR=/opt/Qt/5.12.11/gcc_64
-export CMAKE_PREFIX_PATH=$Qt5_DIR
-export LD_LIBRARY_PATH=$Qt5_DIR/lib:$LD_LIBRARY_PATH
-
-mkdir -p build_linux
-cd build_linux
-cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release ../src
-make -j$(nproc)
+cpss.exe                      # 桌面 GUI 模式（默认）
+cpss.exe --headless           # 无 GUI 模式（仅 QCoreApplication，不创建主窗口）
+cpss.exe --chart-dir <path>   # 声明了此参数（当前代码未使用）
 ```
-
-### 运行模式
-```bash
-# 桌面模式（带 GUI）
-cpss.exe
-
-# Web 服务模式（同时启动 WebSocket）
-cpss.exe --web --port 12345
-
-# 无界面服务模式（Linux 服务器）
-cpss --headless --web --port 12345
-```
+> 说明：当前程序**不监听任何网络端口**，`--web` / `--port` 参数不存在。
+> 日志输出到 exe 同目录的 `cpss.log`。
 
 ---
 
-## 📊 功能清单
+## 📊 功能清单（按实际代码状态）
 
-### 核心功能模块
-
-| 功能模块 | 状态 | 优先级 | 预计完成时间 |
-|---------|------|--------|-------------|
-| 项目初始化 | ✅ 已完成 | 高 | 2026-07-20 |
-| 技术架构设计 | ✅ 已完成 | 高 | 2026-07-20 |
-| CMake 工程搭建 | ✅ 已完成 | 高 | 2026-07-20 |
-| 海图引擎集成 | ✅ 已完成 | 高 | 2026-07-20 |
-| WebSocket 服务 | ✅ 已完成 | 高 | 2026-07-20 |
-| 前端界面开发 | 📋 待开始 | 中 | 2026-09-01 |
-| 作战仿真核心 | 📋 待开始 | 高 | 2026-09-15 |
-| 数据可视化 | 📋 待开始 | 中 | 2026-09-30 |
-| 测试与验证 | 📋 待开始 | 高 | 2026-11-15 |
+| 功能模块 | 状态 | 说明 |
+|---------|------|------|
+| 项目初始化 | ✅ 已完成 | - |
+| CMake 工程搭建 | ✅ 已完成 | Windows(VS2019) 可用，Linux 分支待完善 |
+| 海图引擎集成 | ✅ 已完成 | 需先解压 Enclib 分卷包 |
+| 插件框架 + 4 个插件 | ✅ 已完成 | chart / hello / sample / dataflow |
+| 动态数据模型与目标绘制 | ✅ 已完成 | 本船/AIS/传感器/武器/航迹/属性框 |
+| 设置面板（显示类别/视图分组/水深） | ✅ 已完成 | - |
+| WebSocket 服务 | 📋 设计中 | **未实现**（原文档误标"已完成"） |
+| 前端界面开发（Vue 3） | 📋 设计中 | 未开始，`web/` 目录不存在 |
+| 浏览器访问 / API 接口 | 📋 设计中 | 未实现 |
+| 测试与验证 | 📋 待开始 | 现有脚本引用旧路径，不可用 |
 
 ---
 
-## 🏗️ 技术架构
+## 🏗️ 技术架构（当前实际）
 
-### 整体架构
+### 桌面端架构
 ```
-┌─────────────────────┐     WebSocket     ┌─────────────────────┐
-│   浏览器端 (Vue 3)   │ ←────────────────→ │   Qt 5.12 服务端    │
-│   Vue + PixiJS      │   双向通信         │   C++ + Enclib      │
-│                     │                    │                     │
-│  UI组件层           │                    │  WebSocket Server   │
-│  PixiJS渲染层       │                    │  ChartWebBridge     │
-│                     │                    │  Enclib SDK         │
-└─────────────────────┘                    └─────────────────────┘
+┌─────────────────────────────────────────────┐
+│              cpss.exe (Qt 5.12)             │
+│  ┌───────────────┐  ┌──────────────────┐    │
+│  │  MainWindow   │  │  dock 中的插件控件 │    │
+│  │  工具栏/设置   │  │  (QWidget)        │    │
+│  └───────┬───────┘  └────────┬─────────┘    │
+│          │                   │              │
+│  ┌───────▼───────┐  ┌────────▼─────────┐    │
+│  │  DataManager  │  │  PluginManager    │    │
+│  │  /DataCache   │  │  (扫描 plugins/)  │    │
+│  └───────┬───────┘  └────────┬─────────┘    │
+│          │                   │              │
+│  ┌───────▼───────────────────▼─────────┐    │
+│  │  chartplugin.dll → Enclib SDK       │    │
+│  │  (电子海图渲染 / 物标查询)           │    │
+│  └─────────────────────────────────────┘    │
+└─────────────────────────────────────────────┘
 ```
 
-### 技术选型
-
-| 层级 | 技术 | 职责 |
-|------|------|------|
-| 前端 UI | Vue 3 + Element Plus | 工具栏、设置面板 |
-| 前端渲染 | PixiJS (WebGL) | 海图显示、动态对象 |
-| 通信层 | WebSocket | 双向数据传输 |
-| 服务端 | Qt 5.12 (C++) | 海图操作、仿真逻辑 |
-| 海图引擎 | Enclib SDK | 海图渲染、物标查询 |
-
-### 模块架构
-
+### 模块架构（实际参与编译的源码）
 ```
 src/
 ├── main.cpp                 # 程序入口，命令行参数解析
-├── mainwindow.h/cpp         # 主窗口，初始化 Enclib
-├── viewwidget.h/cpp         # 海图视口，渲染和交互
-├── webserver.h/cpp          # WebSocket 服务端
-├── chartbridge.h/cpp        # 海图 API 桥接
-└── common/
-    ├── logger.h/cpp         # 日志系统
-    └── config.h/cpp         # 配置管理
+├── mainwindow.cpp           # 主窗口，装配各面板与插件
+├── eventhistorydialog.cpp   # 事件历史
+├── platformcontrolpanel.cpp # 平台控制
+├── settings/                # 显示类别 / 视图分组 / 水深设置
+├── common/                  # logger / config / xmlconfig / IconManager
+├── datalib/                 # DataManager / DataCache / 动态数据结构
+├── plugin/                  # PluginManager + IPlugin 接口
+│   └── chartplugin/         # 海图插件（封装 Enclib）
+│   └── helloplugin/         # 示例插件
+│   └── sampleplugin/        # 示例插件
+│   └── dataflowplugin/      # 数据流监控插件
+└── 3dParty/                 # Qt + Enclib
 ```
 
 ---
 
-## 📡 API 接口设计
+## 📡 API 接口（设计中，尚未实现）
 
-### WebSocket 消息格式
+> 以下接口为早期设计稿，**源码中没有任何对应的服务端实现**，保留仅作规划参考。
+
+### WebSocket 消息格式（设计稿）
 ```json
 // 请求
 {"id": 123, "action": "getChartImage", "data": {}}
@@ -202,19 +243,14 @@ src/
 {"type": "dynamicUpdate", "data": {}}
 ```
 
-### 已实现的接口
-| 接口 | 功能 | 参数 | 返回值 |
-|------|------|------|--------|
-| `getChartImage` | 获取海图图像 | 无 | base64 编码的 WebP 图像 |
-| `getDynamicObjects` | 获取动态对象 | 无 | 本船、AIS 目标等 |
-| `zoomAt` | 指定位置缩放 | x, y, factor | success, scale |
-| `panChart` | 平移海图 | fromX, fromY, toX, toY | success |
-| `setScale` | 设置比例尺 | scale | success |
-| `setCenter` | 设置中心点 | lon, lat | success |
-| `getGeoPosition` | 屏幕坐标转经纬度 | x, y | lon, lat |
-| `queryObjects` | 查询物标 | x, y, radius | objects, count |
-| `getChartList` | 获取海图列表 | 无 | charts, count |
-| `setDisplayCategory` | 设置显示类别 | category | success |
+### 规划接口（均未实现）
+| 接口 | 功能 | 状态 |
+|------|------|------|
+| `getChartImage` | 获取海图图像 | 📋 设计中 |
+| `getDynamicObjects` | 获取动态对象 | 📋 设计中 |
+| `zoomAt` / `panChart` / `setScale` / `setCenter` | 视图操作 | 📋 设计中 |
+| `getGeoPosition` / `queryObjects` / `getChartList` | 查询 | 📋 设计中 |
+| `setDisplayCategory` | 设置显示类别 | 📋 设计中 |
 
 ---
 
@@ -224,8 +260,8 @@ src/
 
 | 文档 | 位置 | 说明 |
 |------|------|------|
-| AI 交接文档 | `aifile/AI_CONTEXT/AI_CONTEXT_V1.md` | AI 模型接手项目必看 |
-| 项目状态文档 | `aifile/PROJECT_STATUS/PROJECT_STATUS_V1.md` | 功能进度跟踪 |
+| AI 交接文档 | `aifile/AI_CONTEXT/AI_CONTEXT_V1.md` | AI 模型接手项目必看（已按实际代码校正） |
+| 项目状态文档 | `aifile/PROJECT_STATUS/PROJECT_STATUS_V1.md` | 功能进度跟踪（已校正） |
 | aifile 说明 | `aifile/aireade.md` | AI 记录文件管理规范 |
 
 ### AI 记录文件规范
@@ -238,30 +274,27 @@ src/
 ## ⚠️ 注意事项
 
 ### 关键约束
-1. **Enclib SDK 是闭源的**：不能修改，只能调用 API
-2. **Qt 版本固定为 5.12**：不能升级
-3. **Linux 版本需要 libenccore.so**：已从 ChartDemo 复制
-4. **100ms 刷新要求**：动态层必须用 JSON 推送
+1. **Enclib SDK 是闭源的**：不能修改，只能调用 API；仓库只分发分卷压缩包，需手动解压。
+2. **Qt 版本固定为 5.12**：使用工程内随附版本，CMake 中 `Qt5_DIR` 指向 `src/3dParty/qt`。
+3. **Linux 支持未完成**：导出宏 `__declspec` 与 Enclib Linux 库分发仍需处理。
+4. **WebSocket / 前端为设计稿**：不要按旧文档期待浏览器访问功能。
 
 ### 常见问题
-- **Windows 编译失败**：检查 Qt 路径是否正确
-- **Linux 运行缺少库**：设置 LD_LIBRARY_PATH
-- **WebSocket 连接失败**：检查端口是否被占用
-- **海图不显示**：检查 Enclib 初始化路径
+- **CMake 报 `Enclib headers not found`**：先按"首次准备"解压 `cpss_enclib.zip` 分卷。
+- **程序缺少 Qt DLL**：运行 `cmake --install` 或 rebuild 脚本，由 windeployqt 部署运行时。
+- **插件不加载**：查看 `cpss.log`，确认 `bin/plugins/` 下存在插件 DLL。
+- **海图不显示**：检查 `3dParty/Enclib` 的 mapdata/fonts/s57data 是否齐全、lic.dat 是否有效。
 
 ---
 
 ## 🔗 参考资源
 
 ### 关联项目
-- [ChartDemo](file:///d:/ZCHH/ChartDemo) - 海图引擎基础
-- [Enclib SDK](file:///d:/ZCHH/CPSS/src/3dParty/Enclib) - 电子海图 SDK
+- ChartDemo - 海图引擎基础 / Enclib SDK 来源（闭源，本地路径因机器而异，不再写死）
 
 ### 技术文档
 - [Qt 5.12 文档](https://doc.qt.io/qt-5.12/)
-- [Vue 3 文档](https://vuejs.org/)
-- [PixiJS 文档](https://pixijs.com/)
-- [Element Plus 文档](https://element-plus.org/)
+- Enclib SDK 文档（闭源，随 SDK 分发）
 
 ---
 
@@ -271,5 +304,5 @@ src/
 |------|------|
 | 创建人 | lj |
 | 创建日期 | 2026-07-20 |
-| 当前版本 | v0.1 |
+| 当前版本 | 1.0 |
 | 更新频率 | 每次开发完成后更新 |

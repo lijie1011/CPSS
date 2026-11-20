@@ -1,53 +1,20 @@
 ======================================== 
-[周日 2026/08/23  0:23:03.21] cmake configure 
+[周五 2026/11/20 23:49:56.19] cmake configure (Release) 
 ======================================== 
 -- Selecting Windows SDK version 10.0.19041.0 to target Windows 10.0.19045.
+-- The CXX compiler identification is MSVC 19.29.30159.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Tools/MSVC/14.29.30133/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
 -- Building CPSS for platform: windows
--- Using MSVC Qt5: E:/Qt5.12.11/5.12.11/msvc2017_64/lib/cmake/Qt5
--- Configuring done (0.1s)
--- Generating done (0.6s)
--- Build files have been written to: D:/ZCHH/CPSS/src/build
-======================================== 
-[周日 2026/08/23  0:23:04.15] cmake build 
-======================================== 
-用于 .NET Framework 的 Microsoft (R) 生成引擎版本 16.11.6+a918ceb31
-版权所有(C) Microsoft Corporation。保留所有权利。
+-- Using bundled MSVC Qt5: D:/CPSS/src/3dParty/qt/lib/cmake/Qt5
+CMake Error at CMakeLists.txt:47 (message):
+  Enclib headers not found at D:/CPSS/src/3dParty/Enclib/include
 
-  Automatic MOC and UIC for target cpss_common
-  xmlconfig.cpp
-    正在创建库 D:/ZCHH/CPSS/src/build/lib/Debug/cpss_common.lib 和对象 D:/ZCHH/CPSS/src/build/lib/Debug/cpss_common.exp
-  cpss_common.vcxproj -> D:\ZCHH\CPSS\src\build\bin\Debug\cpss_common.dll
-  'pwsh.exe' 不是内部或外部命令，也不是可运行的程序
-  或批处理文件。
-  Automatic MOC and UIC for target cpss_data
-  cpss_data.vcxproj -> D:\ZCHH\CPSS\src\build\bin\Debug\cpss_data.dll
-  Automatic MOC and UIC for target cpss_plugin_framework
-  cpss_plugin_framework.vcxproj -> D:\ZCHH\CPSS\src\build\lib\Debug\cpss_plugin_framework.lib
-  Automatic MOC and UIC for target chartplugin
-  LINK : 没有找到 D:\ZCHH\CPSS\src\build\bin\Debug\plugins\chartplugin.dll 或上一个增量链接没有生成它；正在执行完全链接
-    正在创建库 D:/ZCHH/CPSS/src/build/lib/Debug/chartplugin.lib 和对象 D:/ZCHH/CPSS/src/build/lib/Debug/chartplugin.exp
-  chartplugin.vcxproj -> D:\ZCHH\CPSS\src\build\bin\Debug\plugins\chartplugin.dll
-  'pwsh.exe' 不是内部或外部命令，也不是可运行的程序
-  或批处理文件。
-  Automatic MOC and UIC for target cpss
-  cpss.vcxproj -> D:\ZCHH\CPSS\src\build\bin\Debug\cpss.exe
-  Automatic MOC and UIC for target dataflowplugin
-  LINK : 没有找到 D:\ZCHH\CPSS\src\build\bin\Debug\plugins\dataflowplugin.dll 或上一个增量链接没有生成它；正在执行完全链接
-    正在创建库 D:/ZCHH/CPSS/src/build/lib/Debug/dataflowplugin.lib 和对象 D:/ZCHH/CPSS/src/build/lib/Debug/dataflowplugin.exp
-  dataflowplugin.vcxproj -> D:\ZCHH\CPSS\src\build\bin\Debug\plugins\dataflowplugin.dll
-  'pwsh.exe' 不是内部或外部命令，也不是可运行的程序
-  或批处理文件。
-  Automatic MOC and UIC for target helloplugin
-  LINK : 没有找到 D:\ZCHH\CPSS\src\build\bin\Debug\plugins\helloplugin.dll 或上一个增量链接没有生成它；正在执行完全链接
-    正在创建库 D:/ZCHH/CPSS/src/build/lib/Debug/helloplugin.lib 和对象 D:/ZCHH/CPSS/src/build/lib/Debug/helloplugin.exp
-  helloplugin.vcxproj -> D:\ZCHH\CPSS\src\build\bin\Debug\plugins\helloplugin.dll
-  'pwsh.exe' 不是内部或外部命令，也不是可运行的程序
-  或批处理文件。
-  Automatic MOC and UIC for target sampleplugin
-  LINK : 没有找到 D:\ZCHH\CPSS\src\build\bin\Debug\plugins\sampleplugin.dll 或上一个增量链接没有生成它；正在执行完全链接
-    正在创建库 D:/ZCHH/CPSS/src/build/lib/Debug/sampleplugin.lib 和对象 D:/ZCHH/CPSS/src/build/lib/Debug/sampleplugin.exp
-  sampleplugin.vcxproj -> D:\ZCHH\CPSS\src\build\bin\Debug\plugins\sampleplugin.dll
-  'pwsh.exe' 不是内部或外部命令，也不是可运行的程序
-  或批处理文件。
-======================================== 
-[周日 2026/08/23  0:23:40.85] build complete 
+  Please copy Enclib SDK from ChartDemo to src/3dParty/Enclib
+
+
+-- Configuring incomplete, errors occurred!
+[ERROR] cmake configure failed 

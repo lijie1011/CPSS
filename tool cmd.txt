@@ -1,7 +1,13 @@
-cmd /c "E:\Qt5.12.11\5.12.11\msvc2017_64\bin\designer.exe d:\ZCHH\CPSS\src\mainwindow.ui"
+rem 以下均为工程根目录下执行的相对路径命令
 
-cmake --build .\CPSS\src\build\ --config debug
+rem 1) 用 Qt Designer 打开 UI（designer 位于随附 Qt 的 bin 目录）
+src\3dParty\qt\bin\designer.exe src\mainwindow.ui
 
-d:\ZCHH\CPSS\src\build\bin\Debug\cpss.exe
+rem 2) 增量构建 Release
+cmake --build .\src\build\ --config Release
 
+rem 3) 运行程序（Release）
+.\src\build\bin\Release\cpss.exe
+
+rem 4) 结束程序
 taskkill /F /IM cpss.exe

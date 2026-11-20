@@ -1,3 +1,5 @@
+# 验证 UI：枚举 cpss 主窗口的插件按钮并点击，截图保存到工程根目录
+# 所有路径基于脚本所在目录（工程根），不写死盘符
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -10,51 +12,58 @@ public class Win32 {
     [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
     [DllImport("user32.dll", CharSet = CharSet.Auto)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
-    [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
-    [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
     public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
     public const uint MOUSEEVENTF_LEFTUP = 0x0004;
-    public const uint MOUSEEVENTF_MOVE = 0x0001;
     public const int SW_MAXIMIZE = 3;
-    public const int SW_RESTORE = 9;
 }
 public struct RECT { public int Left, Top, Right, Bottom; }
-public struct POINT { public int X, Y; }
 "@
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# 工程根目录 = 脚本所在目录；截图与日志输出也放这里
+$root = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$exePath = Join-Path $root "src\build\bin\Release\cpss.exe"
+$logPath = Join-Path $root "src\build\bin\Release\cpss.log"
+
 $proc = Get-Process cpss -ErrorAction SilentlyContinue
-if (-not $proc) { Write-Output "cpss not running"; exit }
+if (-not $proc) {
+    if (Test-Path $exePath) {
+        Write-Output "cpss 未运行，正在启动: $exePath"
+        Start-Process $exePath
+        Start-Sleep -Seconds 5
+        $proc = Get-Process cpss -ErrorAction SilentlyContinue
+    }
+    if (-not $proc) { Write-Output "cpss 启动失败"; exit 1 }
+}
 
 $hwnd = $proc.MainWindowHandle
-Write-Output "Main window handle: $hwnd"
-
-# Maximize window
-[Win32]::ShowWindow($hwnd, [Win32]::SW_MAXIMIZE)
-Start-Sleep -Milliseconds 800
-[Win32]::SetForegroundWindow($hwnd)
-Start-Sleep -Milliseconds 500
+[Win32]::ShowWindow($hwnd, [Win32]::SW_MAXIMIZE) | Out-Null
+Start-Sleep -Milliseconds 600
+[Win32]::SetForegroundWindow($hwnd) | Out-Null
+Start-Sleep -Milliseconds 400
 
 $rect = New-Object RECT
-[Win32]::GetWindowRect($hwnd, [ref]$rect)
-Write-Output "Window rect: L=$($rect.Left) T=$($rect.Top) R=$($rect.Right) B=$($rect.Bottom)"
-$winW = $rect.Right - $rect.Left
-$winH = $rect.Bottom - $rect.Top
-Write-Output "Window size: ${winW}x${winH}"
+[Win32]::GetWindowRect($hwnd, [ref]$rect) | Out-Null
+Write-Output "Window: L=$($rect.Left) T=$($rect.Top) R=$($rect.Right) B=$($rect.Bottom)"
 
-# Take BEFORE screenshot
 $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-$bmp1 = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
-$g1 = [System.Drawing.Graphics]::FromImage($bmp1)
-$g1.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
-$bmp1.Save("D:\ZCHH\CPSS\verify_before.png")
-$g1.Dispose(); $bmp1.Dispose()
-Write-Output "Saved verify_before.png"
 
-# Enumerate child windows to find toolbar buttons
+function Save-Screenshot($path) {
+    $bmp = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
+    $bmp.Save($path)
+    $g.Dispose(); $bmp.Dispose()
+    Write-Output "Saved $path"
+}
+
+# BEFORE 截图
+Save-Screenshot (Join-Path $root "verify_before.png")
+
+# 枚举子窗口，查找插件按钮（标题含 Data Flow / Hello / Sample）
 $buttonInfo = @()
 $enumProc = [Win32+EnumWindowsProc]{
     param($hWnd, $lParam)
@@ -68,44 +77,32 @@ $enumProc = [Win32+EnumWindowsProc]{
             $cx = ($childRect.Left + $childRect.Right) / 2
             $cy = ($childRect.Top + $childRect.Bottom) / 2
             Write-Output "  Found button '$text' at ($cx, $cy)"
-            $buttonInfo += @{ text = $text; x = $cx; y = $cy; rect = $childRect }
+            $buttonInfo += @{ text = $text; x = $cx; y = $cy }
         }
     }
     return $true
 }
-[Win32]::EnumChildWindows($hwnd, $enumProc, [IntPtr]::Zero)
+[Win32]::EnumChildWindows($hwnd, $enumProc, [IntPtr]::Zero) | Out-Null
 
 if ($buttonInfo.Count -eq 0) {
-    Write-Output "No toolbar buttons found via EnumChildWindows"
-    Write-Output "Trying click at estimated position..."
-    # Toolbar is at bottom of window, buttons are in center-ish
-    $clickX = $rect.Left + ($winW / 2) - 100
-    $clickY = $rect.Bottom - 35
+    Write-Output "未找到插件按钮（标题匹配失败），跳过点击"
 } else {
-    $firstBtn = $buttonInfo[0]
-    $clickX = $firstBtn.x
-    $clickY = $firstBtn.y
-    Write-Output "Clicking first button '$($firstBtn.text)' at ($clickX, $clickY)"
+    $btn = $buttonInfo[0]
+    Write-Output "Clicking first button '$($btn.text)' at ($($btn.x), $($btn.y))"
+    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($btn.x, $btn.y)
+    Start-Sleep -Milliseconds 300
+    [Win32]::mouse_event([Win32]::MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [IntPtr]::Zero)
+    Start-Sleep -Milliseconds 80
+    [Win32]::mouse_event([Win32]::MOUSEEVENTF_LEFTUP, 0, 0, 0, [IntPtr]::Zero)
+    Start-Sleep -Milliseconds 800
+    Save-Screenshot (Join-Path $root "verify_after.png")
 }
 
-# Perform click
-[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($clickX, $clickY)
-Start-Sleep -Milliseconds 300
-[Win32]::mouse_event([Win32]::MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [IntPtr]::Zero)
-Start-Sleep -Milliseconds 80
-[Win32]::mouse_event([Win32]::MOUSEEVENTF_LEFTUP, 0, 0, 0, [IntPtr]::Zero)
-Write-Output "Clicked at ($clickX, $clickY)"
-
-Start-Sleep -Milliseconds 800
-
-# Take AFTER screenshot
-$bmp2 = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
-$g2 = [System.Drawing.Graphics]::FromImage($bmp2)
-$g2.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
-$bmp2.Save("D:\ZCHH\CPSS\verify_after.png")
-$g2.Dispose(); $bmp2.Dispose()
-Write-Output "Saved verify_after.png"
-
-# Also save trace.log copy
-Copy-Item "D:\ZCHH\CPSS\src\build\bin\Debug\trace.log" "D:\ZCHH\CPSS\verify_trace.log" -ErrorAction SilentlyContinue
+# 复制实际日志 cpss.log（不是已不存在的 trace.log）
+if (Test-Path $logPath) {
+    Copy-Item $logPath (Join-Path $root "verify_cpss.log") -Force
+    Write-Output "日志已复制: verify_cpss.log"
+} else {
+    Write-Output "未找到日志: $logPath"
+}
 Write-Output "Done!"
