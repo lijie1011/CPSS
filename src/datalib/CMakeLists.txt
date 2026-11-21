@@ -3,8 +3,8 @@ set(DATALIB_SOURCES
     datacache.cpp
     comm/commmanager.cpp
     comm/http/httpadapter.cpp
-    comm/dds/ddsadapter.cpp
-    comm/dds/ddsconverter.cpp
+    comm/fastdds/ddsadapter.cpp
+    comm/fastdds/ddsconverter.cpp
 )
 
 set(DATALIB_HEADERS
@@ -14,8 +14,8 @@ set(DATALIB_HEADERS
     datacache.h
     comm/commmanager.h
     comm/http/httpadapter.h
-    comm/dds/ddsadapter.h
-    comm/dds/ddsconverter.h
+    comm/fastdds/ddsadapter.h
+    comm/fastdds/ddsconverter.h
 )
 
 add_library(cpss_data SHARED
@@ -64,8 +64,8 @@ if(fastdds_FOUND)
     target_compile_definitions(cpss_data PRIVATE CPSS_ENABLE_DDS)
     target_link_libraries(cpss_data PRIVATE fastdds fastcdr)
 
-    # fastddsgen 生成的代码目录（先手工生成后放入 dds/generated）
-    set(DDS_GENERATED_DIR ${CMAKE_CURRENT_SOURCE_DIR}/comm/dds/generated)
+    # fastddsgen 生成的代码目录（先手工生成后放入 fastdds/generated）
+    set(DDS_GENERATED_DIR ${CMAKE_CURRENT_SOURCE_DIR}/comm/fastdds/generated)
     if(EXISTS "${DDS_GENERATED_DIR}/CPSSDataCdr.h")
         target_include_directories(cpss_data PRIVATE ${DDS_GENERATED_DIR})
         target_sources(cpss_data PRIVATE

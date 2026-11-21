@@ -6,7 +6,7 @@
 
 #include "commmanager.h"
 #include "datamanager.h"
-#include "dds/ddsadapter.h"
+#include "fastdds/ddsadapter.h"
 // #include "http/httpadapter.h"   // 启用 HTTP 适配器时取消注释
 #include "logger.h"
 
