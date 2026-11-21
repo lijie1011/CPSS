@@ -14,6 +14,7 @@
 
 #include "mainwindow.h"
 #include "common/logger.h"
+#include "comm/commmanager.h"
 
 /**
  * @brief 主程序入口函数
@@ -44,6 +45,9 @@ int main(int argc, char *argv[])
         // 初始化日志系统
         QString logPath = QCoreApplication::applicationDirPath() + "/cpss.log";
         Logger::init(logPath);
+
+        // 初始化通信适配器（HTTP / DDS），接入 DataManager 数据管线
+        CommManager::instance()->startAll();
 
         // 解析命令行参数
         QCommandLineParser parser;

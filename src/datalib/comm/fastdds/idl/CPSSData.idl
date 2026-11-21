@@ -1,0 +1,110 @@
+// CPSS DDS 数据契约
+// 字段与 src/datalib/dynamicdata.h 中的 C++ 结构体一一对应
+// 使用 Fast DDS 的 fastddsgen 生成代码：fastddsgen -d generated CPSSData.idl
+
+module cpss {
+    module dds {
+
+        enum DataStatus {
+            DATA_STATUS_NORMAL,
+            DATA_STATUS_EXPIRED,
+            DATA_STATUS_INVALID
+        };
+
+        enum ProtocolKind {
+            PROTOCOL_UNKNOWN,
+            PROTOCOL_HTTP,
+            PROTOCOL_DDS
+        };
+
+        enum CampKind {
+            CAMP_UNKNOWN,
+            CAMP_FRIENDLY,
+            CAMP_ENEMY,
+            CAMP_NEUTRAL,
+            CAMP_MINE
+        };
+
+        enum EventKind {
+            EVENT_UNKNOWN,
+            EVENT_ATTACK,
+            EVENT_DEFENSE,
+            EVENT_ALERT,
+            EVENT_MISSION_START,
+            EVENT_MISSION_END,
+            EVENT_CONTACT,
+            EVENT_LOST,
+            EVENT_DAMAGE,
+            EVENT_REPAIR,
+            EVENT_CUSTOM
+        };
+
+        struct WeaponInfo {
+            string type;
+            long count;
+            double range;
+        };
+
+        struct SensorInfo {
+            string type;
+            long count;
+            double range;
+        };
+
+        struct PointF {
+            double x;
+            double y;
+        };
+
+        // 平台状态（对应 PlatformData）
+        struct PlatformState {
+            string id;
+            string name;
+            double lon;
+            double lat;
+            double altitude;
+            double speed;
+            double heading;
+            string platform_type;
+            string category;
+            CampKind camp;
+            string target_id;
+            sequence<WeaponInfo> weapons;
+            sequence<SensorInfo> sensors;
+            sequence<PointF> track_points;
+            DataStatus data_status;
+            long long valid_until;
+            long long update_time;
+            ProtocolKind source_protocol;
+        };
+
+        // 战术事件（对应 SpecialEvent）
+        struct TacticalEvent {
+            string event_id;
+            EventKind event_type;
+            string event_name;
+            string description;
+            long long timestamp;
+            string target_id;
+            string source_id;
+            string extra_data;   // JSON 字符串，对应 QJsonObject
+            double lon;
+            double lat;
+        };
+
+        // 平台集合，用于一次发布多个目标
+        typedef sequence<PlatformState> PlatformSeq;
+        typedef sequence<TacticalEvent> EventSeq;
+
+        struct PlatformBatch {
+            PlatformSeq platforms;
+            long long timestamp;
+        };
+
+        struct EventBatch {
+            EventSeq events;
+            long long timestamp;
+        };
+
+    };
+};

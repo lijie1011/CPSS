@@ -65,7 +65,14 @@ CPSS/
     ├── displaystate.h           # 显示状态定义
     ├── resource.qrc             # Qt 资源文件
     ├── common/                  # 通用模块（logger / config / xmlconfig / IconManager）
-    ├── datalib/                 # 数据模块（DataManager / DataCache / httpadapter / 动态数据）
+    ├── datalib/                 # 数据模块
+    │   ├── datamanager.*        # 数据管理器（单例）
+    │   ├── datacache.*          # 数据缓存（单例）
+    │   ├── dynamicdata.h        # 数据结构定义
+    │   └── comm/                # 通信适配层（各协议分目录）
+    │       ├── commmanager.*    # 通信管理器，统一装配适配器
+    │       ├── http/            # HTTP 适配器
+    │       └── dds/             # DDS 适配器（Fast DDS，含 idl/ 数据契约）
     ├── plugin/                  # 插件框架 + 4 个插件（chart / hello / sample / dataflow）
     ├── settings/                # 设置对话框（显示类别 / 视图分组 / 水深等高线）
     ├── resource/                # 平台图标等资源（JB / JB_Souce 等）

@@ -39,7 +39,8 @@ enum DataStatus {
  */
 enum ProtocolType {
     Protocol_Unknown,    ///< 未知协议
-    Protocol_HTTP        ///< HTTP协议
+    Protocol_HTTP,       ///< HTTP协议
+    Protocol_DDS         ///< DDS协议（Fast DDS）
 };
 
 /**
