@@ -29,6 +29,8 @@ public slots:
 private slots:
     void onClearClicked();
     void onFilterToggled();
+    /** @brief 滚动条变化：感知用户是否滚离底部，从而暂停/恢复自动跟随 */
+    void onScrollBarValueChanged(int value);
 
 private:
     /** @brief 根据级别返回显示颜色 */
@@ -46,6 +48,9 @@ private:
     QCheckBox    *m_chkWarn;
     QCheckBox    *m_chkError;
     QPushButton  *m_clearBtn;
+
+    bool m_autoScroll = true;      ///< 是否自动跟随最新消息（用户滚离底部时暂停）
+    bool m_appending = false;      ///< 正在程序化追加/滚动，屏蔽 valueChanged 误判
 
     QList<QPair<int, QString>> m_buffer;              ///< 缓存 <级别, 已格式化HTML>（切换过滤时重放）
 };

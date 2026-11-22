@@ -67,6 +67,10 @@ OutputWidget::OutputWidget(QWidget *parent)
     main->addLayout(top);
     main->addWidget(m_textEdit, 1);
 
+    // 监听滚动条：用户滚离底部 → 暂停跟随；滚回底部 → 恢复跟随
+    connect(m_textEdit->verticalScrollBar(), &QScrollBar::valueChanged,
+            this, &OutputWidget::onScrollBarValueChanged);
+
     // 连接全局输出信号（AutoConnection → 跨线程自动 QueuedConnection 到本线程）
     connect(OutputSink::instance(), &OutputSink::messageArrived,
             this, &OutputWidget::onMessageArrived, Qt::QueuedConnection);
@@ -132,10 +136,26 @@ void OutputWidget::onMessageArrived(int level, const QString &text)
 
     if (!levelVisible(level)) return;   // 被过滤的级别暂存，切换过滤时可重放
 
+    // 程序化追加期间屏蔽 valueChanged，避免把程序滚动误判成用户操作
+    m_appending = true;
     m_textEdit->append(html);
-    // 有消息就刷到底部
-    m_textEdit->moveCursor(QTextCursor::End);
-    m_textEdit->verticalScrollBar()->setValue(m_textEdit->verticalScrollBar()->maximum());
+    if (m_autoScroll) {
+        m_textEdit->moveCursor(QTextCursor::End);
+        m_textEdit->verticalScrollBar()->setValue(m_textEdit->verticalScrollBar()->maximum());
+    }
+    m_appending = false;
+}
+
+void OutputWidget::onScrollBarValueChanged(int value)
+{
+    // 程序自己在滚动（append / setValue），不是用户操作，忽略
+    if (m_appending) return;
+
+    QScrollBar *bar = m_textEdit->verticalScrollBar();
+    // 距底部 20 像素内视为"在底部"，给用户一点容差
+    const int threshold = 20;
+    bool atBottom = (value >= bar->maximum() - threshold);
+    m_autoScroll = atBottom;
 }
 
 void OutputWidget::onClearClicked()
@@ -148,10 +168,16 @@ void OutputWidget::onClearClicked()
 void OutputWidget::onFilterToggled()
 {
     // 用缓存的 HTML 原样重绘（保留原时间戳与颜色），仅应用新的过滤条件
+    m_appending = true;
     m_textEdit->clear();
     for (const auto &item : m_buffer) {
         if (levelVisible(item.first)) {
             m_textEdit->append(item.second);
         }
     }
+    if (m_autoScroll) {
+        m_textEdit->moveCursor(QTextCursor::End);
+        m_textEdit->verticalScrollBar()->setValue(m_textEdit->verticalScrollBar()->maximum());
+    }
+    m_appending = false;
 }
