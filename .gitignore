@@ -20,3 +20,4 @@ __pycache__/
 # 不提交解压后的目录（体积大，约 9700+ 个文件）
 src/3dParty/qt/
 src/3dParty/Enclib/
+src/3dParty/redis_sdk/
