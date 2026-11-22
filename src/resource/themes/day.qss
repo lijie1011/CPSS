@@ -94,7 +94,6 @@ QTabBar::tab:selected {
 
 QDockWidget {
     color: #222222;
-    titlebar-close-icon: none;
 }
 QDockWidget::title {
     background-color: #E8E8E8;
@@ -102,6 +101,16 @@ QDockWidget::title {
     border: 1px solid #C0C0C0;
     padding: 4px;
 }
+/* 关闭（删除）按钮：显式定义，避免自定义 title 后原生按钮不显示 */
+QDockWidget::close-button, QDockWidget::float-button {
+    subcontrol-origin: margin;
+    subcontrol-position: top right;
+    width: 14px;
+    height: 14px;
+    border: none;
+    background: transparent;
+}
+QDockWidget::close-button:hover { background: rgba(0, 0, 0, 0.18); border-radius: 2px; }
 
 QCheckBox, QRadioButton {
     color: #222222;
