@@ -10,6 +10,7 @@
 #include "datamanager.h"
 #include <QJsonArray>
 #include "logger.h"
+#include "outputsink.h"
 
 // 静态成员变量初始化
 DataManager* DataManager::s_instance = nullptr;
@@ -391,6 +392,7 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
     }
 
     emit platformUpdated(platform);
+    ut::log::info() << "platform updated: " << platform.id<<" "<<platform.name<<" "<<platform.lon<<" "<<platform.lat;
     //emit platformsUpdated(getAllPlatforms());
     //emit dynamicDataChanged(getAllData());
 }

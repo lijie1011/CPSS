@@ -40,10 +40,10 @@ CPSS/
 ├── redme.md                     # 本文件，项目说明（已按实际代码校正）
 ├── README.md                    # 占位文件
 ├── .gitignore                   # Git 忽略规则
-├── build_debug.bat              # Debug 构建/安装脚本
-├── build_release.bat            # Release 构建/安装脚本（转调 build_debug.bat Release）
-├── rebuild_debug.bat            # Debug 全量重建脚本
-├── rebuild_release.bat          # Release 全量重建脚本（转调 rebuild_debug.bat Release）
+├── build_debug.bat              # Debug 编译脚本（只 configure+build，不部署/安装）
+├── build_release.bat            # Release 编译脚本（转调 build_debug.bat Release）
+├── rebuild_debug.bat            # Debug 安装脚本（清理+编译+部署Qt+install）
+├── rebuild_release.bat          # Release 安装脚本（转调 rebuild_debug.bat Release）
 ├── run_tests.bat                # 测试脚本（引用旧路径，待修复）
 ├── pyfile/                      # 辅助脚本目录
 │   ├── check_dll.py             # 检查插件 DLL 元数据
@@ -147,10 +147,12 @@ Expand-Archive -Path cpss_qt5.12.11.zip -DestinationPath . -Force
 直接运行根目录下的批处理脚本（内部已配置好生成器、Qt、部署与安装）：
 
 ```bat
-rebuild_release.bat    :: 全量重建 Release（清理 → configure → build → windeployqt → install）
-rebuild_debug.bat      :: 全量重建 Debug
-build_release.bat      :: 增量构建 Release
-build_debug.bat        :: 增量构建 Debug
+rebuild_release.bat    :: 安装 Release（清理 → configure → build → windeployqt → install）
+rebuild_debug.bat      :: 安装 Debug（同上，含全部流程）
+build_release.bat      :: 仅编译 Release（configure + build，不部署不安装）
+build_debug.bat        :: 仅编译 Debug（configure + build，不部署不安装）
+
+注意：改完 C++ 代码后只需 build_*.bat 编译；要生成可发布的完整目录才用 rebuild_*.bat。
 ```
 
 产物位置：

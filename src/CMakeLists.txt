@@ -32,7 +32,12 @@ message(STATUS "Building CPSS for platform: ${PLATFORM_NAME}")
 if(WIN32)
     # 使用工程内随附的本地 Qt 环境（src/3dParty/qt），路径相对源码树，
     # 迁移到其他电脑无需单独安装 Qt 即可配置/编译。
-    set(Qt5_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3dParty/qt/lib/cmake/Qt5")
+    # 必须用 CACHE FORCE 覆盖：否则 find_package 首次找到的外部 Qt 路径会缓存在
+    # CMakeCache.txt 中，后续 configure 时 set() 无法覆盖，导致"编译用外部 Qt、
+    # windeployqt 用随附 Qt"的不一致，Release 运行报缺 DLL / 初始化失败。
+    # 必须用 CACHE ... FORCE 覆盖：find_package 首次找到的 Qt 路径会缓存在
+    # CMakeCache.txt 中，普通 set() 无法覆盖，导致编译/部署 Qt 环境不一致。
+    set(Qt5_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3dParty/qt/lib/cmake/Qt5" CACHE PATH "Qt5 dir" FORCE)
     message(STATUS "Using bundled MSVC Qt5: ${Qt5_DIR}")
 endif()
 
