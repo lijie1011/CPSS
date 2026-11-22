@@ -17,9 +17,22 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QCheckBox>
+#include <QComboBox>
+#include <QLabel>
 
 #include "displaystate.h"
 #include "dynamicdata.h"
+
+/**
+ * @enum ApplyScope
+ * @brief 批量勾选的作用范围
+ */
+enum class ApplyScope {
+    All,      ///< 所有平台
+    Red,      ///< 红方（Camp_Mine）
+    Blue,     ///< 蓝方（Camp_Enemy）
+    Single    ///< 仅单个平台（默认，保持原行为）
+};
 
 /**
  * @class PlatformControlPanel
@@ -85,6 +98,19 @@ private slots:
      */
     void onTreeItemClicked(QTreeWidgetItem *item, int column);
 
+    /**
+     * @brief 作用范围下拉框切换处理
+     * @param index 下拉框索引
+     */
+    void onScopeChanged(int index);
+
+    /**
+     * @brief 树当前选中项变化（用于"单个平台"范围确定目标）
+     * @param current 当前项
+     * @param previous 上一个项
+     */
+    void onTreeCurrentChanged(QTreeWidgetItem *current, QTreeWidgetItem *previous);
+
 private:
     /**
      * @brief 初始化界面
@@ -113,6 +139,48 @@ private:
     void collectStates(DisplayStateMap &stateMap);
 
     /**
+     * @brief 判断树节点是否为"设置项"（其父节点为平台节点）
+     * @param item 树节点
+     * @return 是设置项返回 true
+     */
+    bool isSettingItem(QTreeWidgetItem *item) const;
+
+    /**
+     * @brief 获取设置项的标识键
+     * @param item 设置项节点
+     * @return "舰船图标"/"名称标签"/"航迹"/"传感器"/"武器"/"事件"；非设置项返回空
+     */
+    QString settingKey(QTreeWidgetItem *item) const;
+
+    /**
+     * @brief 获取平台节点（向上找到携带 platformId 的节点）
+     * @param item 任意节点
+     * @return 平台节点；找不到返回 nullptr
+     */
+    QTreeWidgetItem* platformItemOf(QTreeWidgetItem *item) const;
+
+    /**
+     * @brief 根据作用范围获取目标平台节点列表
+     * @param scope 作用范围
+     * @param clickedPlatform 被点击的平台节点
+     * @return 范围内的平台节点列表
+     */
+    QList<QTreeWidgetItem*> platformsInScope(ApplyScope scope, QTreeWidgetItem *clickedPlatform) const;
+
+    /**
+     * @brief 在平台节点下查找指定设置项
+     * @param platformItem 平台节点
+     * @param key 设置项标识键
+     * @return 设置项节点；找不到返回 nullptr
+     */
+    QTreeWidgetItem* findSettingItem(QTreeWidgetItem *platformItem, const QString &key) const;
+
+    /**
+     * @brief 应用过滤（作用范围 + 搜索文本共同决定树节点显示/隐藏）
+     */
+    void applyFilter();
+
+    /**
      * @brief 阵营类型转字符串
      * @param camp 阵营类型
      * @return 阵营名称字符串
@@ -121,6 +189,9 @@ private:
 
     QTreeWidget *m_treeWidget;       ///< 树控件
     QLineEdit *m_searchEdit;         ///< 搜索输入框
+    QComboBox *m_scopeCombo;         ///< 作用范围下拉框（所有/红方/蓝方/单个平台）
+    ApplyScope m_applyScope;         ///< 当前作用范围
+    QString m_singlePlatformId;      ///< "单个平台"范围下选中的平台ID
     QPushButton *m_applyBtn;         ///< 应用按钮
     QPushButton *m_resetBtn;         ///< 重置按钮
     bool m_updatingCheckState;       ///< 是否正在更新勾选状态

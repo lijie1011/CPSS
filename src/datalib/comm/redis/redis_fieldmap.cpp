@@ -36,11 +36,15 @@ PlatformData RedisFieldMap::toPlatformData(const HTProto::Customize_Info *info)
     p.heading = fmod(fmod(heading, 360.0) + 360.0, 360.0);
     p.speed = static_cast<double>(info->targetspeed());
 
-    // ---- 阵营：AFSIM entitycamp 1=蓝(友) 2=红(敌) ----
+    // ---- 阵营：按 AFSIM side 显示红蓝颜色 ----
+    // AFSIM: entitycamp 1=blue(蓝方), 2=red(红方)
+    // CPSS campColor 配色: Camp_Mine=红, Camp_Enemy=蓝, Camp_Friendly=橙
+    // 为让"红方显示红、蓝方显示蓝"：
+    //   红方(2) -> Camp_Mine(红) ; 蓝方(1) -> Camp_Enemy(蓝)
     switch (info->entitycamp()) {
-    case 2:  p.camp = Camp_Enemy;    break;   // 红方 -> 敌方
-    case 1:  p.camp = Camp_Friendly; break;   // 蓝方 -> 友方
-    default: p.camp = Camp_Unknown;  break;
+    case 2:  p.camp = Camp_Mine;   break;   // 红方 -> 红色
+    case 1:  p.camp = Camp_Enemy;  break;   // 蓝方 -> 蓝色
+    default: p.camp = Camp_Unknown; break;
     }
 
     // ---- 平台类型（空间域）----

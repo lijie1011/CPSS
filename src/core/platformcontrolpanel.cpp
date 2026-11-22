@@ -15,6 +15,7 @@
  */
 PlatformControlPanel::PlatformControlPanel(QWidget *parent)
     : QDialog(parent),
+      m_applyScope(ApplyScope::Single),
       m_updatingCheckState(false)
 {
     setWindowTitle(QStringLiteral("平台控制面板"));
@@ -38,16 +39,37 @@ void PlatformControlPanel::initUI()
     mainLayout->setContentsMargins(10, 10, 10, 10);
     mainLayout->setSpacing(10);
 
+    // 顶部：作用范围 + 搜索
+    QHBoxLayout *topLayout = new QHBoxLayout();
+    topLayout->setSpacing(10);
+
+    QLabel *scopeLabel = new QLabel(QStringLiteral("作用范围:"), this);
+    topLayout->addWidget(scopeLabel);
+
+    m_scopeCombo = new QComboBox(this);
+    m_scopeCombo->addItem(QStringLiteral("所有"), (int)ApplyScope::All);
+    m_scopeCombo->addItem(QStringLiteral("红方"), (int)ApplyScope::Red);
+    m_scopeCombo->addItem(QStringLiteral("蓝方"), (int)ApplyScope::Blue);
+    m_scopeCombo->addItem(QStringLiteral("单个平台"), (int)ApplyScope::Single);
+    m_scopeCombo->setCurrentIndex(3);   // 默认"单个平台"
+    connect(m_scopeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &PlatformControlPanel::onScopeChanged);
+    topLayout->addWidget(m_scopeCombo);
+
     m_searchEdit = new QLineEdit(this);
     m_searchEdit->setPlaceholderText(QStringLiteral("搜索平台..."));
     connect(m_searchEdit, &QLineEdit::textChanged, this, &PlatformControlPanel::onSearchTextChanged);
-    mainLayout->addWidget(m_searchEdit);
+    topLayout->addWidget(m_searchEdit);
+
+    mainLayout->addLayout(topLayout);
 
     m_treeWidget = new QTreeWidget(this);
     m_treeWidget->setColumnCount(1);
     m_treeWidget->setHeaderHidden(true);
     m_treeWidget->setSelectionMode(QAbstractItemView::ExtendedSelection);
     connect(m_treeWidget, &QTreeWidget::itemChanged, this, &PlatformControlPanel::onTreeItemClicked);
+    connect(m_treeWidget, &QTreeWidget::currentItemChanged,
+            this, &PlatformControlPanel::onTreeCurrentChanged);
     mainLayout->addWidget(m_treeWidget);
 
     QHBoxLayout *btnLayout = new QHBoxLayout();
@@ -104,6 +126,7 @@ void PlatformControlPanel::populateTree(const DynamicObjects &data, const Displa
         QString campName = campToString(camp);
         QTreeWidgetItem *campItem = new QTreeWidgetItem(m_treeWidget);
         campItem->setText(0, QString("%1 (%2)").arg(campName).arg(groups[camp].size()));
+        campItem->setData(0, Qt::UserRole, (int)camp);   // 存储阵营类型，供批量范围筛选
         campItem->setFlags(campItem->flags() | Qt::ItemIsUserCheckable);
         campItem->setCheckState(0, Qt::Checked);
 
@@ -272,20 +295,179 @@ void PlatformControlPanel::onCloseClicked()
  */
 void PlatformControlPanel::onSearchTextChanged(const QString &text)
 {
+    Q_UNUSED(text);
+    applyFilter();
+}
+
+/**
+ * @brief 作用范围下拉框切换处理
+ */
+void PlatformControlPanel::onScopeChanged(int index)
+{
+    m_applyScope = static_cast<ApplyScope>(m_scopeCombo->itemData(index).toInt());
+
+    // 切到"单个平台"但尚未选中任何平台时，默认选第一个平台，避免空白列表
+    if (m_applyScope == ApplyScope::Single && m_singlePlatformId.isEmpty()) {
+        for (int i = 0; i < m_treeWidget->topLevelItemCount(); i++) {
+            QTreeWidgetItem *campItem = m_treeWidget->topLevelItem(i);
+            if (campItem->childCount() > 0) {
+                QTreeWidgetItem *first = campItem->child(0);
+                m_singlePlatformId = first->data(0, Qt::UserRole).toString();
+                break;
+            }
+        }
+    }
+
+    applyFilter();
+}
+
+/**
+ * @brief 应用过滤（作用范围 + 搜索文本）
+ * @details 范围决定显示哪些阵营/平台，搜索进一步按名称过滤，两者为 AND 关系。
+ *          - All  : 所有平台
+ *          - Red  : 仅 Camp_Mine（红方）阵营
+ *          - Blue : 仅 Camp_Enemy（蓝方）阵营
+ *          - Single: 仅 m_singlePlatformId 指定的单个平台（未选中则不显示任何平台）
+ */
+void PlatformControlPanel::applyFilter()
+{
+    if (!m_treeWidget) return;
+    const QString keyword = m_searchEdit->text().trimmed().toLower();
+
     for (int i = 0; i < m_treeWidget->topLevelItemCount(); i++) {
         QTreeWidgetItem *campItem = m_treeWidget->topLevelItem(i);
-        bool campVisible = false;
+        CampType camp = (CampType)campItem->data(0, Qt::UserRole).toInt();
 
-        for (int j = 0; j < campItem->childCount(); j++) {
-            QTreeWidgetItem *platformItem = campItem->child(j);
-            QString platformText = platformItem->text(0).toLower();
-            bool platformVisible = text.isEmpty() || platformText.contains(text.toLower());
-            platformItem->setHidden(!platformVisible);
-            campVisible |= platformVisible;
+        // 1) 阵营级范围过滤
+        bool campInScope = false;
+        switch (m_applyScope) {
+        case ApplyScope::All:    campInScope = true; break;
+        case ApplyScope::Red:    campInScope = (camp == Camp_Mine); break;
+        case ApplyScope::Blue:   campInScope = (camp == Camp_Enemy); break;
+        case ApplyScope::Single: campInScope = true; break;  // 单个平台在下面按 id 过滤
         }
 
-        campItem->setHidden(!campVisible && !text.isEmpty());
+        bool campHasVisible = false;
+        for (int j = 0; j < campItem->childCount(); j++) {
+            QTreeWidgetItem *platformItem = campItem->child(j);
+            const QString pid = platformItem->data(0, Qt::UserRole).toString();
+            const QString ptext = platformItem->text(0).toLower();
+
+            // 2) 平台级：Single 按选中 id（有搜索词时放行，便于切换目标）；其他按阵营范围
+            bool platformInScope = false;
+            if (m_applyScope == ApplyScope::Single) {
+                platformInScope = !keyword.isEmpty() || (!m_singlePlatformId.isEmpty() && pid == m_singlePlatformId);
+            } else {
+                platformInScope = campInScope;
+            }
+
+            // 3) 搜索文本过滤（AND）
+            bool matchSearch = keyword.isEmpty() || ptext.contains(keyword);
+            bool visible = platformInScope && matchSearch;
+
+            platformItem->setHidden(!visible);
+            campHasVisible |= visible;
+        }
+
+        campItem->setHidden(!campHasVisible);
     }
+}
+
+/**
+ * @brief 树当前项变化：记录"单个平台"范围下的选中平台
+ */
+void PlatformControlPanel::onTreeCurrentChanged(QTreeWidgetItem *current, QTreeWidgetItem *previous)
+{
+    Q_UNUSED(previous);
+    QTreeWidgetItem *platform = platformItemOf(current);
+    if (platform) {
+        m_singlePlatformId = platform->data(0, Qt::UserRole).toString();
+    }
+    if (m_applyScope == ApplyScope::Single) {
+        applyFilter();
+    }
+}
+
+/**
+ * @brief 判断是否为设置项（父节点是平台节点，即父节点携带 platformId）
+ */
+bool PlatformControlPanel::isSettingItem(QTreeWidgetItem *item) const
+{
+    if (!item || !item->parent()) return false;
+    QTreeWidgetItem *parent = item->parent();
+    // 平台节点的父节点是阵营节点（顶层）；设置项的父节点就是平台节点
+    return parent->parent() != nullptr && !parent->data(0, Qt::UserRole).toString().isEmpty();
+}
+
+/**
+ * @brief 获取设置项标识键
+ */
+QString PlatformControlPanel::settingKey(QTreeWidgetItem *item) const
+{
+    if (!item) return QString();
+    const QString text = item->text(0);
+    const QStringList keys = {
+        QStringLiteral("舰船图标"), QStringLiteral("名称标签"), QStringLiteral("航迹"),
+        QStringLiteral("传感器"), QStringLiteral("武器"), QStringLiteral("事件")
+    };
+    for (const QString &k : keys) {
+        if (text.contains(k)) return k;
+    }
+    return QString();
+}
+
+/**
+ * @brief 向上找到携带 platformId 的平台节点
+ */
+QTreeWidgetItem* PlatformControlPanel::platformItemOf(QTreeWidgetItem *item) const
+{
+    while (item) {
+        if (!item->data(0, Qt::UserRole).toString().isEmpty()) return item;
+        item = item->parent();
+    }
+    return nullptr;
+}
+
+/**
+ * @brief 根据作用范围获取目标平台节点列表
+ */
+QList<QTreeWidgetItem*> PlatformControlPanel::platformsInScope(ApplyScope scope, QTreeWidgetItem *clickedPlatform) const
+{
+    QList<QTreeWidgetItem*> result;
+    if (scope == ApplyScope::Single) {
+        if (clickedPlatform) result.append(clickedPlatform);
+        return result;
+    }
+
+    // All / Red / Blue：遍历所有顶层阵营节点
+    for (int i = 0; i < m_treeWidget->topLevelItemCount(); i++) {
+        QTreeWidgetItem *campItem = m_treeWidget->topLevelItem(i);
+        CampType camp = (CampType)campItem->data(0, Qt::UserRole).toInt();
+
+        bool campMatch = false;
+        if (scope == ApplyScope::All) campMatch = true;
+        else if (scope == ApplyScope::Red) campMatch = (camp == Camp_Mine);
+        else if (scope == ApplyScope::Blue) campMatch = (camp == Camp_Enemy);
+        if (!campMatch) continue;
+
+        for (int j = 0; j < campItem->childCount(); j++) {
+            result.append(campItem->child(j));
+        }
+    }
+    return result;
+}
+
+/**
+ * @brief 在平台节点下查找指定设置项
+ */
+QTreeWidgetItem* PlatformControlPanel::findSettingItem(QTreeWidgetItem *platformItem, const QString &key) const
+{
+    if (!platformItem) return nullptr;
+    for (int i = 0; i < platformItem->childCount(); i++) {
+        QTreeWidgetItem *child = platformItem->child(i);
+        if (child->text(0).contains(key)) return child;
+    }
+    return nullptr;
 }
 
 /**
@@ -303,6 +485,58 @@ void PlatformControlPanel::onTreeItemClicked(QTreeWidgetItem *item, int column)
 
     Qt::CheckState state = item->checkState(column);
 
+    // ===== 批量设置：作用范围不是单个平台时 =====
+    // 情况A：点击"设置项" → 把该设置批量应用到范围内所有平台
+    // 情况B：点击"平台节点" → 把该平台的整组显示状态批量应用到范围内所有平台
+    if (m_applyScope != ApplyScope::Single) {
+        QTreeWidgetItem *clickedPlatform = platformItemOf(item);
+        const bool clickSetting = isSettingItem(item);
+        const bool clickPlatform = clickedPlatform && (item == clickedPlatform);
+
+        if (clickSetting || clickPlatform) {
+            const QString key = clickSetting ? settingKey(item) : QString();
+            QList<QTreeWidgetItem*> targets = platformsInScope(m_applyScope, clickedPlatform);
+
+            for (QTreeWidgetItem *target : targets) {
+                if (clickSetting) {
+                    // 只应用单个设置项
+                    QTreeWidgetItem *setting = findSettingItem(target, key);
+                    if (!setting) continue;
+                    setting->setCheckState(column, state);
+                    // 传感器/武器：同步其下所有设备子项
+                    if (key == QStringLiteral("传感器") || key == QStringLiteral("武器")) {
+                        for (int i = 0; i < setting->childCount(); i++) {
+                            setting->child(i)->setCheckState(column, state);
+                        }
+                    }
+                } else {
+                    // 应用整组：平台下所有设置项及其设备子项
+                    for (int i = 0; i < target->childCount(); i++) {
+                        QTreeWidgetItem *setting = target->child(i);
+                        setting->setCheckState(column, state);
+                        for (int j = 0; j < setting->childCount(); j++) {
+                            setting->child(j)->setCheckState(column, state);
+                        }
+                    }
+                }
+
+                // 重算该平台节点勾选状态（任意子项勾选即平台勾选）
+                bool anyChecked = false;
+                for (int i = 0; i < target->childCount(); i++) {
+                    if (target->child(i)->checkState(column) != Qt::Unchecked) {
+                        anyChecked = true;
+                        break;
+                    }
+                }
+                target->setCheckState(column, anyChecked ? Qt::Checked : Qt::Unchecked);
+            }
+
+            m_updatingCheckState = false;
+            return;
+        }
+    }
+
+    // ===== 原有逻辑：子节点跟随 + 父节点反推 =====
     for (int i = 0; i < item->childCount(); i++) {
         item->child(i)->setCheckState(column, state);
     }
@@ -436,10 +670,11 @@ void PlatformControlPanel::collectStates(DisplayStateMap &stateMap)
  */
 QString PlatformControlPanel::campToString(CampType camp)
 {
+    // 与 AFSIM side 及批量范围选项保持一致：红方 / 蓝方
     switch (camp) {
-    case Camp_Mine: return QStringLiteral("我方");
+    case Camp_Mine: return QStringLiteral("红方");
+    case Camp_Enemy: return QStringLiteral("蓝方");
     case Camp_Friendly: return QStringLiteral("友方");
-    case Camp_Enemy: return QStringLiteral("敌方");
     case Camp_Neutral: return QStringLiteral("中立");
     case Camp_Unknown: return QStringLiteral("未知");
     default: return QStringLiteral("未知");

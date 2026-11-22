@@ -95,10 +95,20 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_pluginManager, &PluginManager::pluginUnloaded,
             this, &MainWindow::onPluginUnloaded);
 
-    loadPlugins();
+    // 插件加载（尤其 chartplugin 的 EnclSENCInit 要扫描 2000+ 海图文件，约 25 秒）
+    // 延迟到事件循环启动后执行，让主窗口先 show() 出来，避免界面卡死等待。
+    QTimer::singleShot(0, this, [this]() {
+        logInfo("[Startup] deferred plugin loading begin");
+        statusBar()->showMessage(QStringLiteral("正在加载海图和插件，请稍候..."));
+        QApplication::processEvents();   // 让状态栏提示立即绘制出来
 
-    // 海图插件为独立 DLL 插件，需在其加载完成后创建海图 Dock
-    createChartDock();
+        loadPlugins();
+        // 海图插件为独立 DLL 插件，需在其加载完成后创建海图 Dock
+        createChartDock();
+
+        statusBar()->showMessage(QStringLiteral("就绪"), 3000);
+        logInfo("[Startup] deferred plugin loading done");
+    });
 
     addToolBar(Qt::TopToolBarArea, ui->toolBar);       // 主工具栏→最上
     addToolBar(Qt::LeftToolBarArea, ui->pluginToolBar);  // 插件栏→最左
