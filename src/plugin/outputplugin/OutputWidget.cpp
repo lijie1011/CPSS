@@ -137,11 +137,19 @@ void OutputWidget::onMessageArrived(int level, const QString &text)
     if (!levelVisible(level)) return;   // 被过滤的级别暂存，切换过滤时可重放
 
     // 程序化追加期间屏蔽 valueChanged，避免把程序滚动误判成用户操作
+    // QTextEdit::append() 自身会强制滚到底部，所以先看是否在跟随：
+    //   - 跟随中：追加后停在最底部看最新
+    //   - 未跟随（用户翻历史）：记录位置，追加后恢复，视图不动
+    QScrollBar *bar = m_textEdit->verticalScrollBar();
+    int savedPos = m_autoScroll ? -1 : bar->value();
+
     m_appending = true;
     m_textEdit->append(html);
     if (m_autoScroll) {
         m_textEdit->moveCursor(QTextCursor::End);
-        m_textEdit->verticalScrollBar()->setValue(m_textEdit->verticalScrollBar()->maximum());
+        bar->setValue(bar->maximum());
+    } else {
+        bar->setValue(savedPos);   // 恢复用户正在看的位置，不被新消息打断
     }
     m_appending = false;
 }
