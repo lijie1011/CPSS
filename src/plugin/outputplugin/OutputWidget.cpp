@@ -57,15 +57,6 @@ OutputWidget::OutputWidget(QWidget *parent)
     top->addWidget(m_chkError);
     top->addStretch();
 
-    m_pauseBtn = new QToolButton(this);
-    m_pauseBtn->setText(QStringLiteral("暂停滚动"));
-    m_pauseBtn->setCheckable(true);
-    connect(m_pauseBtn, &QToolButton::toggled, this, [this](bool checked) {
-        m_paused = checked;
-        m_pauseBtn->setText(checked ? QStringLiteral("继续滚动") : QStringLiteral("暂停滚动"));
-    });
-    top->addWidget(m_pauseBtn);
-
     m_clearBtn = new QPushButton(QStringLiteral("清空"), this);
     connect(m_clearBtn, &QPushButton::clicked, this, &OutputWidget::onClearClicked);
     top->addWidget(m_clearBtn);
@@ -141,22 +132,10 @@ void OutputWidget::onMessageArrived(int level, const QString &text)
 
     if (!levelVisible(level)) return;   // 被过滤的级别暂存，切换过滤时可重放
 
-    // QTextEdit::append() 会自动滚到底部。暂停滚动时，先记录当前滚动条位置，
-    // append 后再恢复，才能真正"停住"不跟随新消息滚动。
-    int savedScrollPos = 0;
-    if (m_paused) {
-        savedScrollPos = m_textEdit->verticalScrollBar()->value();
-    }
-
     m_textEdit->append(html);
-
-    if (m_paused) {
-        // append 的自动滚动是同步完成的，立即恢复原位置即可
-        m_textEdit->verticalScrollBar()->setValue(savedScrollPos);
-    } else {
-        m_textEdit->moveCursor(QTextCursor::End);
-        m_textEdit->verticalScrollBar()->setValue(m_textEdit->verticalScrollBar()->maximum());
-    }
+    // 有消息就刷到底部
+    m_textEdit->moveCursor(QTextCursor::End);
+    m_textEdit->verticalScrollBar()->setValue(m_textEdit->verticalScrollBar()->maximum());
 }
 
 void OutputWidget::onClearClicked()

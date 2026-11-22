@@ -13,7 +13,6 @@
 #include <QTextEdit>
 #include <QCheckBox>
 #include <QPushButton>
-#include <QToolButton>
 
 class OutputWidget : public QWidget
 {
@@ -47,9 +46,7 @@ private:
     QCheckBox    *m_chkWarn;
     QCheckBox    *m_chkError;
     QPushButton  *m_clearBtn;
-    QToolButton  *m_pauseBtn;
 
-    bool m_paused = false;                            ///< 暂停自动滚动
     QList<QPair<int, QString>> m_buffer;              ///< 缓存 <级别, 已格式化HTML>（切换过滤时重放）
 };
 
