@@ -24,7 +24,28 @@ QToolBar {
     background-color: #F0F0F0;
     border: 1px solid #D0D0D0;
 }
-/* 按钮（QToolButton/QPushButton）保持系统默认样式，不由 QSS 控制 */
+/* 工具栏按钮：扁平化，与背景融为一体（原来风格）；悬停时轻微高亮 */
+QToolBar QToolButton {
+    background: transparent;
+    border: none;
+    color: #222222;
+    padding: 3px 6px;
+}
+QToolBar QToolButton:hover {
+    background: rgba(0, 0, 0, 0.08);
+    border: none;
+}
+QToolBar QToolButton:pressed {
+    background: rgba(0, 0, 0, 0.15);
+}
+QToolBar QToolButton:checked {
+    background: rgba(0, 0, 0, 0.12);
+    border: none;
+}
+/* 视图下拉按钮不显示默认的三角指示箭头 */
+QToolBar QToolButton::menu-indicator { image: none; }
+
+/* 普通按钮保持系统默认样式 */
 
 QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     background-color: #FFFFFF;

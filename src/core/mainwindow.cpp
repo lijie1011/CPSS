@@ -95,7 +95,6 @@ MainWindow::MainWindow(QWidget *parent)
     themeBtn->setText(QStringLiteral("视图"));
     themeBtn->setToolTip(QStringLiteral("切换界面主题"));
     themeBtn->setPopupMode(QToolButton::InstantPopup);
-    themeBtn->setStyleSheet("QToolButton::menu-indicator { image: none; }");
 
     QMenu *themeMenu = new QMenu(themeBtn);
     QActionGroup *themeGroup = new QActionGroup(themeMenu);
