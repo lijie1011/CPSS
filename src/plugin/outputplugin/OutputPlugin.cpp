@@ -17,7 +17,7 @@ OutputPlugin::~OutputPlugin()
 
 QString OutputPlugin::pluginName() const
 {
-    return QStringLiteral("输出");
+    return QStringLiteral("控制台输出");
 }
 
 QString OutputPlugin::pluginId() const
