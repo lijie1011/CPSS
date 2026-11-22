@@ -28,7 +28,7 @@
 ### 核心目标
 - 基于海图的作战过程仿真（桌面端已实现基础框架）
 - 动态目标绘制与仿真数据展示（已实现：本船/AIS/传感器/武器/航迹）
-- 通过 DLL 插件扩展功能（已实现插件框架与 4 个插件）
+- 通过 DLL 插件扩展功能（已实现插件框架与 5 个插件，含输出插件）
 - 浏览器访问与 WebSocket 通信（**设计中，未实现**）
 
 ---
@@ -64,7 +64,7 @@ CPSS/
     ├── platformcontrolpanel.h/cpp # 平台控制面板
     ├── displaystate.h           # 显示状态定义
     ├── resource.qrc             # Qt 资源文件
-    ├── common/                  # 通用模块（logger / config / xmlconfig / IconManager）
+    ├── common/                  # 通用模块（logger / config / xmlconfig / IconManager / outputsink）
     ├── datalib/                 # 数据模块
     │   ├── datamanager.*        # 数据管理器（单例）
     │   ├── datacache.*          # 数据缓存（单例）
@@ -75,7 +75,7 @@ CPSS/
     │       ├── fastdds/         # Fast DDS 适配器（含 idl/ 数据契约）
     │       ├── redis/           # Redis 适配器（订阅 AFSIM 态势数据）
     │       └── rtidds/          # RTI DDS 态势显示转发器（需 RTI SDK，未装时为桩）
-    ├── plugin/                  # 插件框架 + 4 个插件（chart / hello / sample / dataflow）
+    ├── plugin/                  # 插件框架 + 5 个插件（chart / hello / sample / dataflow / output）
     ├── settings/                # 设置对话框（显示类别 / 视图分组 / 水深等高线）
     ├── resource/                # 平台图标等资源（JB / JB_Souce 等）
     └── 3dParty/                 # 第三方库
@@ -94,9 +94,9 @@ CPSS/
 | `src/CMakeLists.txt` | CMake 构建配置 | ✅ |
 | `src/main.cpp` | 程序入口 | ✅ |
 | `src/mainwindow.h/cpp` | 主窗口类 | ✅ |
-| `src/common/` | 日志、配置、图标管理 | ✅ |
+| `src/common/` | 日志、配置、图标管理、ut::log 输出汇聚 | ✅ |
 | `src/datalib/` | 数据管理与动态数据模型 | ✅ |
-| `src/plugin/` | 插件框架 + 4 个插件 DLL | ✅ |
+| `src/plugin/` | 插件框架 + 5 个插件 DLL（含输出插件） | ✅ |
 | `src/settings/` | 显示/视图/水深设置对话框 | ✅ |
 | `src/3dParty/` | Qt 与 Enclib（分卷压缩包 + 解压目录） | ✅ |
 
@@ -215,13 +215,28 @@ UseTestData=false    ; 默认 false；设为 true 可开启本地模拟目标（
 | 项目初始化 | ✅ 已完成 | - |
 | CMake 工程搭建 | ✅ 已完成 | Windows(VS2019) 可用，Linux 分支待完善 |
 | 海图引擎集成 | ✅ 已完成 | 需先解压 Enclib 分卷包 |
-| 插件框架 + 4 个插件 | ✅ 已完成 | chart / hello / sample / dataflow |
+| 插件框架 + 5 个插件 | ✅ 已完成 | chart / hello / sample / dataflow / output |
 | 动态数据模型与目标绘制 | ✅ 已完成 | 本船/AIS/传感器/武器/航迹/属性框 |
 | 设置面板（显示类别/视图分组/水深） | ✅ 已完成 | - |
 | WebSocket 服务 | 📋 设计中 | **未实现**（原文档误标"已完成"） |
 | 前端界面开发（Vue 3） | 📋 设计中 | 未开始，`web/` 目录不存在 |
 | 浏览器访问 / API 接口 | 📋 设计中 | 未实现 |
 | 测试与验证 | 📋 待开始 | 现有脚本引用旧路径，不可用 |
+
+### 输出面板与 ut::log（跨线程安全）
+任意模块/插件（含工作线程）都可以输出信息到"输出"面板，同时写入 `cpss.log`：
+```cpp
+#include "outputsink.h"
+ut::log::debug() << "收到平台数据 id=" << id;
+ut::log::info()  << "DDS 适配器已启动";
+ut::log::warn()  << "连接超时，准备重连";
+ut::log::error() << "解析失败";
+```
+- 流式调用在语句结束时一次性提交，多线程输出不会交错；
+- 通过 Qt 信号槽自动投递到 GUI 线程显示（线程安全）；
+- 颜色：debug/info 黑色、warn 黄色（暗金，白底可读）、error 红色；
+- 输出面板支持级别过滤、暂停滚动、清空；最多保留 1000 条；
+- 即使"输出"插件未加载，消息仍会写入 `cpss.log`。
 
 ---
 

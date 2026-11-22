@@ -3,6 +3,7 @@ set(COMMON_SOURCES
     config.cpp
     xmlconfig.cpp
     IconManager.cpp
+    outputsink.cpp
 )
 
 set(COMMON_HEADERS
@@ -10,6 +11,7 @@ set(COMMON_HEADERS
     config.h
     xmlconfig.h
     IconManager.h
+    outputsink.h
 )
 
 add_library(cpss_common SHARED

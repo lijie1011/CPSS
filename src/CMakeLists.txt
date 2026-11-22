@@ -3,6 +3,11 @@
 cmake_minimum_required(VERSION 3.13)
 project(CPSS VERSION 1.0 LANGUAGES CXX)
 
+# Debug 版本所有可执行文件/库加 d 后缀（与 Qt 命名风格一致）：
+#   cpss.exe -> cpssd.exe, cpss_data.dll -> cpss_datad.dll, chartplugin.dll -> chartplugind.dll
+# 设置在 project() 之后、add_subdirectory() 之前，自动作用于本工程所有 target。
+set(CMAKE_DEBUG_POSTFIX "d")
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -77,6 +82,9 @@ set(HEADERS
 )
 
 add_executable(cpss WIN32 ${SOURCES} ${HEADERS})
+# 显式设置主程序 Debug 后缀：CMake 生成 vcxproj 时会把 exe 的 TargetName 写死，
+# 全局 CMAKE_DEBUG_POSTFIX 对 WIN32 可执行程序不生效，需单独指定。
+set_target_properties(cpss PROPERTIES DEBUG_POSTFIX "d")
 
 target_include_directories(cpss PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -190,7 +198,7 @@ install(TARGETS cpss cpss_common cpss_data
 )
 
 # ---- 外部插件 DLL：安装到 bin/plugins，供运行期 PluginManager 扫描加载 ----
-install(TARGETS sampleplugin helloplugin dataflowplugin chartplugin
+install(TARGETS sampleplugin helloplugin dataflowplugin chartplugin outputplugin
     RUNTIME DESTINATION ${CPSS_INSTALL_PLUGINS}
     LIBRARY DESTINATION ${CPSS_INSTALL_PLUGINS}
 )
