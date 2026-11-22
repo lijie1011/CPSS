@@ -14,7 +14,7 @@ OutputSink* OutputSink::s_instance = nullptr;
 
 OutputSink::OutputSink(QObject *parent)
     : QObject(parent),
-      m_maxEntries(1000)
+      m_maxEntries(100000)   // 历史保留上限（仅用于插件延后加载时恢复），足够大避免丢失
 {
 }
 

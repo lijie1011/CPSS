@@ -24,7 +24,8 @@ OutputWidget::OutputWidget(QWidget *parent)
     m_textEdit->setStyleSheet(
         "QTextEdit { background-color: #FFFFFF; color: #000000; "
         "font-family: Consolas, 'Courier New', monospace; font-size: 12px; }");
-    m_textEdit->document()->setMaximumBlockCount(1000);  // 与 OutputSink 上限一致，防止 UI 无限膨胀
+    // 不设最大块数限制：Qt 删除旧块会导致内容上移、滚动位置错乱，
+    // 破坏"向上翻看历史时暂停跟随"的体验。
 
     // ---- 顶部：级别过滤 + 操作按钮 ----
     QHBoxLayout *top = new QHBoxLayout();
@@ -132,7 +133,6 @@ void OutputWidget::onMessageArrived(int level, const QString &text)
 
     // 缓存格式化后的行，供过滤切换时原样重放（保留原时间戳）
     m_buffer.append(qMakePair(level, html));
-    while (m_buffer.size() > 1000) m_buffer.removeFirst();
 
     if (!levelVisible(level)) return;   // 被过滤的级别暂存，切换过滤时可重放
 

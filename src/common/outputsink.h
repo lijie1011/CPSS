@@ -56,7 +56,7 @@ public:
     /** @brief 清空历史 */
     void clearHistory();
 
-    /** @brief 历史保留上限（默认 1000） */
+    /** @brief 历史保留上限（默认 100000） */
     void setMaxEntries(int max) { m_maxEntries = max; }
     int maxEntries() const { return m_maxEntries; }
 
