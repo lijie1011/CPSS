@@ -9,6 +9,8 @@
 #include <QMenuBar>
 #include <QMenu>
 #include <QToolBar>
+#include <QToolButton>
+#include <QActionGroup>
 #include <QStatusBar>
 #include <QDockWidget>
 #include <QAction>
@@ -88,12 +90,39 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionPlatformControl, &QAction::triggered, this, &MainWindow::showPlatformControl);
     connect(ui->actionHelp, &QAction::triggered, this, &MainWindow::showEventLegend);
 
-    // 视图菜单：白天/黑夜主题切换
-    QMenu *viewMenu = menuBar()->addMenu(QStringLiteral("视图"));
-    QAction *themeAction = viewMenu->addAction(QStringLiteral("切换白天/黑夜主题"));
-    themeAction->setCheckable(true);
-    themeAction->setChecked(ThemeManager::instance()->isDark());
-    connect(themeAction, &QAction::triggered, this, &MainWindow::toggleTheme);
+    // 工具栏"视图"下拉按钮（放在"帮助"按钮前）：选择白天/黑夜主题
+    QToolButton *themeBtn = new QToolButton(ui->toolBar);
+    themeBtn->setText(QStringLiteral("视图"));
+    themeBtn->setToolTip(QStringLiteral("切换界面主题"));
+    themeBtn->setPopupMode(QToolButton::InstantPopup);
+    themeBtn->setStyleSheet("QToolButton::menu-indicator { image: none; }");
+
+    QMenu *themeMenu = new QMenu(themeBtn);
+    QActionGroup *themeGroup = new QActionGroup(themeMenu);
+    themeGroup->setExclusive(true);
+
+    QAction *dayAction = themeMenu->addAction(QStringLiteral("白天"));
+    dayAction->setCheckable(true);
+    dayAction->setActionGroup(themeGroup);
+    QAction *nightAction = themeMenu->addAction(QStringLiteral("黑夜"));
+    nightAction->setCheckable(true);
+    nightAction->setActionGroup(themeGroup);
+
+    const bool isDark = ThemeManager::instance()->isDark();
+    dayAction->setChecked(!isDark);
+    nightAction->setChecked(isDark);
+
+    connect(dayAction, &QAction::triggered, this, [this]() {
+        if (ThemeManager::instance()->current() != Theme::Day)
+            ThemeManager::instance()->apply(Theme::Day);
+    });
+    connect(nightAction, &QAction::triggered, this, [this]() {
+        if (ThemeManager::instance()->current() != Theme::Night)
+            ThemeManager::instance()->apply(Theme::Night);
+    });
+
+    themeBtn->setMenu(themeMenu);
+    ui->toolBar->insertWidget(ui->actionHelp, themeBtn);
 
     // 插件管理器：创建后扫描 plugins/ 目录加载所有 DLL 插件（含海图插件）
     m_pluginManager = new PluginManager(this);
@@ -884,11 +913,6 @@ void MainWindow::showEventHistory()
  * @details 初始加载海图视图中的平台数据和显示状态，
  *          用户修改后通过 displayStateChanged 信号实时刷新海图
  */
-void MainWindow::toggleTheme()
-{
-    ThemeManager::instance()->toggle();
-}
-
 void MainWindow::showPlatformControl()
 {
     IChartPlugin *cp = chartPlugin();

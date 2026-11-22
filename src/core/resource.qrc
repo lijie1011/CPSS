@@ -1,7 +1,4 @@
 ﻿<RCC>
-    <qresource prefix="/">
-        <file alias="group70.png">../resource/组 70.png</file>
-    </qresource>
     <qresource prefix="/icons">
         <file alias="settings.png">../resource/images/settings64x64t.png</file>
         <file alias="ruler.png">../resource/images/ruler.png</file>

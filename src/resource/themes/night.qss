@@ -23,23 +23,7 @@ QToolBar {
     background-color: #2D2D30;
     border: 1px solid #3C3C3C;
 }
-QToolButton {
-    color: #D4D4D4;
-    padding: 3px;
-}
-QToolButton:hover {
-    background-color: #3C3C3C;
-}
-
-QPushButton {
-    background-color: #3C3C3C;
-    color: #D4D4D4;
-    border: 1px solid #555555;
-    border-radius: 3px;
-    padding: 4px 12px;
-}
-QPushButton:hover { background-color: #4A4A4A; }
-QPushButton:pressed { background-color: #2A2D2E; }
+/* 按钮（QToolButton/QPushButton）保持系统默认样式（原来的白天样式），不由 QSS 控制 */
 
 QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     background-color: #1E1E1E;
