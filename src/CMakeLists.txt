@@ -127,6 +127,8 @@ if(WIN32)
         # 拷贝资源目录（JB / JB_Souce 平台图标等）到运行期资源路径：
         # IconManager::resourcePath() = <exe目录>/../resource，即 build/bin/resource
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resource $<TARGET_FILE_DIR:cpss>/../resource
+        # 拷贝 Redis SDK 运行期 DLL（redis_middleware / redis_protocol / protobuf / hiredis / zlib）
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/3dParty/redis_sdk/bin $<TARGET_FILE_DIR:cpss>
     )
     
 

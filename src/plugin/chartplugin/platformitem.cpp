@@ -10,8 +10,10 @@
 #include <QPainter>
 #include <QFont>
 #include <QPolygonF>
+#include <cmath>
 
 #include "common/IconManager.h"
+#include "common/logger.h"
 
 /**
  * @brief 构造函数
@@ -26,8 +28,10 @@ PlatformItem::PlatformItem(const PlatformData &platform, QGraphicsItem *parent)
     updateIcon();
     updateBoundingRect();
 
+    // 图标默认船头朝上（北，0°）；AFSIM 航向也是 0°=北顺时针，
+    // 故直接旋转 heading 即可，无需再减 90
     if (platform.heading >= 0) {
-        setRotation(platform.heading - 90);
+        setRotation(platform.heading);
     }
 
     // 阵营颜色统一由公共映射 campColor() 提供（我红敌蓝）
@@ -70,14 +74,14 @@ void PlatformItem::updateIcon()
  */
 void PlatformItem::updateBoundingRect()
 {
-    int textHeight = 15;
-    // 所有平台（含导弹）均以图标绘制，优先按图标尺寸计算边界矩形
-    if (!m_scaledIcon.isNull()) {
-        m_boundingRect = QRectF(-m_scaledIcon.width()/2 - 5, -m_scaledIcon.height()/2 - 5,
-                                m_scaledIcon.width() + 10, m_scaledIcon.height() + 10 + textHeight);
-    } else {
-        m_boundingRect = QRectF(-15, -15, 30, 45);
-    }
+    // 边界矩形需覆盖“旋转后的图标 + 旋转到任意方位的标签”，
+    // 否则 Qt 只重绘矩形区域，旧位置的标签不会被擦除，出现标签滞留残影。
+    // 用足够大的正方形（以原点为中心）保证任意航向下都完整覆盖。
+    qreal iconReach = m_scaledIcon.isNull() ? 15.0
+                                            : qMax(m_scaledIcon.width(), m_scaledIcon.height()) / 2.0;
+    qreal labelReach = 45.0;   // 标签宽40、位于图标下方，反向旋转后最大半径约45
+    qreal r = qMax(iconReach + 6.0, labelReach) + 4.0;
+    m_boundingRect = QRectF(-r, -r, 2 * r, 2 * r);
 }
 
 /**
@@ -94,7 +98,7 @@ void PlatformItem::updateData(const PlatformData &platform)
     }
 
     if (m_platform.heading != platform.heading && platform.heading >= 0) {
-        setRotation(platform.heading - 90);
+        setRotation(platform.heading);
         needUpdate = true;
     }
 
@@ -161,25 +165,37 @@ void PlatformItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     }
 
     if (m_displayState.showName) {
+        // 标签要求在“图标正下方、文字水平、且跟随图元移动”。
+        // 图元本身已 setRotation(heading)，paint 坐标系是旋转后的：
+        //   1) 先算出图标下方中心点在“当前旋转坐标系”里的位置 labelPos，
+        //      使它抵消图元旋转后仍位于屏幕正下方；
+        //   2) translate 到 labelPos，再 rotate(-heading) 让文字水平；
+        //   3) 以原点为中心绘制文字。
+        // 这样不会因 rotate 绕原点导致标签绕圈/滞留。
         painter->save();
-        
-        if (m_platform.heading >= 0) {
-            painter->rotate(-(m_platform.heading - 90));
-        }
-        
-        painter->setFont(QFont("Arial", 8));
+
+        // 屏幕坐标下期望的标签位置（相对图元原点，屏幕正下方）
+        const qreal screenLabelY = m_scaledIcon.isNull()
+                                   ? 12.0
+                                   : (m_scaledIcon.height() / 2.0 + 6.0);
+        QPointF screenLabelPos(0.0, screenLabelY);
+
+        // 转换到当前 paint（已旋转 heading）坐标系：反向旋转
+        const qreal h = m_platform.heading >= 0 ? m_platform.heading : 0.0;
+        const qreal pi = 3.14159265358979323846;
+        const qreal rad = -h * pi / 180.0;
+        QPointF labelPos(screenLabelPos.x() * std::cos(rad) - screenLabelPos.y() * std::sin(rad),
+                         screenLabelPos.x() * std::sin(rad) + screenLabelPos.y() * std::cos(rad));
+
+        painter->translate(labelPos);      // 先移动到标签位置
+        painter->rotate(-h);               // 再抵消图元旋转，使文字水平
+
+        QFont font("Arial", 8);
+        painter->setFont(font);
         painter->setPen(Qt::white);
-        
-        QRectF textRect;
-        // 名称统一显示在图标下方
-        if (!m_scaledIcon.isNull()) {
-            textRect = QRectF(-20, m_scaledIcon.height()/2 + 5, 40, 15);
-        } else {
-            textRect = QRectF(-15, 10, 30, 15);
-        }
-        
+        QRectF textRect(-20, 0, 40, 15);   // 以 labelPos 为中心
         painter->drawText(textRect, Qt::AlignCenter, m_platform.id);
-        
+
         painter->restore();
     }
 }

@@ -73,7 +73,8 @@ CPSS/
     │       ├── commmanager.*    # 通信管理器，统一装配适配器
     │       ├── http/            # HTTP 适配器
     │       ├── fastdds/         # Fast DDS 适配器（含 idl/ 数据契约）
-    │       └── rtidds/          # RTI DDS 适配器（预留）
+    │       ├── redis/           # Redis 适配器（订阅 AFSIM 态势数据）
+    │       └── rtidds/          # RTI DDS 态势显示转发器（需 RTI SDK，未装时为桩）
     ├── plugin/                  # 插件框架 + 4 个插件（chart / hello / sample / dataflow）
     ├── settings/                # 设置对话框（显示类别 / 视图分组 / 水深等高线）
     ├── resource/                # 平台图标等资源（JB / JB_Souce 等）
@@ -172,6 +173,38 @@ cpss.exe --chart-dir <path>   # 声明了此参数（当前代码未使用）
 ```
 > 说明：当前程序**不监听任何网络端口**，`--web` / `--port` 参数不存在。
 > 日志输出到 exe 同目录的 `cpss.log`。
+
+### AFSIM 态势数据接入（Redis）
+CPSS 通过 Redis 订阅 AFSIM 仿真软件发布的态势数据，链路为：
+
+```
+AFSIM redis_ext (sendCustomize_Info)
+   └─ Redis PUBLISH "target:data:channel" (HTProto::Customize_Info, protobuf)
+        └─ CPSS RedisAdapter 订阅 → PlatformData → DataManager → 海图显示
+                                          └→ SituationForwarder → 态势显示（RTI DDS，需SDK）
+```
+
+**配置**（exe 同目录 `cpss.ini`）：
+```ini
+[Redis]
+Host=127.0.0.1
+Port=6379
+```
+默认值即 `127.0.0.1:6379`。订阅频道固定为 `target:data:channel`。
+
+**测试数据开关**（默认关闭，海图只显示 Redis 真实数据）：
+```ini
+[DataSource]
+UseTestData=false    ; 默认 false；设为 true 可开启本地模拟目标（调试用）
+```
+> 之前海图上自动出现的"红船1/红船2"等目标来自 `ChartPlugin` 启动的本地测试数据定时器，
+> 现已默认关闭。需要恢复模拟数据时才设为 `true`。
+
+**重要约束**：
+- Redis SDK（`3dParty/redis_sdk`）只有 **Release(/MD)** 版。**必须用 Release 配置运行**才能接收数据；
+  Debug(/MDd) 下 RedisAdapter 自动降级为桩（不崩溃，但不接收数据），日志会提示用 Release。
+- Redis SDK 的 DLL（含 protobuf/hiredis/zlib）已配置 POST_BUILD 自动部署到 exe 目录。
+- 态势显示转发（RTI Connext DDS）为商业库，未装 SDK 时为空桩；装了 SDK 并定义 `CPSS_ENABLE_RTI_DDS` 后启用。
 
 ---
 

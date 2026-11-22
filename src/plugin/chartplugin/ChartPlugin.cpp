@@ -17,6 +17,7 @@
 #include <QTextStream>
 #include <QDateTime>
 #include <QCoreApplication>
+#include <QSettings>
 
 // 日志辅助函数：通过 Logger 输出信息级别日志
 static inline void logInfo(const QString &msg) {
@@ -172,8 +173,13 @@ QWidget* ChartPlugin::createWidget(QWidget *parent)
         // 增量：新增事件 → 刷新事件标记（替代已停用的全量 dynamicDataChanged 兜底）
         connect(dm, &DataManager::eventAdded,
                 m_viewWidget, &GraphicsViewWidget::refreshEventMarkers);
-        // 测试数据 1 秒更新一次（1Hz），配合较大的每拍位移使目标移动更明显
-        dm->startTestDataTimer(1000);
+        // 测试数据默认关闭：真实态势数据由 Redis 适配器提供。
+        // 需要本地模拟数据时，在 cpss.ini 中设置 [DataSource] UseTestData=true
+        QSettings settings(QCoreApplication::applicationDirPath() + "/cpss.ini", QSettings::IniFormat);
+        if (settings.value("DataSource/UseTestData", false).toBool()) {
+            logInfo(QStringLiteral("[Chart] use local test data (1Hz)"));
+            dm->startTestDataTimer(1000);
+        }
     }
 
     logInfo(QString("[ChartPlugin] createWidget done, view=%1")

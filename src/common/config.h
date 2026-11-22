@@ -10,12 +10,18 @@
 #include <QString>
 #include <QSettings>
 
+#ifdef CPSS_COMMON_EXPORT
+#   define CPSS_COMMON_API __declspec(dllexport)
+#else
+#   define CPSS_COMMON_API __declspec(dllimport)
+#endif
+
 /**
  * @class Config
  * @brief 配置管理器类
  * @details 使用单例模式管理应用程序配置项，通过QSettings实现配置的持久化存储。
  */
-class Config
+class CPSS_COMMON_API Config
 {
 public:
     /**
@@ -83,6 +89,27 @@ public:
      * @param category 显示类别名称
      */
     void setDisplayCategory(const QString &category);
+
+    /**
+     * @brief 获取 Redis 服务器地址
+     * @return IP 地址字符串（默认 127.0.0.1）
+     */
+    QString getRedisHost() const;
+
+    /**
+     * @brief 设置 Redis 服务器地址
+     */
+    void setRedisHost(const QString &host);
+
+    /**
+     * @brief 获取 Redis 端口（默认 6379）
+     */
+    int getRedisPort() const;
+
+    /**
+     * @brief 设置 Redis 端口
+     */
+    void setRedisPort(int port);
 
     /**
      * @brief 加载配置

@@ -129,6 +129,32 @@ void Config::setDisplayCategory(const QString &category)
 }
 
 /**
+ * @brief 获取 Redis 服务器地址
+ */
+QString Config::getRedisHost() const
+{
+    return m_settings.value("Redis/Host", "127.0.0.1").toString();
+}
+
+void Config::setRedisHost(const QString &host)
+{
+    m_settings.setValue("Redis/Host", host);
+}
+
+/**
+ * @brief 获取 Redis 端口
+ */
+int Config::getRedisPort() const
+{
+    return m_settings.value("Redis/Port", 6379).toInt();
+}
+
+void Config::setRedisPort(int port)
+{
+    m_settings.setValue("Redis/Port", port);
+}
+
+/**
  * @brief 加载配置
  * @details 从配置文件加载所有配置项
  */

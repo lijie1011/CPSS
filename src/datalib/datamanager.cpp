@@ -343,6 +343,9 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
     platform.lat = obj["lat"].toDouble();
     platform.altitude = obj["altitude"].toDouble();
     platform.speed = obj["speed"].toDouble();
+    // 航向（度，0°=正北顺时针）；兼容直接传 heading 或 absoluteHeading
+    platform.heading = obj.contains("heading") ? obj["heading"].toDouble()
+                                               : obj["absoluteHeading"].toDouble(0.0);
     platform.type = obj["platformType"].toString();
     if (platform.type.isEmpty()) platform.type = obj["type"].toString();
     platform.category = obj["category"].toString();

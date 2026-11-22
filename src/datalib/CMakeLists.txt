@@ -5,6 +5,9 @@ set(DATALIB_SOURCES
     comm/http/httpadapter.cpp
     comm/fastdds/ddsadapter.cpp
     comm/fastdds/ddsconverter.cpp
+    comm/redis/redisadapter.cpp
+    comm/redis/redis_fieldmap.cpp
+    comm/rtidds/situationforwarder.cpp
 )
 
 set(DATALIB_HEADERS
@@ -16,6 +19,9 @@ set(DATALIB_HEADERS
     comm/http/httpadapter.h
     comm/fastdds/ddsadapter.h
     comm/fastdds/ddsconverter.h
+    comm/redis/redisadapter.h
+    comm/redis/redis_fieldmap.h
+    comm/rtidds/situationforwarder.h
 )
 
 add_library(cpss_data SHARED
@@ -41,7 +47,9 @@ target_include_directories(cpss_data PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/comm
     ${CMAKE_CURRENT_SOURCE_DIR}/comm/http
-    ${CMAKE_CURRENT_SOURCE_DIR}/comm/dds
+    ${CMAKE_CURRENT_SOURCE_DIR}/comm/fastdds
+    ${CMAKE_CURRENT_SOURCE_DIR}/comm/redis
+    ${CMAKE_CURRENT_SOURCE_DIR}/comm/rtidds
     ${PROJECT_SOURCE_DIR}/common
 )
 
@@ -53,10 +61,8 @@ target_link_libraries(cpss_data PRIVATE
 )
 
 # ============================================================
-#  Fast DDS 可选依赖
-#  未安装时自动降级为桩实现（CPSS_ENABLE_DDS 不定义），工程照常编译。
-#  安装方式：vcpkg install fastdds:x64-windows
-#  启用：cmake -S src -B src/build -DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake
+#  Fast DDS 可选依赖（未安装时降级为桩实现）
+#  安装：vcpkg install fastdds:x64-windows
 # ============================================================
 find_package(fastdds CONFIG QUIET)
 if(fastdds_FOUND)
@@ -64,7 +70,6 @@ if(fastdds_FOUND)
     target_compile_definitions(cpss_data PRIVATE CPSS_ENABLE_DDS)
     target_link_libraries(cpss_data PRIVATE fastdds fastcdr)
 
-    # fastddsgen 生成的代码目录（先手工生成后放入 fastdds/generated）
     set(DDS_GENERATED_DIR ${CMAKE_CURRENT_SOURCE_DIR}/comm/fastdds/generated)
     if(EXISTS "${DDS_GENERATED_DIR}/CPSSDataCdr.h")
         target_include_directories(cpss_data PRIVATE ${DDS_GENERATED_DIR})
@@ -73,8 +78,47 @@ if(fastdds_FOUND)
             ${DDS_GENERATED_DIR}/CPSSDataPubSubTypes.cxx
         )
     else()
-        message(WARNING "Fast DDS 已找到，但未发现生成的 IDL 代码 ${DDS_GENERATED_DIR}，DDS 收发无法工作")
+        message(WARNING "Fast DDS 已找到，但未发现生成的 IDL 代码 ${DDS_GENERATED_DIR}")
     endif()
 else()
-    message(STATUS "Fast DDS not found -> DDS adapter builds as stub (no real communication)")
+    message(STATUS "Fast DDS not found -> DDS adapter builds as stub")
+endif()
+
+# ============================================================
+#  Redis SDK（AFSIM 态势数据接入）
+#  位置：src/3dParty/redis_sdk
+#  依赖顺序：必须先找 protobuf / hiredis / ZLIB，再找 RedisSDK
+# ============================================================
+set(REDIS_SDK_ROOT "${PROJECT_SOURCE_DIR}/3dParty/redis_sdk")
+if(EXISTS "${REDIS_SDK_ROOT}/lib/cmake/RedisSDK/RedisSDKConfig.cmake")
+    find_package(protobuf CONFIG REQUIRED PATHS "${REDIS_SDK_ROOT}/cmake" NO_DEFAULT_PATH)
+    find_package(hiredis CONFIG REQUIRED PATHS "${REDIS_SDK_ROOT}/share/hiredis" NO_DEFAULT_PATH)
+    find_package(ZLIB CONFIG REQUIRED PATHS "${REDIS_SDK_ROOT}/lib/cmake/zlib" NO_DEFAULT_PATH)
+    find_package(RedisSDK 1.0 CONFIG REQUIRED PATHS "${REDIS_SDK_ROOT}/lib/cmake/RedisSDK" NO_DEFAULT_PATH)
+
+    message(STATUS "Redis SDK found -> enabling Redis adapter (Release only)")
+    target_include_directories(cpss_data PRIVATE ${REDIS_SDK_ROOT}/include)
+    # Redis SDK 只有 Release(/MD) 版，Debug(/MDd) 链接会 CRT 冲突崩溃，
+    # 故仅在 Release 及非多配置生成器下链接并定义 CPSS_ENABLE_REDIS
+    target_link_libraries(cpss_data PRIVATE
+        $<$<NOT:$<CONFIG:Debug>>:Redis::redis_middleware>
+        $<$<NOT:$<CONFIG:Debug>>:hiredis::hiredis>
+        $<$<NOT:$<CONFIG:Debug>>:ZLIB::ZLIB>
+    )
+    target_compile_definitions(cpss_data PRIVATE
+        $<$<NOT:$<CONFIG:Debug>>:CPSS_ENABLE_REDIS>
+    )
+else()
+    message(WARNING "Redis SDK not found at ${REDIS_SDK_ROOT} -> Redis adapter may fail to compile")
+endif()
+
+# ============================================================
+#  RTI Connext DDS（态势显示转发，可选）
+#  商业库，需设置 NDDSHOME 并安装授权；未安装时降级为桩实现
+# ============================================================
+if(DEFINED ENV{NDDSHOME} AND EXISTS "$ENV{NDDSHOME}")
+    message(STATUS "NDDSHOME found: $ENV{NDDSHOME} -> TODO: integrate RTI Connext DDS")
+    # TODO: 安装 RTI Connext 后：find_package(RTIConnextDDS) + target_compile_definitions(CPSS_ENABLE_RTI_DDS)
+else()
+    message(STATUS "RTI Connext DDS not found -> situation forwarder builds as stub")
 endif()

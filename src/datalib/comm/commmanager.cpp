@@ -7,8 +7,11 @@
 #include "commmanager.h"
 #include "datamanager.h"
 #include "fastdds/ddsadapter.h"
+#include "redis/redisadapter.h"
+#include "rtidds/situationforwarder.h"
 // #include "http/httpadapter.h"   // 启用 HTTP 适配器时取消注释
 #include "logger.h"
+#include "config.h"
 
 static inline void commLog(const QString &msg) {
     Logger::info("[CommManager] %s", msg.toUtf8().constData());
@@ -51,6 +54,24 @@ void CommManager::startAll()
     } else {
         commLog(QStringLiteral("DDS adapter start failed (stub or no Fast DDS): ") + dds->lastError());
     }
+
+    // ---- Redis 适配器（订阅 AFSIM 态势数据）----
+    Config &cfg = Config::instance();
+    RedisAdapter* redis = new RedisAdapter(this);
+    redis->setHost(cfg.getRedisHost());          // 默认 127.0.0.1
+    redis->setPort(cfg.getRedisPort());          // 默认 6379
+    redis->setChannel(QStringLiteral("target:data:channel"));
+    dm->addAdapter(redis);
+    m_adapters.append(redis);
+    if (redis->start()) {
+        commLog(QStringLiteral("Redis adapter started: %1:%2")
+                .arg(redis->host()).arg(redis->port()));
+    } else {
+        commLog(QStringLiteral("Redis adapter start failed: ") + redis->lastError());
+    }
+
+    // ---- 态势显示转发器（RTI DDS 发布端）----
+    SituationForwarder::instance()->initialize();
 
     // ---- HTTP 适配器（预留：需要配置 URL 时才启用）----
     // HttpAdapter* http = new HttpAdapter(this);
