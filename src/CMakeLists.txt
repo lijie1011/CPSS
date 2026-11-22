@@ -53,11 +53,11 @@ add_subdirectory(datalib)
 add_subdirectory(plugin)
 
 set(SOURCES
-    main.cpp
-    mainwindow.cpp
-    eventhistorydialog.cpp
-    platformcontrolpanel.cpp
-    mainwindow.ui
+    core/main.cpp
+    core/mainwindow.cpp
+    core/eventhistorydialog.cpp
+    core/platformcontrolpanel.cpp
+    core/mainwindow.ui
     settings/displaycategory.cpp
     settings/displaycategory.ui
     settings/viewinggroupdialog.cpp
@@ -67,10 +67,10 @@ set(SOURCES
 )
 
 set(HEADERS
-    mainwindow.h
-    eventhistorydialog.h
-    platformcontrolpanel.h
-    displaystate.h
+    core/mainwindow.h
+    core/eventhistorydialog.h
+    core/platformcontrolpanel.h
+    core/displaystate.h
     settings/displaycategory.h
     settings/viewinggroupdialog.h
     settings/waterdepthsetting.h
@@ -80,6 +80,7 @@ add_executable(cpss WIN32 ${SOURCES} ${HEADERS})
 
 target_include_directories(cpss PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}/datalib
     ${CMAKE_CURRENT_SOURCE_DIR}/plugin

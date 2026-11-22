@@ -9,8 +9,9 @@ set(CMAKE_AUTOUIC ON)
 
 # 插件框架头文件目录（plugin/），提供 IPlugin.h / IPluginHost.h / PluginManager.h
 set(PLUGIN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
-# 项目根目录（src/），提供 displaystate.h 等共享头文件
+# 项目根目录（src/）与 core 目录（提供 displaystate.h 等共享头文件）
 set(SRC_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+set(CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../core)
 # 数据层目录（datalib/），提供 dynamicdata.h / datamanager.h 等
 set(DATALIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../datalib)
 
@@ -38,6 +39,7 @@ endif()
 target_include_directories(chartplugin PRIVATE
     ${PLUGIN_INCLUDE_DIR}
     ${SRC_ROOT_DIR}
+    ${CORE_DIR}
     ${SRC_ROOT_DIR}/common
     ${DATALIB_DIR}
     ${ENCLIB_INCLUDE_DIR}
