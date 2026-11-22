@@ -42,6 +42,9 @@ private:
     /** @brief 判断是否显示该级别 */
     bool levelVisible(int level) const;
 
+    /** @brief 从 OutputSink 历史重新加载显示（主题切换后刷新颜色用） */
+    void reloadHistory();
+
     QTextEdit    *m_textEdit;
     QCheckBox    *m_chkDebug;
     QCheckBox    *m_chkInfo;

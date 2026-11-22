@@ -1,0 +1,131 @@
+/* CPSS 黑夜主题 QSS（VS Code 深色风格） */
+
+QWidget {
+    background-color: #1E1E1E;
+    color: #D4D4D4;
+    font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+    font-size: 12px;
+}
+
+QMainWindow, QDialog {
+    background-color: #252526;
+}
+
+QMenuBar, QMenu {
+    background-color: #2D2D30;
+    color: #D4D4D4;
+}
+QMenuBar::item:selected, QMenu::item:selected {
+    background-color: #094771;
+}
+
+QToolBar {
+    background-color: #2D2D30;
+    border: 1px solid #3C3C3C;
+}
+QToolButton {
+    color: #D4D4D4;
+    padding: 3px;
+}
+QToolButton:hover {
+    background-color: #3C3C3C;
+}
+
+QPushButton {
+    background-color: #3C3C3C;
+    color: #D4D4D4;
+    border: 1px solid #555555;
+    border-radius: 3px;
+    padding: 4px 12px;
+}
+QPushButton:hover { background-color: #4A4A4A; }
+QPushButton:pressed { background-color: #2A2D2E; }
+
+QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+    background-color: #1E1E1E;
+    color: #D4D4D4;
+    border: 1px solid #3C3C3C;
+    border-radius: 2px;
+    padding: 2px;
+    selection-background-color: #094771;
+    selection-color: #FFFFFF;
+}
+
+QTreeWidget, QTableWidget, QListView, QListWidget {
+    background-color: #1E1E1E;
+    color: #D4D4D4;
+    border: 1px solid #3C3C3C;
+    alternate-background-color: #252526;
+}
+QTreeWidget::item:hover, QTableWidget::item:hover {
+    background-color: #2A3D4D;
+}
+QTreeWidget::item:selected, QTableWidget::item:selected {
+    background-color: #094771;
+    color: #FFFFFF;
+}
+QHeaderView::section {
+    background-color: #2D2D30;
+    color: #D4D4D4;
+    border: 1px solid #3C3C3C;
+    padding: 3px;
+}
+
+QTabWidget::pane {
+    border: 1px solid #3C3C3C;
+    background-color: #1E1E1E;
+}
+QTabBar::tab {
+    background-color: #2D2D30;
+    color: #D4D4D4;
+    border: 1px solid #3C3C3C;
+    padding: 5px 12px;
+}
+QTabBar::tab:selected {
+    background-color: #1E1E1E;
+    border-bottom-color: #1E1E1E;
+}
+
+QDockWidget {
+    color: #D4D4D4;
+}
+QDockWidget::title {
+    background-color: #2D2D30;
+    color: #D4D4D4;
+    border: 1px solid #3C3C3C;
+    padding: 4px;
+}
+
+QCheckBox, QRadioButton {
+    color: #D4D4D4;
+    spacing: 5px;
+}
+QLabel { color: #D4D4D4; }
+QGroupBox {
+    color: #D4D4D4;
+    border: 1px solid #3C3C3C;
+    border-radius: 3px;
+    margin-top: 8px;
+}
+QGroupBox::title { color: #D4D4D4; subcontrol-origin: margin; }
+
+QScrollBar:vertical {
+    background: #1E1E1E;
+    width: 14px;
+    margin: 0;
+}
+QScrollBar::handle:vertical { background: #4A4A4A; border-radius: 4px; min-height: 20px; }
+QScrollBar::handle:vertical:hover { background: #6A6A6A; }
+QScrollBar:horizontal {
+    background: #1E1E1E;
+    height: 14px;
+}
+QScrollBar::handle:horizontal { background: #4A4A4A; border-radius: 4px; min-width: 20px; }
+
+QStatusBar { background-color: #2D2D30; color: #D4D4D4; }
+
+/* 输出面板（控制台输出）专用 */
+#OutputTextEdit {
+    background-color: #1E1E1E;
+    color: #D4D4D4;
+}

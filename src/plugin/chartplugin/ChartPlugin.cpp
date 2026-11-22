@@ -11,6 +11,7 @@
 #include "encl.h"
 #include "datamanager.h"
 #include "common/logger.h"
+#include "common/thememanager.h"
 
 #include <QDir>
 #include <QFile>
@@ -134,6 +135,21 @@ bool ChartPlugin::init(IPluginHost *host)
 
     m_enclibReady = enclibUsable;
     logInfo(QString("[ChartPlugin] enclibReady=%1").arg(enclibUsable));
+
+    // 主题同步：初始化时按当前主题设置 Enclib 配色，并监听后续切换
+    if (m_enclibReady) {
+        const QString scheme = ThemeManager::themeName(ThemeManager::instance()->current());
+        EnclDrawSetColorScheme(scheme.toLocal8Bit().constData());
+        logInfo("[ChartPlugin] Enclib color scheme set to " + scheme);
+    }
+    connect(ThemeManager::instance(), &ThemeManager::themeChanged,
+            this, [this](Theme theme) {
+        if (!m_enclibReady) return;
+        const QString scheme = ThemeManager::themeName(theme);
+        EnclDrawSetColorScheme(scheme.toLocal8Bit().constData());
+        if (m_viewWidget) m_viewWidget->update();
+        logInfo("[ChartPlugin] theme changed -> Enclib " + scheme);
+    });
 
     // DataManager 与 GraphicsViewWidget 的连接延后到 createWidget 中，
     // 因为此时 widget 尚未创建，待控件创建完成后再进行连接。

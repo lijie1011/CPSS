@@ -4,6 +4,8 @@ set(COMMON_SOURCES
     xmlconfig.cpp
     IconManager.cpp
     outputsink.cpp
+    thememanager.cpp
+    theme_colors.cpp
 )
 
 set(COMMON_HEADERS
@@ -12,6 +14,8 @@ set(COMMON_HEADERS
     xmlconfig.h
     IconManager.h
     outputsink.h
+    thememanager.h
+    theme_colors.h
 )
 
 add_library(cpss_common SHARED
@@ -37,6 +41,7 @@ target_link_libraries(cpss_common PRIVATE
     Qt5::Core
     Qt5::Xml
     Qt5::Gui
+    Qt5::Widgets
 )
 
 if(WIN32)

@@ -6,6 +6,8 @@
 
 #include "OutputWidget.h"
 #include "outputsink.h"
+#include "theme_colors.h"
+#include "thememanager.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -19,11 +21,9 @@ OutputWidget::OutputWidget(QWidget *parent)
 {
     // ---- 主体：只读文本显示 ----
     m_textEdit = new QTextEdit(this);
+    m_textEdit->setObjectName(QStringLiteral("OutputTextEdit"));  // QSS 按主题控制背景/前景
     m_textEdit->setReadOnly(true);
     m_textEdit->setLineWrapMode(QTextEdit::NoWrap);
-    m_textEdit->setStyleSheet(
-        "QTextEdit { background-color: #FFFFFF; color: #000000; "
-        "font-family: Consolas, 'Courier New', monospace; font-size: 12px; }");
     // 不设最大块数限制：Qt 删除旧块会导致内容上移、滚动位置错乱，
     // 破坏"向上翻看历史时暂停跟随"的体验。
 
@@ -40,11 +40,9 @@ OutputWidget::OutputWidget(QWidget *parent)
     m_chkWarn->setChecked(true);
     m_chkError->setChecked(true);
 
-    // 用颜色标注复选框文字，直观提示级别颜色
-    m_chkDebug->setStyleSheet("QCheckBox { color: #000000; }");
-    m_chkInfo->setStyleSheet("QCheckBox { color: #000000; }");
-    m_chkWarn->setStyleSheet("QCheckBox { color: #B8860B; }");
-    m_chkError->setStyleSheet("QCheckBox { color: #D00000; }");
+    // debug/info 用主题默认色（由 QSS 控制），warn/error 用语义色标注
+    m_chkWarn->setStyleSheet("QCheckBox { color: #C8A000; }");
+    m_chkError->setStyleSheet("QCheckBox { color: #E06060; }");
 
     connect(m_chkDebug, &QCheckBox::toggled, this, &OutputWidget::onFilterToggled);
     connect(m_chkInfo,  &QCheckBox::toggled, this, &OutputWidget::onFilterToggled);
@@ -77,7 +75,20 @@ OutputWidget::OutputWidget(QWidget *parent)
             this, &OutputWidget::onMessageArrived, Qt::QueuedConnection);
 
     // 加载已积累的历史消息
+    reloadHistory();
+
+    // 主题切换后重新渲染历史（颜色随主题变化）
+    connect(ThemeManager::instance(), &ThemeManager::themeChanged,
+            this, [this](Theme) { reloadHistory(); });
+}
+
+void OutputWidget::reloadHistory()
+{
+    m_appending = true;
+    m_textEdit->clear();
+    m_buffer.clear();
     const auto hist = OutputSink::instance()->history();
+    m_appending = false;
     for (const auto &item : hist) {
         onMessageArrived((int)item.first, item.second);
     }
@@ -91,10 +102,10 @@ QString OutputWidget::colorForLevel(int level)
 {
     switch (static_cast<LogLevel>(level)) {
     case LogLevel::Debug:
-    case LogLevel::Info:  return QStringLiteral("#000000");   // 黑
-    case LogLevel::Warn:  return QStringLiteral("#B8860B");   // 黄色系（暗金，白底可读）
-    case LogLevel::Error: return QStringLiteral("#D00000");   // 红
-    default:              return QStringLiteral("#000000");
+    case LogLevel::Info:  return ThemeColors::text().name();  // 跟随主题文字色
+    case LogLevel::Warn:  return QStringLiteral("#C8A000");   // 黄色系（语义色，两种主题都可读）
+    case LogLevel::Error: return QStringLiteral("#E06060");   // 红色系（语义色，两种主题都可读）
+    default:              return ThemeColors::text().name();
     }
 }
 

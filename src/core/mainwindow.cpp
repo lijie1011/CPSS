@@ -45,6 +45,7 @@
 #include <QApplication>
 #include "common/logger.h"
 #include "common/xmlconfig.h"
+#include "common/thememanager.h"
 #include "common/IconManager.h"
 #include "dynamicdata.h"
 
@@ -86,6 +87,13 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionEventHistory, &QAction::triggered, this, &MainWindow::showEventHistory);
     connect(ui->actionPlatformControl, &QAction::triggered, this, &MainWindow::showPlatformControl);
     connect(ui->actionHelp, &QAction::triggered, this, &MainWindow::showEventLegend);
+
+    // 视图菜单：白天/黑夜主题切换
+    QMenu *viewMenu = menuBar()->addMenu(QStringLiteral("视图"));
+    QAction *themeAction = viewMenu->addAction(QStringLiteral("切换白天/黑夜主题"));
+    themeAction->setCheckable(true);
+    themeAction->setChecked(ThemeManager::instance()->isDark());
+    connect(themeAction, &QAction::triggered, this, &MainWindow::toggleTheme);
 
     // 插件管理器：创建后扫描 plugins/ 目录加载所有 DLL 插件（含海图插件）
     m_pluginManager = new PluginManager(this);
@@ -876,6 +884,11 @@ void MainWindow::showEventHistory()
  * @details 初始加载海图视图中的平台数据和显示状态，
  *          用户修改后通过 displayStateChanged 信号实时刷新海图
  */
+void MainWindow::toggleTheme()
+{
+    ThemeManager::instance()->toggle();
+}
+
 void MainWindow::showPlatformControl()
 {
     IChartPlugin *cp = chartPlugin();

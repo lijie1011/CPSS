@@ -67,6 +67,7 @@ set(SOURCES
     core/mainwindow.cpp
     core/eventhistorydialog.cpp
     core/platformcontrolpanel.cpp
+    core/resource.qrc
     core/mainwindow.ui
     settings/displaycategory.cpp
     settings/displaycategory.ui

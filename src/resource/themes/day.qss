@@ -1,0 +1,133 @@
+/* CPSS 白天主题 QSS */
+/* 说明：全局控件样式；局部硬编码样式优先级更高，后续逐步迁移到此处 */
+
+QWidget {
+    background-color: #FFFFFF;
+    color: #222222;
+    font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+    font-size: 12px;
+}
+
+QMainWindow, QDialog {
+    background-color: #F5F5F5;
+}
+
+QMenuBar, QMenu {
+    background-color: #F0F0F0;
+    color: #222222;
+}
+QMenuBar::item:selected, QMenu::item:selected {
+    background-color: #D0E0F0;
+}
+
+QToolBar {
+    background-color: #F0F0F0;
+    border: 1px solid #D0D0D0;
+}
+QToolButton {
+    color: #222222;
+    padding: 3px;
+}
+QToolButton:hover {
+    background-color: #E0E8F0;
+}
+
+QPushButton {
+    background-color: #F0F0F0;
+    color: #222222;
+    border: 1px solid #B0B0B0;
+    border-radius: 3px;
+    padding: 4px 12px;
+}
+QPushButton:hover { background-color: #E4ECF5; }
+QPushButton:pressed { background-color: #D0DCE8; }
+
+QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+    background-color: #FFFFFF;
+    color: #222222;
+    border: 1px solid #C0C0C0;
+    border-radius: 2px;
+    padding: 2px;
+    selection-background-color: #3399FF;
+    selection-color: #FFFFFF;
+}
+
+QTreeWidget, QTableWidget, QListView, QListWidget {
+    background-color: #FFFFFF;
+    color: #222222;
+    border: 1px solid #C0C0C0;
+    alternate-background-color: #F7F7F7;
+}
+QTreeWidget::item:hover, QTableWidget::item:hover {
+    background-color: #EAF2FA;
+}
+QTreeWidget::item:selected, QTableWidget::item:selected {
+    background-color: #3399FF;
+    color: #FFFFFF;
+}
+QHeaderView::section {
+    background-color: #E8E8E8;
+    color: #222222;
+    border: 1px solid #C0C0C0;
+    padding: 3px;
+}
+
+QTabWidget::pane {
+    border: 1px solid #C0C0C0;
+    background-color: #FFFFFF;
+}
+QTabBar::tab {
+    background-color: #E8E8E8;
+    color: #222222;
+    border: 1px solid #C0C0C0;
+    padding: 5px 12px;
+}
+QTabBar::tab:selected {
+    background-color: #FFFFFF;
+    border-bottom-color: #FFFFFF;
+}
+
+QDockWidget {
+    color: #222222;
+    titlebar-close-icon: none;
+}
+QDockWidget::title {
+    background-color: #E8E8E8;
+    color: #222222;
+    border: 1px solid #C0C0C0;
+    padding: 4px;
+}
+
+QCheckBox, QRadioButton {
+    color: #222222;
+    spacing: 5px;
+}
+QLabel { color: #222222; }
+QGroupBox {
+    color: #222222;
+    border: 1px solid #C0C0C0;
+    border-radius: 3px;
+    margin-top: 8px;
+}
+QGroupBox::title { color: #222222; subcontrol-origin: margin; }
+
+QScrollBar:vertical {
+    background: #F0F0F0;
+    width: 14px;
+    margin: 0;
+}
+QScrollBar::handle:vertical { background: #C0C0C0; border-radius: 4px; min-height: 20px; }
+QScrollBar::handle:vertical:hover { background: #A0A0A0; }
+QScrollBar:horizontal {
+    background: #F0F0F0;
+    height: 14px;
+}
+QScrollBar::handle:horizontal { background: #C0C0C0; border-radius: 4px; min-width: 20px; }
+
+QStatusBar { background-color: #F0F0F0; color: #222222; }
+
+/* 输出面板（控制台输出）专用：局部样式会被 QSS 覆盖，这里定义默认色 */
+#OutputTextEdit {
+    background-color: #FFFFFF;
+    color: #000000;
+}

@@ -213,6 +213,9 @@ private slots:
     /** @brief 显示平台控制面板 */
     void showPlatformControl();
 
+    /** @brief 切换白天/黑夜主题 */
+    void toggleTheme();
+
 private:
     Ui::MainWindow *ui;                    ///< Qt Designer 生成的 UI 对象
     PluginManager* m_pluginManager;        ///< 插件管理器
