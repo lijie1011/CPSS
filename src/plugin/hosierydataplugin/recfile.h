@@ -26,6 +26,8 @@ static const char REC_MAGIC[8]   = {'C','P','S','S','R','E','C','2'};
 static const char IDX_MAGIC[8]   = {'C','P','S','S','I','D','X','2'};
 static const int  REC_HEADER_SIZE = 128;
 static const int  RECORD_HEADER_SIZE = 30;   // type(1)+source(1)+flags(2)+relTime(8)+payloadLen(4)+reserved(14)
+static const int  HEADER_ACTUAL_SOURCES_OFFSET = 56;  // 实际写入的数据源列表（每字节一个 ProtocolType，0 结束）
+static const int  HEADER_MAX_SOURCES = 16;
 
 /** @brief 记录类型 */
 enum class RecType : quint8 {
@@ -88,6 +90,7 @@ private:
     qint64 m_startMs = 0;
     QVector<RecIndexItem> m_index;
     QList<int> m_sources;
+    QList<int> m_actualSources;   ///< 实际写入记录的 source（close 时写入头）
 };
 
 /**
@@ -105,6 +108,7 @@ public:
 
     const QVector<RecIndexItem>& index() const { return m_index; }
     qint64 durationMs() const;
+    qint64 createTimeMs() const { return m_createTimeMs; }   ///< 录制起始的绝对时间戳
     QList<int> sources() const { return m_sources; }
     QJsonObject meta() const { return m_meta; }
 
@@ -127,6 +131,7 @@ private:
     QVector<RecIndexItem> m_index;
     QJsonObject m_meta;
     QList<int> m_sources;
+    qint64 m_createTimeMs = 0;
     qint64 m_dataOffset = 0;
     int m_cursor = 0;
 };

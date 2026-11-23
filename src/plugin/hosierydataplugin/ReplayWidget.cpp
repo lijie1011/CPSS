@@ -19,6 +19,20 @@
 #include <QDesktopServices>
 #include <QUrl>
 
+/** @brief 文件大小格式化：<1MB 显示 KB，<1GB 显示 MB，否则 GB */
+static QString formatFileSize(qint64 bytes)
+{
+    const double KB = 1024.0;
+    const double MB = KB * 1024.0;
+    const double GB = MB * 1024.0;
+    if (bytes < MB) {
+        return QStringLiteral("%1 KB").arg(bytes / KB, 0, 'f', 1);
+    } else if (bytes < GB) {
+        return QStringLiteral("%1 MB").arg(bytes / MB, 0, 'f', 1);
+    }
+    return QStringLiteral("%1 GB").arg(bytes / GB, 0, 'f', 2);
+}
+
 ReplayWidget::ReplayWidget(QWidget *parent)
     : QWidget(parent)
 {
@@ -54,8 +68,8 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     m_srcDdsCb = new QCheckBox(QStringLiteral("DDS"), this);
     m_srcHttpCb = new QCheckBox(QStringLiteral("HTTP"), this);
     m_srcRedisCb->setChecked(true);
-    m_srcDdsCb->setChecked(true);
-    m_srcRedisCb->setEnabled(false);   // 第一版只允许 Redis/DDS（HTTP 未启用）
+    m_srcDdsCb->setChecked(false);     // 系统实际数据只有 Redis，DDS/HTTP 为预留
+    m_srcRedisCb->setEnabled(false);
     m_srcDdsCb->setEnabled(false);
     m_srcHttpCb->setEnabled(false);
     recRow2->addWidget(m_srcRedisCb);
@@ -160,6 +174,9 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     connect(&m_player, &ReplayPlayer::positionChanged, this, &ReplayWidget::onPositionChanged);
     connect(&m_player, &ReplayPlayer::playbackFinished, this, &ReplayWidget::onPlaybackFinished);
 
+    m_uiTimer.setInterval(200);
+    connect(&m_uiTimer, &QTimer::timeout, this, &ReplayWidget::onRecordTimer);
+
     updateFileList();
 }
 
@@ -202,7 +219,8 @@ void ReplayWidget::onStartRecord()
         m_startRecBtn->setEnabled(false);
         m_startRecBtn->setStyleSheet("QPushButton { color: #FFFFFF; background-color: #C00000; }");
         m_stopRecBtn->setEnabled(true);
-        m_recStatusLabel->setText(QStringLiteral("状态: 录制中"));
+        m_uiTimer.start();
+        onRecordTimer();   // 立即显示一次状态
     }
 }
 
@@ -211,6 +229,7 @@ void ReplayWidget::onStopRecord()
     const QString path = m_recorder.lastFilePath();
     const qint64 count = m_recorder.recordedCount();
     m_recorder.stop();
+    m_uiTimer.stop();
 
     // 0 条记录 = 空文件，直接删除，避免产生不可播放的无效文件
     if (count <= 0 && !path.isEmpty() && QFile::exists(path)) {
@@ -242,7 +261,7 @@ void ReplayWidget::updateFileList()
         // 跳过 0KB / 无有效记录的空文件，避免加载后无法播放
         if (info.fileSize <= 128 || info.recordCount <= 0) continue;
         const QString dur = QTime(0, 0).addMSecs(info.durationMs).toString(QStringLiteral("mm:ss"));
-        const QString size = QStringLiteral("%1KB").arg(info.fileSize / 1024);
+        const QString size = formatFileSize(info.fileSize);
         QString src;
         for (int s : info.sources) {
             if (s == Protocol_Redis) src += "Redis ";
@@ -284,7 +303,6 @@ void ReplayWidget::onLoadFile()
         return;
     }
     if (m_player.load(path)) {
-        m_lastInjected = 0;
         m_timeSlider->setRange(0, (int)m_player.durationMs());
         m_timeSlider->setValue(0);
         m_stopPlayBtn->setEnabled(true);
@@ -371,10 +389,10 @@ void ReplayWidget::onReplayStatus(const QString &msg)
 
 void ReplayWidget::onPositionChanged(qint64 ms, int injected)
 {
+    Q_UNUSED(injected);
     if (m_playing) {
         m_timeSlider->setValue((int)ms);
     }
-    m_lastInjected = injected;
     updatePlaybackUI();
 }
 
@@ -384,10 +402,30 @@ void ReplayWidget::onPlaybackFinished()
     m_playBtn->setText(QStringLiteral("播放"));
 }
 
+void ReplayWidget::onRecordTimer()
+{
+    if (!m_recorder.isRecording()) return;
+    const QString path = m_recorder.lastFilePath();
+    const QString fileName = QFileInfo(path).fileName();
+    const qint64 bytes = QFileInfo(path).size();
+    const QString size = formatFileSize(bytes);
+    m_recStatusLabel->setText(QStringLiteral("状态: 录制中 | %1 | %2 条 | %3")
+                              .arg(fileName).arg(m_recorder.recordedCount()).arg(size));
+}
+
 void ReplayWidget::updatePlaybackUI()
 {
-    const QString cur = QTime(0, 0).addMSecs(m_player.positionMs()).toString(QStringLiteral("mm:ss"));
-    const QString total = QTime(0, 0).addMSecs(m_player.durationMs()).toString(QStringLiteral("mm:ss"));
-    m_timeLabel->setText(QStringLiteral("%1 / %2  | 已注入 %3 条")
-                         .arg(cur, total).arg(m_lastInjected));
+    // 显示实际时钟时间：录制起始时刻 + 当前回放偏移
+    const qint64 base = m_player.createTimeMs();
+    const QString fmt = QStringLiteral("yyyy-MM-dd hh:mm:ss");
+    QString cur, total;
+    if (base > 0) {
+        cur = QDateTime::fromMSecsSinceEpoch(base + m_player.positionMs()).toString(fmt);
+        total = QDateTime::fromMSecsSinceEpoch(base + m_player.durationMs()).toString(fmt);
+    } else {
+        // 兼容旧文件（无起始时间）：回退到时长显示
+        cur = QTime(0, 0).addMSecs(m_player.positionMs()).toString(QStringLiteral("mm:ss"));
+        total = QTime(0, 0).addMSecs(m_player.durationMs()).toString(QStringLiteral("mm:ss"));
+    }
+    m_timeLabel->setText(QStringLiteral("%1 / %2").arg(cur, total));
 }

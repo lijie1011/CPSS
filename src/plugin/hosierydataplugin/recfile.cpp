@@ -118,6 +118,7 @@ bool RecFileWriter::open(const QString &path, const QList<int> &sources, const Q
     close();
     m_index.clear();
     m_sources = sources;
+    m_actualSources.clear();
     m_file.setFileName(path);
     if (!m_file.open(QIODevice::WriteOnly)) return false;
     m_stream.setVersion(QDataStream::Qt_5_12);
@@ -169,6 +170,9 @@ bool RecFileWriter::append(const RecEntry &entry)
     m_file.write(entry.payload);
 
     m_index.append({entry.relTime, offset});
+    if (!m_actualSources.contains((int)entry.source)) {
+        m_actualSources.append((int)entry.source);
+    }
     return true;
 }
 
@@ -192,6 +196,15 @@ void RecFileWriter::close()
     // 头中 indexOffset 位置 = magic8 + version2 + headerSize2 + flags4 + createTime8 + dataOffset8 = 32
     m_file.seek(32);
     m_file.write(patch);   // indexOffset(8) + recordCount(8) + duration(8)
+
+    // 回填实际写入的数据源列表（覆盖元数据里"允许录制"的源）
+    QByteArray srcBytes(HEADER_MAX_SOURCES, '\0');
+    int n = qMin(m_actualSources.size(), HEADER_MAX_SOURCES - 1);
+    for (int i = 0; i < n; ++i) {
+        srcBytes[i] = (char)(m_actualSources[i] & 0xFF);
+    }
+    m_file.seek(HEADER_ACTUAL_SOURCES_OFFSET);
+    m_file.write(srcBytes);
     m_file.close();
 }
 
@@ -224,6 +237,7 @@ bool RecFileReader::open(const QString &path)
     hs.skipRawData(8 + 2 + 2 + 4);
     qint64 createTime = 0, dataOffset = 0, indexOffset = 0, recordCount = 0, duration = 0;
     hs >> createTime >> dataOffset >> indexOffset >> recordCount >> duration;
+    m_createTimeMs = createTime;
 
     // 元数据
     m_file.seek(REC_HEADER_SIZE);
@@ -233,6 +247,16 @@ bool RecFileReader::open(const QString &path)
     QJsonObject meta = bytesToJson(metaBytes);
     QJsonArray srcArr = meta.take("sources").toArray();
     for (const QJsonValue &v : srcArr) m_sources.append(v.toInt());
+    // 优先用文件头里记录的"实际写入源"（新格式）
+    m_file.seek(HEADER_ACTUAL_SOURCES_OFFSET);
+    QByteArray actual = m_file.read(HEADER_MAX_SOURCES);
+    QList<int> realSources;
+    for (int i = 0; i < actual.size(); ++i) {
+        quint8 s = (quint8)actual[i];
+        if (s == 0) break;
+        realSources.append(s);
+    }
+    if (!realSources.isEmpty()) m_sources = realSources;
     m_meta = meta;
     m_dataOffset = m_file.pos();
 
@@ -258,6 +282,7 @@ void RecFileReader::close()
     if (m_file.isOpen()) m_file.close();
     m_index.clear();
     m_sources.clear();
+    m_createTimeMs = 0;
     m_cursor = 0;
 }
 
@@ -333,6 +358,16 @@ RecFileInfo RecFileReader::fileInfo(const QString &path)
     QJsonObject meta = bytesToJson(f.read(metaLen));
     QJsonArray arr = meta.value("sources").toArray();
     for (const QJsonValue &v : arr) info.sources.append(v.toInt());
+    // 优先用文件头里的实际写入源
+    f.seek(HEADER_ACTUAL_SOURCES_OFFSET);
+    QByteArray actual = f.read(HEADER_MAX_SOURCES);
+    QList<int> realSources;
+    for (int i = 0; i < actual.size(); ++i) {
+        quint8 s = (quint8)actual[i];
+        if (s == 0) break;
+        realSources.append(s);
+    }
+    if (!realSources.isEmpty()) info.sources = realSources;
     f.close();
     return info;
 }

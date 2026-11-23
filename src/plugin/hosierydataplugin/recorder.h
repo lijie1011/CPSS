@@ -88,6 +88,7 @@ public:
 
     bool isPlaying() const { return m_playing; }
     qint64 positionMs() const { return m_positionMs; }
+    qint64 createTimeMs() const { return m_reader.createTimeMs(); }
     int injectedCount() const { return (int)m_injected; }
     qint64 durationMs() const { return m_reader.durationMs(); }
     int recordCount() const { return m_reader.index().size(); }

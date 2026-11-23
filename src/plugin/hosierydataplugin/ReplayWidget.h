@@ -15,6 +15,7 @@
 #include <QSlider>
 #include <QLabel>
 #include <QLineEdit>
+#include <QTimer>
 #include "recorder.h"
 
 class ReplayWidget : public QWidget
@@ -41,6 +42,7 @@ private slots:
     void onReplayStatus(const QString &msg);
     void onPositionChanged(qint64 ms, int injected);
     void onPlaybackFinished();
+    void onRecordTimer();
 
 private:
     QString recordDir() const;
@@ -50,6 +52,7 @@ private:
 
     RecordWriter m_recorder;
     ReplayPlayer m_player;
+    QTimer m_uiTimer;          ///< 录制时刷新状态标签
 
     // 录制区
     QPushButton *m_startRecBtn;
@@ -80,7 +83,6 @@ private:
     QLabel *m_playStatusLabel;
 
     bool m_playing = false;
-    int m_lastInjected = 0;
 };
 
 #endif // REPLAYWIDGET_H
