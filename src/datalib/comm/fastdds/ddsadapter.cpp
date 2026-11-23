@@ -159,7 +159,7 @@ void DdsAdapter::subscriptionLoop()
             QJsonObject obj;
             obj["type"] = QStringLiteral("platform");
             obj["id"] = QString::fromStdString(sample.id());
-            emit dataReceived(obj, Protocol_DDS);
+            emit dataReceived(obj, Protocol_FastDds);
         }
         QThread::msleep(10);
     }

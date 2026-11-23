@@ -14,7 +14,7 @@ module cpss {
         enum ProtocolKind {
             PROTOCOL_UNKNOWN,
             PROTOCOL_HTTP,
-            PROTOCOL_DDS
+            PROTOCOL_FAST_DDS
         };
 
         enum CampKind {

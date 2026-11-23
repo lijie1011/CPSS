@@ -203,7 +203,7 @@ void ReplayWidget::onStartRecord()
     int sampleDiv = m_sampleCombo->currentData().toInt();
     QSet<int> sources;
     if (m_srcRedisCb->isChecked()) sources.insert(Protocol_Redis);
-    if (m_srcDdsCb->isChecked()) sources.insert(Protocol_DDS);
+    if (m_srcDdsCb->isChecked()) sources.insert(Protocol_FastDds);
     if (m_srcHttpCb->isChecked()) sources.insert(Protocol_HTTP);
     if (sources.isEmpty()) {
         QMessageBox::warning(this, QStringLiteral("提示"), QStringLiteral("请至少选择一个数据源"));
@@ -265,7 +265,7 @@ void ReplayWidget::updateFileList()
         QString src;
         for (int s : info.sources) {
             if (s == Protocol_Redis) src += "Redis ";
-            else if (s == Protocol_DDS) src += "DDS ";
+            else if (s == Protocol_FastDds) src += "DDS ";
             else if (s == Protocol_HTTP) src += "HTTP ";
         }
         QListWidgetItem *item = new QListWidgetItem(
@@ -361,7 +361,7 @@ void ReplayWidget::applyReplaySourceFilter()
 {
     QSet<int> sources;
     if (m_rpRedisCb->isChecked()) sources.insert(Protocol_Redis);
-    if (m_rpDdsCb->isChecked()) sources.insert(Protocol_DDS);
+    if (m_rpDdsCb->isChecked()) sources.insert(Protocol_FastDds);
     if (m_rpHttpCb->isChecked()) sources.insert(Protocol_HTTP);
     m_player.setEnabledSources(sources);
 }

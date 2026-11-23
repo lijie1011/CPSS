@@ -8,6 +8,8 @@ set(DATALIB_SOURCES
     comm/redis/redisadapter.cpp
     comm/redis/redis_fieldmap.cpp
     comm/rtidds/situationforwarder.cpp
+    comm/pgdds/pgddsmanager.cpp
+    comm/pgdds/pgddsadapter.cpp
 )
 
 set(DATALIB_HEADERS
@@ -22,6 +24,8 @@ set(DATALIB_HEADERS
     comm/redis/redisadapter.h
     comm/redis/redis_fieldmap.h
     comm/rtidds/situationforwarder.h
+    comm/pgdds/pgddsmanager.h
+    comm/pgdds/pgddsadapter.h
 )
 
 add_library(cpss_data SHARED
@@ -50,6 +54,7 @@ target_include_directories(cpss_data PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/comm/fastdds
     ${CMAKE_CURRENT_SOURCE_DIR}/comm/redis
     ${CMAKE_CURRENT_SOURCE_DIR}/comm/rtidds
+    ${CMAKE_CURRENT_SOURCE_DIR}/comm/pgdds
     ${PROJECT_SOURCE_DIR}/common
 )
 
@@ -121,4 +126,27 @@ if(DEFINED ENV{NDDSHOME} AND EXISTS "$ENV{NDDSHOME}")
     # TODO: 安装 RTI Connext 后：find_package(RTIConnextDDS) + target_compile_definitions(CPSS_ENABLE_RTI_DDS)
 else()
     message(STATUS "RTI Connext DDS not found -> situation forwarder builds as stub")
+endif()
+
+# ============================================================
+#  PGDDS SDK（国产 DDS，nonfixed 动态类型 C API）
+#  位置：src/3dParty/pgdds（从 DDS-SDK C v1.0.7 win64 复制）
+#  未找到时适配器仍编译（头文件在工程内），但链接会失败，故用条件排除
+# ============================================================
+set(PGDD_SDK_ROOT "${PROJECT_SOURCE_DIR}/3dParty/pgdds")
+if(EXISTS "${PGDD_SDK_ROOT}/lib/dds_nonfixed.lib")
+    message(STATUS "PGDDS SDK found -> enabling PGDDS adapter")
+    target_compile_definitions(cpss_data PRIVATE CPSS_ENABLE_PGDDS)
+    target_include_directories(cpss_data PRIVATE ${PGDD_SDK_ROOT}/include)
+    target_link_libraries(cpss_data PRIVATE ${PGDD_SDK_ROOT}/lib/dds_nonfixed.lib)
+
+    # 运行期部署 DLL 到生成目录（Debug/Release 均需）
+    add_custom_command(TARGET cpss_data POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${PGDD_SDK_ROOT}/bin/dds_nonfixed.dll"
+                $<TARGET_FILE_DIR:cpss_data>
+        COMMENT "Copying dds_nonfixed.dll to output dir"
+    )
+else()
+    message(WARNING "PGDDS SDK not found at ${PGDD_SDK_ROOT}/lib/dds_nonfixed.lib -> PGDDS disabled")
 endif()

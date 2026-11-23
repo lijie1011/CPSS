@@ -154,6 +154,57 @@ void Config::setRedisPort(int port)
     m_settings.setValue("Redis/Port", port);
 }
 
+// ==================== PGDDS 配置 ====================
+bool Config::getPgDdsEnabled() const
+{
+    return m_settings.value("PgDds/Enabled", false).toBool();
+}
+
+void Config::setPgDdsEnabled(bool enabled)
+{
+    m_settings.setValue("PgDds/Enabled", enabled);
+}
+
+int Config::getPgDdsDomainId() const
+{
+    return m_settings.value("PgDds/DomainId", 0).toInt();
+}
+
+void Config::setPgDdsDomainId(int domainId)
+{
+    m_settings.setValue("PgDds/DomainId", domainId);
+}
+
+QString Config::getPgDdsBindAddress() const
+{
+    return m_settings.value("PgDds/BindAddress", "127.0.0.1").toString();
+}
+
+void Config::setPgDdsBindAddress(const QString &ip)
+{
+    m_settings.setValue("PgDds/BindAddress", ip);
+}
+
+QString Config::getPgDdsPlatformTopic() const
+{
+    return m_settings.value("PgDds/PlatformTopic", "cpss/platform").toString();
+}
+
+void Config::setPgDdsPlatformTopic(const QString &topic)
+{
+    m_settings.setValue("PgDds/PlatformTopic", topic);
+}
+
+QString Config::getPgDdsEventTopic() const
+{
+    return m_settings.value("PgDds/EventTopic", "cpss/event").toString();
+}
+
+void Config::setPgDdsEventTopic(const QString &topic)
+{
+    m_settings.setValue("PgDds/EventTopic", topic);
+}
+
 /**
  * @brief 加载配置
  * @details 从配置文件加载所有配置项

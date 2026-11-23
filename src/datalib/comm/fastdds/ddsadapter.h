@@ -48,7 +48,7 @@ public:
     ~DdsAdapter() override;
 
     // ---- IProtocolAdapter 接口 ----
-    ProtocolType protocolType() const override { return Protocol_DDS; }
+    ProtocolType protocolType() const override { return Protocol_FastDds; }
     QString adapterName() const override { return QStringLiteral("DDS Adapter (Fast DDS)"); }
     bool start() override;
     bool stop() override;

@@ -112,7 +112,7 @@ PlatformData jsonToPlatform(const QJsonObject &obj)
     p.dataStatus = static_cast<DataStatus>(obj["dataStatus"].toInt(DataStatus_Normal));
     p.validUntil = static_cast<qint64>(obj["validUntil"].toDouble());
     p.updateTime = static_cast<qint64>(obj["updateTime"].toDouble());
-    p.sourceProtocol = Protocol_DDS;
+    p.sourceProtocol = Protocol_FastDds;
     return p;
 }
 

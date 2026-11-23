@@ -111,6 +111,27 @@ public:
      */
     void setRedisPort(int port);
 
+    // ---- PGDDS 配置 ----
+    /** @brief PGDDS 是否启用（默认 false） */
+    bool getPgDdsEnabled() const;
+    void setPgDdsEnabled(bool enabled);
+
+    /** @brief PGDDS Domain ID（默认 0） */
+    int getPgDdsDomainId() const;
+    void setPgDdsDomainId(int domainId);
+
+    /** @brief PGDDS 绑定 IP（默认 127.0.0.1） */
+    QString getPgDdsBindAddress() const;
+    void setPgDdsBindAddress(const QString &ip);
+
+    /** @brief PGDDS 平台数据 Topic（默认 cpss/platform） */
+    QString getPgDdsPlatformTopic() const;
+    void setPgDdsPlatformTopic(const QString &topic);
+
+    /** @brief PGDDS 事件 Topic（默认 cpss/event） */
+    QString getPgDdsEventTopic() const;
+    void setPgDdsEventTopic(const QString &topic);
+
     /**
      * @brief 加载配置
      * @details 从配置文件读取配置项

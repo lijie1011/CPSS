@@ -9,6 +9,9 @@
 #include "fastdds/ddsadapter.h"
 #include "redis/redisadapter.h"
 #include "rtidds/situationforwarder.h"
+#ifdef CPSS_ENABLE_PGDDS
+#include "pgdds/pgddsadapter.h"
+#endif
 // #include "http/httpadapter.h"   // 启用 HTTP 适配器时取消注释
 #include "logger.h"
 #include "config.h"
@@ -70,6 +73,27 @@ void CommManager::startAll()
         commLog(QStringLiteral("Redis adapter start failed: ") + redis->lastError());
     }
 
+    // ---- PGDDS 适配器（国产 DDS，绑定IP）----
+#ifdef CPSS_ENABLE_PGDDS
+    if (cfg.getPgDdsEnabled()) {
+        PgDdsAdapter* pgdds = new PgDdsAdapter(this);
+        pgdds->setDomainId(cfg.getPgDdsDomainId());
+        pgdds->setBindAddress(cfg.getPgDdsBindAddress());
+        pgdds->setPlatformTopic(cfg.getPgDdsPlatformTopic());
+        pgdds->setEventTopic(cfg.getPgDdsEventTopic());
+        dm->addAdapter(pgdds);
+        m_adapters.append(pgdds);
+        if (pgdds->start()) {
+            commLog(QStringLiteral("PGDDS adapter started: bind=%1 domain=%2")
+                    .arg(cfg.getPgDdsBindAddress()).arg(cfg.getPgDdsDomainId()));
+        } else {
+            commLog(QStringLiteral("PGDDS adapter start failed: ") + pgdds->lastError());
+        }
+    } else {
+        commLog(QStringLiteral("PGDDS adapter disabled by config"));
+    }
+#endif
+
     // ---- 态势显示转发器（RTI DDS 发布端）----
     SituationForwarder::instance()->initialize();
 
@@ -106,7 +130,7 @@ IProtocolAdapter* CommManager::adapter(ProtocolType type) const
 
 bool CommManager::publishPlatformViaDds(const PlatformData &platform)
 {
-    IProtocolAdapter* a = adapter(Protocol_DDS);
+    IProtocolAdapter* a = adapter(Protocol_FastDds);
     DdsAdapter* dds = qobject_cast<DdsAdapter*>(a);
     return dds ? dds->publishPlatform(platform) : false;
 }

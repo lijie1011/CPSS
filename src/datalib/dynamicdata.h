@@ -40,8 +40,9 @@ enum DataStatus {
 enum ProtocolType {
     Protocol_Unknown,    ///< 未知协议
     Protocol_HTTP,       ///< HTTP协议
-    Protocol_DDS,        ///< DDS协议（Fast DDS）
-    Protocol_Redis       ///< Redis协议（AFSIM 态势数据）
+    Protocol_FastDds,    ///< Fast DDS协议（预留）
+    Protocol_Redis,      ///< Redis协议（AFSIM 态势数据）
+    Protocol_PgDds       ///< PGDDS协议（国产DDS，nonfixed动态类型）
 };
 
 /**
