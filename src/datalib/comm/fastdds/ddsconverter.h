@@ -16,20 +16,20 @@
 namespace DdsConverter {
 
 /** @brief PlatformData -> QJsonObject */
-QJsonObject platformToJson(const PlatformData &platform);
+CPSS_DATA_API QJsonObject platformToJson(const PlatformData &platform);
 
 /** @brief QJsonObject -> PlatformData */
-PlatformData jsonToPlatform(const QJsonObject &obj);
+CPSS_DATA_API PlatformData jsonToPlatform(const QJsonObject &obj);
 
 /** @brief SpecialEvent -> QJsonObject */
-QJsonObject eventToJson(const SpecialEvent &event);
+CPSS_DATA_API QJsonObject eventToJson(const SpecialEvent &event);
 
 /** @brief QJsonObject -> SpecialEvent */
-SpecialEvent jsonToEvent(const QJsonObject &obj);
+CPSS_DATA_API SpecialEvent jsonToEvent(const QJsonObject &obj);
 
 /** @brief 给 JSON 加上 type 字段，包装成 DataManager 可识别的消息 */
-QJsonObject wrapPlatformMessage(const PlatformData &platform);
-QJsonObject wrapEventMessage(const SpecialEvent &event);
+CPSS_DATA_API QJsonObject wrapPlatformMessage(const PlatformData &platform);
+CPSS_DATA_API QJsonObject wrapEventMessage(const SpecialEvent &event);
 
 } // namespace DdsConverter
 
