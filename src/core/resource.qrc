@@ -2,6 +2,7 @@
     <qresource prefix="/icons">
         <file alias="settings.png">../resource/images/settings64x64t.png</file>
         <file alias="ruler.png">../resource/images/ruler.png</file>
+        <file alias="close_white.png">../resource/images/close_white.png</file>
     </qresource>
     <qresource prefix="/themes">
         <file alias="day.qss">../resource/themes/day.qss</file>

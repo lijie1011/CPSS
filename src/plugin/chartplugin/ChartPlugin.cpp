@@ -145,9 +145,11 @@ bool ChartPlugin::init(IPluginHost *host)
     connect(ThemeManager::instance(), &ThemeManager::themeChanged,
             this, [this](Theme theme) {
         if (!m_enclibReady) return;
+        // 同步切换 Enclib 配色并立即重新生成海图位图：
+        // update() 只重绘控件，必须调 updateChart() 才会重新 EnclDrawChart() 生成新配色图像
         const QString scheme = ThemeManager::themeName(theme);
         EnclDrawSetColorScheme(scheme.toLocal8Bit().constData());
-        if (m_viewWidget) m_viewWidget->update();
+        updateChartView();
         logInfo("[ChartPlugin] theme changed -> Enclib " + scheme);
     });
 

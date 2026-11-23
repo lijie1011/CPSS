@@ -6,8 +6,6 @@
 
 #include "OutputWidget.h"
 #include "outputsink.h"
-#include "theme_colors.h"
-#include "thememanager.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -74,12 +72,8 @@ OutputWidget::OutputWidget(QWidget *parent)
     connect(OutputSink::instance(), &OutputSink::messageArrived,
             this, &OutputWidget::onMessageArrived, Qt::QueuedConnection);
 
-    // 加载已积累的历史消息
+    // 加载已积累的历史消息（文字色继承 QSS，主题切换时自动跟随，无需重渲染）
     reloadHistory();
-
-    // 主题切换后重新渲染历史（颜色随主题变化）
-    connect(ThemeManager::instance(), &ThemeManager::themeChanged,
-            this, [this](Theme) { reloadHistory(); });
 }
 
 void OutputWidget::reloadHistory()
@@ -102,10 +96,13 @@ QString OutputWidget::colorForLevel(int level)
 {
     switch (static_cast<LogLevel>(level)) {
     case LogLevel::Debug:
-    case LogLevel::Info:  return ThemeColors::text().name();  // 跟随主题文字色
-    case LogLevel::Warn:  return QStringLiteral("#C8A000");   // 黄色系（语义色，两种主题都可读）
-    case LogLevel::Error: return QStringLiteral("#E06060");   // 红色系（语义色，两种主题都可读）
-    default:              return ThemeColors::text().name();
+    case LogLevel::Info:
+        // 空字符串 = 不写死颜色，继承 QTextEdit 的 QSS 文字色。
+        // 这样主题切换时 QSS 一应用，所有历史文字自动变色，无需逐条重渲染。
+        return QString();
+    case LogLevel::Warn:  return QStringLiteral("#C8A000");   // 黄色系（语义色）
+    case LogLevel::Error: return QStringLiteral("#E06060");   // 红色系（语义色）
+    default:              return QString();
     }
 }
 
@@ -137,10 +134,17 @@ void OutputWidget::onMessageArrived(int level, const QString &text)
     const QString ts = QDateTime::currentDateTime().toString(QStringLiteral("hh:mm:ss.zzz"));
     const QString color = colorForLevel(level);
     const QString name = nameForLevel(level);
-    const QString html = QStringLiteral(
-        "<span style='color:#888;'>[%1]</span> "
-        "<span style='color:%2;'>[%3] %4</span>")
-        .arg(ts, color, name, text.toHtmlEscaped());
+    QString html;
+    if (color.isEmpty()) {
+        // 不指定颜色 → 继承 QTextEdit 主题色，切换主题时自动跟随
+        html = QStringLiteral("<span style='color:#888;'>[%1]</span> %2 %3")
+               .arg(ts, name, text.toHtmlEscaped());
+    } else {
+        html = QStringLiteral(
+            "<span style='color:#888;'>[%1]</span> "
+            "<span style='color:%2;'>%3 %4</span>")
+            .arg(ts, color, name, text.toHtmlEscaped());
+    }
 
     // 缓存格式化后的行，供过滤切换时原样重放（保留原时间戳）
     m_buffer.append(qMakePair(level, html));

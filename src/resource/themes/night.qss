@@ -100,8 +100,18 @@ QDockWidget::title {
     border: 1px solid #3C3C3C;
     padding: 4px;
 }
-/* 关闭（删除）按钮：显式定义，避免自定义 title 后原生按钮不显示 */
-QDockWidget::close-button, QDockWidget::float-button {
+/* 关闭（删除）按钮：黑夜主题用白色 X 图标，否则在深色标题栏上看不清 */
+QDockWidget::close-button {
+    subcontrol-origin: margin;
+    subcontrol-position: top right;
+    width: 14px;
+    height: 14px;
+    border: none;
+    background: transparent;
+    image: url(:/icons/close_white.png);
+}
+QDockWidget::close-button:hover { background: rgba(255, 255, 255, 0.18); border-radius: 2px; }
+QDockWidget::float-button {
     subcontrol-origin: margin;
     subcontrol-position: top right;
     width: 14px;
@@ -109,7 +119,6 @@ QDockWidget::close-button, QDockWidget::float-button {
     border: none;
     background: transparent;
 }
-QDockWidget::close-button:hover { background: rgba(255, 255, 255, 0.18); border-radius: 2px; }
 
 QCheckBox, QRadioButton {
     color: #D4D4D4;
