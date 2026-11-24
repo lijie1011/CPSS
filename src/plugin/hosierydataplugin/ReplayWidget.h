@@ -16,7 +16,11 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QTimer>
+#include <QRadioButton>
+#include <QButtonGroup>
+#include <QStackedWidget>
 #include "recorder.h"
+#include "forwardmanager.h"
 
 class ReplayWidget : public QWidget
 {
@@ -43,6 +47,16 @@ private slots:
     void onPositionChanged(qint64 ms, int injected);
     void onPlaybackFinished();
     void onRecordTimer();
+    void onForwardModeChanged(int id);
+    void onUdpSubModeChanged(int id);
+    void onForwardData(const ForwardPayload &payload);
+    void onForwardFormatChanged(int id);
+    void onByteOrderChanged(int id);
+
+private:
+    void loadForwardConfig();
+    void saveForwardConfig();
+    QJsonObject currentForwardConfig() const;
 
 private:
     QString recordDir() const;
@@ -81,6 +95,35 @@ private:
     QCheckBox *m_rpDdsCb;
     QCheckBox *m_rpHttpCb;
     QLabel *m_playStatusLabel;
+
+    // 转发设置
+    ForwardManager m_forwardManager;
+    QButtonGroup *m_forwardGroup;      ///< Off/Dds/Udp/Tcp 主单选
+    QButtonGroup *m_formatGroup;       ///< JSON/二进制 格式单选
+    QButtonGroup *m_byteOrderGroup;    ///< 大端/小端 字节序单选
+    QButtonGroup *m_udpSubGroup;       ///< UDP 单播/组播子单选
+    QStackedWidget *m_forwardStack;    ///< 按主单选切换配置面板
+    QStackedWidget *m_udpStack;        ///< UDP 单播/组播面板
+    QLabel *m_forwardStatusLabel;
+
+    // DDS 配置
+    QLineEdit *m_ddsDomainEdit;
+    QLineEdit *m_ddsBindEdit;
+    QLineEdit *m_ddsPlatformTopicEdit;
+    QLineEdit *m_ddsEventTopicEdit;
+
+    // UDP 配置
+    QLineEdit *m_udpTargetIpEdit;
+    QLineEdit *m_udpMcastAddrEdit;
+    QLineEdit *m_udpPortEdit;
+    QLineEdit *m_udpTtlEdit;
+    QComboBox *m_udpIfCombo;
+    QCheckBox *m_udpLoopbackCb;
+
+    // TCP 配置
+    QLineEdit *m_tcpIpEdit;
+    QLineEdit *m_tcpPortEdit;
+    QLineEdit *m_tcpReconnectEdit;
 
     bool m_playing = false;
 };

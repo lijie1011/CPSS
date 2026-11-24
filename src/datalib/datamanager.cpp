@@ -392,7 +392,8 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
     }
 
     emit platformUpdated(platform);
-    ut::log::info() << "platform updated: " << platform.id<<" "<<platform.name<<" "<<platform.lon<<" "<<platform.lat;
+    // 临时关闭：只保留回放转发 UDP 的日志（控制台插件）
+    // ut::log::info() << "platform updated: " << platform.id << " " << platform.name << " " << platform.lon << " " << platform.lat;
     //emit platformsUpdated(getAllPlatforms());
     //emit dynamicDataChanged(getAllData());
 }

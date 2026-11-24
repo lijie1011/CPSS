@@ -22,28 +22,19 @@
 #include "ddsconverter.h"
 
 // ===== CRF2 常量 =====
-static const char REC_MAGIC[8]   = {'C','P','S','S','R','E','C','2'};
-static const char IDX_MAGIC[8]   = {'C','P','S','S','I','D','X','2'};
+static const char REC_MAGIC[8]   = {'C','P','S','S','R','E','C','3'};
+static const char IDX_MAGIC[8]   = {'C','P','S','S','I','D','X','3'};
 static const int  REC_HEADER_SIZE = 128;
-static const int  RECORD_HEADER_SIZE = 30;   // type(1)+source(1)+flags(2)+relTime(8)+payloadLen(4)+reserved(14)
+static const int  RECORD_HEADER_SIZE = 14;   // dataType(1)+source(1)+relTime(8)+payloadLen(4)
 static const int  HEADER_ACTUAL_SOURCES_OFFSET = 56;  // 实际写入的数据源列表（每字节一个 ProtocolType，0 结束）
 static const int  HEADER_MAX_SOURCES = 16;
 
-/** @brief 记录类型 */
-enum class RecType : quint8 {
-    PlatformFull = 1,   ///< 完整平台状态
-    PlatformDelta = 2,  ///< 差量（预留）
-    Event = 3,          ///< 事件
-    Remove = 4,         ///< 平台移除（payload = id 字符串）
-    KeyFrame = 5        ///< 关键帧快照（payload = 所有平台列表 JSON）
-};
-
-/** @brief 单条记录 */
+/** @brief 单条记录（CRF3：1字节类型头 + 原始 payload） */
 struct RecEntry {
-    RecType type;
-    ProtocolType source;
+    quint8 dataType;      ///< RawDataType：payload 的类型（1字节）
+    ProtocolType source;  ///< 来源协议
     qint64 relTime;       ///< 相对录制起点的毫秒
-    QByteArray payload;   ///< 二进制内容
+    QByteArray payload;   ///< 原始数据（如 Customize_Info protobuf 字节）
 };
 
 /** @brief 索引项 */

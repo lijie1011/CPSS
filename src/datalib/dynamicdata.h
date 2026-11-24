@@ -46,6 +46,19 @@ enum ProtocolType {
 };
 
 /**
+ * @enum RawDataType
+ * @brief 原始数据类型的 1 字节标识（用于录制文件的类型头）
+ */
+enum RawDataType : quint8 {
+    RawType_CustomizeInfo = 1,  ///< AFSIM Customize_Info（protobuf 原始字节）
+    RawType_PlatformData  = 2,  ///< CPSS PlatformData（QDataStream 二进制）
+    RawType_SpecialEvent  = 3,  ///< CPSS SpecialEvent（QDataStream 二进制）
+    RawType_Json          = 4,  ///< JSON 文本
+    RawType_Remove        = 5,  ///< 平台删除（payload = id）
+    RawType_Envelope      = 6   ///< HTProto::Envelope 原始字节
+};
+
+/**
  * @enum CampType
  * @brief 阵营类型枚举
  */

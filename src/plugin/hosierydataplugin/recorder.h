@@ -13,6 +13,16 @@
 #include <QTimer>
 #include <QList>
 #include <QSet>
+#include <QByteArray>
+
+/**
+ * @brief 回放转发数据（同时提供 JSON 与原始二进制两种形式）
+ */
+struct ForwardPayload {
+    QByteArray json;      ///< Compact JSON（DDS/JSON模式用）
+    QByteArray binary;    ///< 原始 QDataStream 二进制（录制时 serializeXxx 的输出）
+};
+Q_DECLARE_METATYPE(ForwardPayload)
 #include "recfile.h"
 #include "datamanager.h"
 
@@ -41,14 +51,12 @@ signals:
     void statusChanged(const QString &msg);
 
 private slots:
-    void onPlatformUpdated(const PlatformData &platform);
+    void onRawDataReceived(const QByteArray &rawPayload, ProtocolType source, int dataType);
     void onPlatformRemoved(const QString &id);
-    void onEventAdded(const SpecialEvent &event);
     void onFlushTimer();
 
 private:
-    bool shouldRecord(const PlatformData &platform) const;
-    void appendRecord(RecType type, ProtocolType source, const QByteArray &payload);
+    void appendRecord(quint8 dataType, ProtocolType source, const QByteArray &payload);
 
     RecFileWriter m_writer;
     QTimer m_flushTimer;
@@ -92,12 +100,17 @@ public:
     int injectedCount() const { return (int)m_injected; }
     qint64 durationMs() const { return m_reader.durationMs(); }
     int recordCount() const { return m_reader.index().size(); }
-    void setEnabledSources(const QSet<int> &sources) { m_enabledSources = sources; }
+    /** @brief 设置回放源过滤；空集合 = 不回放任何源（未勾选任何回放源） */
+    void setEnabledSources(const QSet<int> &sources) { m_enabledSources = sources; m_filterActive = true; }
+    /** @brief 转发二进制数据的字节序（true=大端, false=小端） */
+    void setBigEndian(bool big) { m_bigEndian = big; }
 
 signals:
     void positionChanged(qint64 ms, int injectedCount);
     void statusChanged(const QString &msg);
     void playbackFinished();
+    /** @brief 回放数据需要转发（由界面按选择的通信方式/格式处理） */
+    void forwardData(const ForwardPayload &payload);
 
 private slots:
     void onTick();
@@ -112,7 +125,9 @@ private:
     qint64 m_injected = 0;
     double m_speed = 1.0;
     int m_cursor = 0;
-    QSet<int> m_enabledSources;   ///< 空 = 全部
+    QSet<int> m_enabledSources;   ///< 启用的来源
+    bool m_filterActive = false;  ///< 是否已应用过滤（false=不过滤全部回放）
+    bool m_bigEndian = true;      ///< 转发二进制字节序（默认大端）
 };
 
 #endif // RECORDER_H

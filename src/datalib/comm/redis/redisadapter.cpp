@@ -51,6 +51,7 @@ struct timeval { long tv_sec; long tv_usec; };
 #include "protocol.pb.h"        // HTProto::Envelope / Customize_Info
 
 #include <QtGlobal>
+#include <QByteArray>
 #include <cstring>
 
 static inline void redisLog(const QString &msg) {
@@ -195,6 +196,9 @@ void RedisAdapter::subscriptionLoop()
                 HTProto::Customize_Info info;
                 // payload 可能是 Any 包装，也可能直接是 Customize_Info 字节
                 if (env.payload().size() > 0) {
+                    // 发出原始数据（Customize_Info protobuf 字节），供录制/转发使用
+                    const QByteArray rawPayload(env.payload().data(), (int)env.payload().size());
+                    emit rawDataReceived(rawPayload, Protocol_Redis, RawType_CustomizeInfo);
                     info.ParseFromString(env.payload());
                 }
                 PlatformData p = RedisFieldMap::toPlatformData(&info);

@@ -102,7 +102,15 @@ signals:
      * @param source 数据来源协议类型
      */
     void dataReceived(const QJsonObject &data, ProtocolType source);
-    
+
+    /**
+     * @brief 原始数据接收信号（解析/融合之前，供录制/转发使用）
+     * @param rawPayload 外部软件发来的原始字节（如 Customize_Info protobuf）
+     * @param source 数据来源协议类型
+     * @param dataType 数据类型标识（见 RawDataType）
+     */
+    void rawDataReceived(const QByteArray &rawPayload, ProtocolType source, int dataType);
+
     /**
      * @brief 状态变更信号
      * @param status 新的状态

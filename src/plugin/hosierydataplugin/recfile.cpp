@@ -159,14 +159,11 @@ bool RecFileWriter::append(const RecEntry &entry)
 {
     if (!m_file.isOpen()) return false;
     const qint64 offset = m_file.pos();
-    // 记录头
-    m_stream << (quint8)entry.type;
+    // 记录头（14字节）：1字节数据类型 + 1字节来源 + 8字节时间 + 4字节长度
+    m_stream << entry.dataType;
     m_stream << (quint8)entry.source;
-    m_stream << (quint16)0;                       // flags（压缩预留）
     m_stream << entry.relTime;
     m_stream << (quint32)entry.payload.size();
-    QByteArray reserved(RECORD_HEADER_SIZE - 16, '\0');
-    m_file.write(reserved);
     m_file.write(entry.payload);
 
     m_index.append({entry.relTime, offset});
@@ -295,13 +292,11 @@ bool RecFileReader::readAt(int index, RecEntry &out)
 {
     if (!m_file.isOpen() || index < 0 || index >= m_index.size()) return false;
     m_file.seek(m_index[index].fileOffset);
-    quint8 t = 0, src = 0;
-    quint16 flags = 0;
+    quint8 dataType = 0, src = 0;
     qint64 relTime = 0;
     quint32 payloadLen = 0;
-    m_stream >> t >> src >> flags >> relTime >> payloadLen;
-    m_file.seek(m_file.pos() + (RECORD_HEADER_SIZE - 16));
-    out.type = (RecType)t;
+    m_stream >> dataType >> src >> relTime >> payloadLen;
+    out.dataType = dataType;
     out.source = (ProtocolType)src;
     out.relTime = relTime;
     out.payload = m_file.read(payloadLen);

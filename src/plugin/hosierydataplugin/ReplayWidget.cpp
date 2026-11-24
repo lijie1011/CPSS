@@ -8,7 +8,12 @@
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QFormLayout>
 #include <QGroupBox>
+#include <QNetworkInterface>
+#include <QSettings>
+#include <QAbstractButton>
+#include <QJsonObject>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QDir>
@@ -36,6 +41,7 @@ static QString formatFileSize(qint64 bytes)
 ReplayWidget::ReplayWidget(QWidget *parent)
     : QWidget(parent)
 {
+    qRegisterMetaType<ForwardPayload>("ForwardPayload");
     setWindowTitle(QStringLiteral("历史数据回放"));
 
     QVBoxLayout *main = new QVBoxLayout(this);
@@ -154,6 +160,136 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     play->addWidget(m_playStatusLabel);
     main->addWidget(playGroup);
 
+    // ========== 转发设置区 ==========
+    QGroupBox *fwdGroup = new QGroupBox(QStringLiteral("转发设置（回放时发送）"), this);
+    QVBoxLayout *fwd = new QVBoxLayout(fwdGroup);
+
+    // 主单选：关闭/DDS/UDP/TCP
+    QHBoxLayout *fwdModes = new QHBoxLayout();
+    fwdModes->addWidget(new QLabel(QStringLiteral("方式:"), this));
+    m_forwardGroup = new QButtonGroup(this);
+    QRadioButton *rbOff = new QRadioButton(QStringLiteral("关闭"), this);
+    QRadioButton *rbDds = new QRadioButton(QStringLiteral("DDS"), this);
+    QRadioButton *rbUdp = new QRadioButton(QStringLiteral("UDP"), this);
+    QRadioButton *rbTcp = new QRadioButton(QStringLiteral("TCP"), this);
+    m_forwardGroup->addButton(rbOff, (int)ForwardManager::Off);
+    m_forwardGroup->addButton(rbDds, (int)ForwardManager::Dds);
+    m_forwardGroup->addButton(rbUdp, (int)ForwardManager::Udp);
+    m_forwardGroup->addButton(rbTcp, (int)ForwardManager::Tcp);
+    rbOff->setChecked(true);
+    fwdModes->addWidget(rbOff);
+    fwdModes->addWidget(rbDds);
+    fwdModes->addWidget(rbUdp);
+    fwdModes->addWidget(rbTcp);
+    fwdModes->addStretch();
+    fwd->addLayout(fwdModes);
+
+    // 数据格式单选（JSON / 二进制；仅 UDP/TCP 有效，DDS 固定 JSON）
+    QHBoxLayout *fmtRow = new QHBoxLayout();
+    fmtRow->addWidget(new QLabel(QStringLiteral("数据格式:"), this));
+    m_formatGroup = new QButtonGroup(this);
+    QRadioButton *rbJson = new QRadioButton(QStringLiteral("JSON"), this);
+    QRadioButton *rbBinary = new QRadioButton(QStringLiteral("二进制"), this);
+    m_formatGroup->addButton(rbJson, (int)ForwardManager::Json);
+    m_formatGroup->addButton(rbBinary, (int)ForwardManager::Binary);
+    rbJson->setChecked(true);
+    fmtRow->addWidget(rbJson);
+    fmtRow->addWidget(rbBinary);
+    // 字节序（仅二进制模式有效）
+    fmtRow->addWidget(new QLabel(QStringLiteral("  字节序:"), this));
+    m_byteOrderGroup = new QButtonGroup(this);
+    QRadioButton *rbBig = new QRadioButton(QStringLiteral("大端"), this);
+    QRadioButton *rbLittle = new QRadioButton(QStringLiteral("小端"), this);
+    m_byteOrderGroup->addButton(rbBig, 1);
+    m_byteOrderGroup->addButton(rbLittle, 0);
+    rbBig->setChecked(true);
+    fmtRow->addWidget(rbBig);
+    fmtRow->addWidget(rbLittle);
+    fmtRow->addStretch();
+    fwd->addLayout(fmtRow);
+
+    // 配置面板栈
+    m_forwardStack = new QStackedWidget(this);
+    QWidget *emptyPage = new QWidget(m_forwardStack);
+    m_forwardStack->addWidget(emptyPage);   // Off
+
+    // --- DDS 面板 ---
+    QWidget *ddsPage = new QWidget(m_forwardStack);
+    QFormLayout *ddsLayout = new QFormLayout(ddsPage);
+    m_ddsDomainEdit = new QLineEdit(QStringLiteral("0"), ddsPage);
+    m_ddsBindEdit = new QLineEdit(QStringLiteral("127.0.0.1"), ddsPage);
+    m_ddsPlatformTopicEdit = new QLineEdit(QStringLiteral("cpss/platform"), ddsPage);
+    m_ddsEventTopicEdit = new QLineEdit(QStringLiteral("cpss/event"), ddsPage);
+    ddsLayout->addRow(QStringLiteral("Domain:"), m_ddsDomainEdit);
+    ddsLayout->addRow(QStringLiteral("绑定IP:"), m_ddsBindEdit);
+    ddsLayout->addRow(QStringLiteral("平台Topic:"), m_ddsPlatformTopicEdit);
+    ddsLayout->addRow(QStringLiteral("事件Topic:"), m_ddsEventTopicEdit);
+    m_forwardStack->addWidget(ddsPage);
+
+    // --- UDP 面板（含单播/组播子栈）---
+    QWidget *udpPage = new QWidget(m_forwardStack);
+    QVBoxLayout *udpLayout = new QVBoxLayout(udpPage);
+    QHBoxLayout *udpSub = new QHBoxLayout();
+    udpSub->addWidget(new QLabel(QStringLiteral("子模式:"), udpPage));
+    m_udpSubGroup = new QButtonGroup(udpPage);
+    QRadioButton *rbUni = new QRadioButton(QStringLiteral("单播"), udpPage);
+    QRadioButton *rbMcast = new QRadioButton(QStringLiteral("组播"), udpPage);
+    m_udpSubGroup->addButton(rbUni, 0);
+    m_udpSubGroup->addButton(rbMcast, 1);
+    rbUni->setChecked(true);
+    udpSub->addWidget(rbUni);
+    udpSub->addWidget(rbMcast);
+    udpSub->addWidget(new QLabel(QStringLiteral("  端口:"), udpPage));
+    m_udpPortEdit = new QLineEdit(QStringLiteral("12345"), udpPage);
+    m_udpPortEdit->setMaximumWidth(70);
+    udpSub->addWidget(m_udpPortEdit);
+    udpSub->addStretch();
+    udpLayout->addLayout(udpSub);
+
+    m_udpStack = new QStackedWidget(udpPage);
+    // 单播页
+    QWidget *uniPage = new QWidget(m_udpStack);
+    QFormLayout *uniLayout = new QFormLayout(uniPage);
+    m_udpTargetIpEdit = new QLineEdit(QStringLiteral("127.0.0.1"), uniPage);
+    uniLayout->addRow(QStringLiteral("目标IP:"), m_udpTargetIpEdit);
+    m_udpStack->addWidget(uniPage);
+    // 组播页
+    QWidget *mcastPage = new QWidget(m_udpStack);
+    QFormLayout *mcastLayout = new QFormLayout(mcastPage);
+    m_udpMcastAddrEdit = new QLineEdit(QStringLiteral("239.255.0.1"), mcastPage);
+    m_udpTtlEdit = new QLineEdit(QStringLiteral("2"), mcastPage);
+    m_udpIfCombo = new QComboBox(mcastPage);
+    m_udpIfCombo->addItem(QStringLiteral("自动"), QString());
+    for (const QNetworkInterface &iface : QNetworkInterface::allInterfaces()) {
+        if (iface.flags().testFlag(QNetworkInterface::IsUp))
+            m_udpIfCombo->addItem(iface.humanReadableName(), iface.name());
+    }
+    m_udpLoopbackCb = new QCheckBox(QStringLiteral("本机回环"), mcastPage);
+    m_udpLoopbackCb->setChecked(true);
+    mcastLayout->addRow(QStringLiteral("组播地址:"), m_udpMcastAddrEdit);
+    mcastLayout->addRow(QStringLiteral("TTL:"), m_udpTtlEdit);
+    mcastLayout->addRow(QStringLiteral("本地网卡:"), m_udpIfCombo);
+    mcastLayout->addRow(QString(), m_udpLoopbackCb);
+    m_udpStack->addWidget(mcastPage);
+    udpLayout->addWidget(m_udpStack);
+    m_forwardStack->addWidget(udpPage);
+
+    // --- TCP 面板 ---
+    QWidget *tcpPage = new QWidget(m_forwardStack);
+    QFormLayout *tcpLayout = new QFormLayout(tcpPage);
+    m_tcpIpEdit = new QLineEdit(QStringLiteral("127.0.0.1"), tcpPage);
+    m_tcpPortEdit = new QLineEdit(QStringLiteral("12346"), tcpPage);
+    m_tcpReconnectEdit = new QLineEdit(QStringLiteral("3000"), tcpPage);
+    tcpLayout->addRow(QStringLiteral("目标IP:"), m_tcpIpEdit);
+    tcpLayout->addRow(QStringLiteral("端口:"), m_tcpPortEdit);
+    tcpLayout->addRow(QStringLiteral("重连间隔(ms):"), m_tcpReconnectEdit);
+    m_forwardStack->addWidget(tcpPage);
+
+    fwd->addWidget(m_forwardStack);
+    m_forwardStatusLabel = new QLabel(QStringLiteral("状态: 转发关闭"), this);
+    fwd->addWidget(m_forwardStatusLabel);
+    main->addWidget(fwdGroup);
+
     // ===== 连接信号 =====
     connect(m_startRecBtn, &QPushButton::clicked, this, &ReplayWidget::onStartRecord);
     connect(m_stopRecBtn, &QPushButton::clicked, this, &ReplayWidget::onStopRecord);
@@ -173,6 +309,21 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     connect(&m_player, &ReplayPlayer::statusChanged, this, &ReplayWidget::onReplayStatus);
     connect(&m_player, &ReplayPlayer::positionChanged, this, &ReplayWidget::onPositionChanged);
     connect(&m_player, &ReplayPlayer::playbackFinished, this, &ReplayWidget::onPlaybackFinished);
+    connect(&m_player, &ReplayPlayer::forwardData, this, &ReplayWidget::onForwardData);
+
+    // 转发模式切换
+    connect(m_forwardGroup, QOverload<int>::of(&QButtonGroup::buttonClicked),
+            this, &ReplayWidget::onForwardModeChanged);
+    connect(m_udpSubGroup, QOverload<int>::of(&QButtonGroup::buttonClicked),
+            this, &ReplayWidget::onUdpSubModeChanged);
+    connect(m_formatGroup, QOverload<int>::of(&QButtonGroup::buttonClicked),
+            this, &ReplayWidget::onForwardFormatChanged);
+    connect(m_byteOrderGroup, QOverload<int>::of(&QButtonGroup::buttonClicked),
+            this, &ReplayWidget::onByteOrderChanged);
+
+    // 加载持久化配置
+    loadForwardConfig();
+    onForwardModeChanged(m_forwardGroup->checkedId());
 
     m_uiTimer.setInterval(200);
     connect(&m_uiTimer, &QTimer::timeout, this, &ReplayWidget::onRecordTimer);
@@ -409,8 +560,10 @@ void ReplayWidget::onRecordTimer()
     const QString fileName = QFileInfo(path).fileName();
     const qint64 bytes = QFileInfo(path).size();
     const QString size = formatFileSize(bytes);
-    m_recStatusLabel->setText(QStringLiteral("状态: 录制中 | %1 | %2 条 | %3")
-                              .arg(fileName).arg(m_recorder.recordedCount()).arg(size));
+    const qint64 elapsed = m_recorder.elapsedMs();
+    const QString dur = QTime(0, 0).addMSecs(elapsed).toString(QStringLiteral("hh:mm:ss"));
+    m_recStatusLabel->setText(QStringLiteral("状态: 录制中 | %1 | %2 | %3 条 | %4")
+                              .arg(fileName, dur).arg(m_recorder.recordedCount()).arg(size));
 }
 
 void ReplayWidget::updatePlaybackUI()
@@ -428,4 +581,157 @@ void ReplayWidget::updatePlaybackUI()
         total = QTime(0, 0).addMSecs(m_player.durationMs()).toString(QStringLiteral("mm:ss"));
     }
     m_timeLabel->setText(QStringLiteral("%1 / %2").arg(cur, total));
+}
+
+// ==================== 转发设置 ====================
+
+QJsonObject ReplayWidget::currentForwardConfig() const
+{
+    QJsonObject cfg;
+    const int mode = m_forwardGroup->checkedId();
+
+    // DDS 配置
+    cfg["domain"] = m_ddsDomainEdit->text().toInt();
+    cfg["bindAddress"] = m_ddsBindEdit->text();
+    cfg["platformTopic"] = m_ddsPlatformTopicEdit->text();
+    cfg["eventTopic"] = m_ddsEventTopicEdit->text();
+
+    // UDP 配置
+    cfg["subMode"] = (m_udpSubGroup->checkedId() == 1) ? "Multicast" : "Unicast";
+    cfg["targetIp"] = m_udpTargetIpEdit->text();
+    cfg["multicastAddr"] = m_udpMcastAddrEdit->text();
+    cfg["port"] = m_udpPortEdit->text().toInt();
+    cfg["ttl"] = m_udpTtlEdit->text().toInt();
+    cfg["localInterface"] = m_udpIfCombo->currentData().toString();
+    cfg["loopback"] = m_udpLoopbackCb->isChecked();
+
+    // TCP 配置
+    cfg["targetIpTcp"] = m_tcpIpEdit->text();
+    cfg["tcpPort"] = m_tcpPortEdit->text().toInt();
+    cfg["reconnectMs"] = m_tcpReconnectEdit->text().toInt();
+
+    Q_UNUSED(mode);
+    return cfg;
+}
+
+void ReplayWidget::loadForwardConfig()
+{
+    const QString ini = QCoreApplication::applicationDirPath() + "/cpss.ini";
+    QSettings settings(ini, QSettings::IniFormat);
+    const int mode = settings.value("ReplayForward/Mode", 0).toInt();
+    QAbstractButton *btn = m_forwardGroup->button(mode);
+    if (btn) btn->setChecked(true);
+    const int format = settings.value("ReplayForward/Format", 0).toInt();
+    QAbstractButton *fmtBtn = m_formatGroup->button(format);
+    if (fmtBtn) fmtBtn->setChecked(true);
+    const int byteOrder = settings.value("ReplayForward/ByteOrder", 1).toInt();
+    QAbstractButton *boBtn = m_byteOrderGroup->button(byteOrder);
+    if (boBtn) boBtn->setChecked(true);
+    m_player.setBigEndian(m_byteOrderGroup->checkedId() == 1);
+
+    m_ddsDomainEdit->setText(settings.value("ReplayForward.Dds/domain", "0").toString());
+    m_ddsBindEdit->setText(settings.value("ReplayForward.Dds/bindAddress", "127.0.0.1").toString());
+    m_ddsPlatformTopicEdit->setText(settings.value("ReplayForward.Dds/platformTopic", "cpss/platform").toString());
+    m_ddsEventTopicEdit->setText(settings.value("ReplayForward.Dds/eventTopic", "cpss/event").toString());
+
+    const QString sub = settings.value("ReplayForward.Udp/subMode", "Unicast").toString();
+    QAbstractButton *subBtn = m_udpSubGroup->button(sub == "Multicast" ? 1 : 0);
+    if (subBtn) subBtn->setChecked(true);
+    m_udpTargetIpEdit->setText(settings.value("ReplayForward.Udp/targetIp", "127.0.0.1").toString());
+    m_udpMcastAddrEdit->setText(settings.value("ReplayForward.Udp/multicastAddr", "239.255.0.1").toString());
+    m_udpPortEdit->setText(settings.value("ReplayForward.Udp/port", "12345").toString());
+    m_udpTtlEdit->setText(settings.value("ReplayForward.Udp/ttl", "2").toString());
+    const QString ifName = settings.value("ReplayForward.Udp/localInterface", "").toString();
+    const int ifIdx = m_udpIfCombo->findData(ifName);
+    if (ifIdx >= 0) m_udpIfCombo->setCurrentIndex(ifIdx);
+    m_udpLoopbackCb->setChecked(settings.value("ReplayForward.Udp/loopback", true).toBool());
+
+    m_tcpIpEdit->setText(settings.value("ReplayForward.Tcp/targetIp", "127.0.0.1").toString());
+    m_tcpPortEdit->setText(settings.value("ReplayForward.Tcp/port", "12346").toString());
+    m_tcpReconnectEdit->setText(settings.value("ReplayForward.Tcp/reconnectMs", "3000").toString());
+}
+
+void ReplayWidget::saveForwardConfig()
+{
+    const QString ini = QCoreApplication::applicationDirPath() + "/cpss.ini";
+    QSettings settings(ini, QSettings::IniFormat);
+    settings.setValue("ReplayForward/Mode", m_forwardGroup->checkedId());
+    settings.setValue("ReplayForward/Format", m_formatGroup->checkedId());
+    settings.setValue("ReplayForward/ByteOrder", m_byteOrderGroup->checkedId());
+
+    settings.setValue("ReplayForward.Dds/domain", m_ddsDomainEdit->text());
+    settings.setValue("ReplayForward.Dds/bindAddress", m_ddsBindEdit->text());
+    settings.setValue("ReplayForward.Dds/platformTopic", m_ddsPlatformTopicEdit->text());
+    settings.setValue("ReplayForward.Dds/eventTopic", m_ddsEventTopicEdit->text());
+
+    settings.setValue("ReplayForward.Udp/subMode",
+                      (m_udpSubGroup->checkedId() == 1) ? "Multicast" : "Unicast");
+    settings.setValue("ReplayForward.Udp/targetIp", m_udpTargetIpEdit->text());
+    settings.setValue("ReplayForward.Udp/multicastAddr", m_udpMcastAddrEdit->text());
+    settings.setValue("ReplayForward.Udp/port", m_udpPortEdit->text());
+    settings.setValue("ReplayForward.Udp/ttl", m_udpTtlEdit->text());
+    settings.setValue("ReplayForward.Udp/localInterface", m_udpIfCombo->currentData().toString());
+    settings.setValue("ReplayForward.Udp/loopback", m_udpLoopbackCb->isChecked());
+
+    settings.setValue("ReplayForward.Tcp/targetIp", m_tcpIpEdit->text());
+    settings.setValue("ReplayForward.Tcp/port", m_tcpPortEdit->text());
+    settings.setValue("ReplayForward.Tcp/reconnectMs", m_tcpReconnectEdit->text());
+    settings.sync();
+}
+
+void ReplayWidget::onForwardModeChanged(int id)
+{
+    m_forwardStack->setCurrentIndex(qMax(0, id));
+    // 关闭当前转发器，按新模式打开
+    QJsonObject cfg = currentForwardConfig();
+    // TCP 目标 IP 用专用字段
+    cfg["targetIp"] = m_tcpIpEdit->text();
+    cfg["port"] = (id == (int)ForwardManager::Tcp) ? m_tcpPortEdit->text().toInt()
+                                                    : m_udpPortEdit->text().toInt();
+
+    ForwardManager::Format fmt = (m_formatGroup->checkedId() == (int)ForwardManager::Binary)
+                                 ? ForwardManager::Binary : ForwardManager::Json;
+    bool ok = m_forwardManager.setMode((ForwardManager::Mode)id, cfg, fmt);
+    if (id == (int)ForwardManager::Off) {
+        m_forwardStatusLabel->setText(QStringLiteral("状态: 转发关闭"));
+    } else if (ok) {
+        m_forwardStatusLabel->setText(QStringLiteral("状态: 转发就绪 (%1)")
+                                      .arg(id == (int)ForwardManager::Dds ? "DDS" :
+                                           id == (int)ForwardManager::Udp ? "UDP" : "TCP"));
+    } else {
+        m_forwardStatusLabel->setText(QStringLiteral("状态: 转发启动失败 - ") + m_forwardManager.lastError());
+    }
+    saveForwardConfig();
+}
+
+void ReplayWidget::onUdpSubModeChanged(int id)
+{
+    m_udpStack->setCurrentIndex(qMax(0, id));
+    // 如果当前是 UDP 模式，重新打开以应用子模式
+    if (m_forwardGroup->checkedId() == (int)ForwardManager::Udp) {
+        onForwardModeChanged((int)ForwardManager::Udp);
+    }
+}
+
+void ReplayWidget::onForwardData(const ForwardPayload &payload)
+{
+    if (!m_forwardManager.isActive()) return;
+    m_forwardManager.send(payload.json, payload.binary);
+}
+
+void ReplayWidget::onForwardFormatChanged(int id)
+{
+    Q_UNUSED(id);
+    // 格式变化：重开当前转发器以应用
+    const int modeId = m_forwardGroup->checkedId();
+    if (modeId != (int)ForwardManager::Off) {
+        onForwardModeChanged(modeId);
+    }
+    saveForwardConfig();
+}
+
+void ReplayWidget::onByteOrderChanged(int id)
+{
+    m_player.setBigEndian(id == 1);   // 1=大端, 0=小端
+    saveForwardConfig();
 }

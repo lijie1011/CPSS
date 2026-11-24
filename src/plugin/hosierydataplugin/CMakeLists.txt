@@ -10,6 +10,7 @@ set(CMAKE_AUTOUIC ON)
 set(PLUGIN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
 set(DATALIB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../datalib)
 set(FASTDDS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../datalib/comm/fastdds)
+set(REDIS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../3dParty/redis_sdk/include)
 
 set(SOURCES
     HosieryDataPlugin.cpp
@@ -35,12 +36,14 @@ target_include_directories(hosierydataplugin PRIVATE
     ${PLUGIN_INCLUDE_DIR}
     ${DATALIB_INCLUDE_DIR}
     ${FASTDDS_INCLUDE_DIR}
+    ${REDIS_INCLUDE_DIR}
 )
 
 target_link_libraries(hosierydataplugin PRIVATE
     Qt5::Widgets
     Qt5::Gui
     Qt5::Core
+    Qt5::Network
     cpss_plugin_framework
     cpss_data
     cpss_common

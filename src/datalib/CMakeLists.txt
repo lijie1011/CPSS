@@ -10,6 +10,10 @@ set(DATALIB_SOURCES
     comm/rtidds/situationforwarder.cpp
     comm/pgdds/pgddsmanager.cpp
     comm/pgdds/pgddsadapter.cpp
+    comm/forward/forwardmanager.cpp
+    comm/forward/ddsforwarder.cpp
+    comm/forward/udpforwarder.cpp
+    comm/forward/tcpforwarder.cpp
 )
 
 set(DATALIB_HEADERS
@@ -26,6 +30,12 @@ set(DATALIB_HEADERS
     comm/rtidds/situationforwarder.h
     comm/pgdds/pgddsmanager.h
     comm/pgdds/pgddsadapter.h
+    comm/forward/idataforwarder.h
+    comm/forward/forwardconfig.h
+    comm/forward/forwardmanager.h
+    comm/forward/ddsforwarder.h
+    comm/forward/udpforwarder.h
+    comm/forward/tcpforwarder.h
 )
 
 add_library(cpss_data SHARED
@@ -55,6 +65,7 @@ target_include_directories(cpss_data PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/comm/redis
     ${CMAKE_CURRENT_SOURCE_DIR}/comm/rtidds
     ${CMAKE_CURRENT_SOURCE_DIR}/comm/pgdds
+    ${CMAKE_CURRENT_SOURCE_DIR}/comm/forward
     ${PROJECT_SOURCE_DIR}/common
 )
 

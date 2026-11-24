@@ -14,6 +14,7 @@
 #define REDIS_FIELDMAP_H
 
 #include "dynamicdata.h"
+#include "customize_cstruct.h"
 
 // AFSIM protobuf 消息类型（redis_protocl.h 必须先于 protocol.pb.h）
 #include "redis_protocl.h"
@@ -23,6 +24,24 @@ namespace RedisFieldMap {
 
 /** @brief AFSIM 的经纬度/航向放大倍数 */
 static const double AFSIM_SCALE = 1000000.0;
+
+/**
+ * @brief 把 Customize_Info 原始 protobuf 字节解析为 PlatformData
+ * @details 封装 protobuf 依赖，供回放插件等外部模块调用（无需直接 include protocol.pb.h）
+ * @param raw Customize_Info 序列化字节
+ * @param out 输出 PlatformData
+ * @return true 解析成功
+ */
+CPSS_DATA_API bool parseCustomizeInfo(const QByteArray &raw, PlatformData &out);
+
+/**
+ * @brief 【临时方案】把 Customize_Info protobuf 字节解析为纯 C 结构体
+ * @details 用于转发给第三方软件（按 CustomizeInfoC 定义 memcpy 解析，无需 protobuf）
+ * @param raw Customize_Info protobuf 字节
+ * @param out 输出 C 结构体（1字节对齐，无 padding）
+ * @return true 解析成功
+ */
+CPSS_DATA_API bool parseCustomizeInfoC(const QByteArray &raw, CustomizeInfoC &out);
 
 /**
  * @brief 把 AFSIM Customize_Info 映射为 CPSS PlatformData

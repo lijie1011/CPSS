@@ -1,0 +1,154 @@
+============================================================
+CPSS 配置文件 cpss.ini 说明
+============================================================
+
+【重要】本文件是 cpss.ini 的配套说明。
+cpss.ini 位于程序运行目录（如 src/build/bin/Release/cpss.ini），
+由程序（QSettings）自动读写。由于 QSettings 重写文件时会清除注释，
+因此详细说明单独放在本文件中，请勿在 cpss.ini 里手写注释（会被冲掉）。
+
+修改配置后一般需重启程序生效；回放转发的部分设置在面板打开时读取。
+
+============================================================
+[Display] 显示设置
+============================================================
+ColorScheme=DAY
+    界面主题。
+    DAY   = 白天（浅色主题）
+    NIGHT = 黑夜（深色主题）
+    切换会同时改变 Qt 界面与 Enclib 海图配色。
+
+============================================================
+[Redis] Redis 数据源（AFSIM 态势数据接入）
+============================================================
+Host=127.0.0.1
+    Redis 服务器 IP（AFSIM redis_ext 发布端地址）
+Port=6379
+    Redis 服务器端口
+说明：
+    订阅频道固定为 target:data:channel（代码中写死，不在此配置）。
+    Redis SDK 只有 Release(/MD) 版，Debug 下该适配器不启用。
+
+============================================================
+[PgDds] PGDDS 适配器（国产 DDS，nonfixed 动态类型）
+============================================================
+Enabled=true
+    是否启用 PGDDS 适配器。
+    true  = 启用
+    false = 禁用
+DomainId=0
+    DDS Domain ID（域编号），通信双方必须一致。
+BindAddress=127.0.0.1
+    绑定的本机 IP，DDS 从该网卡收发数据。
+    多网卡机器需设为实际网卡 IP（如 192.168.0.215）。
+PlatformTopic=cpss/platform
+    平台数据 Topic 名称。
+EventTopic=cpss/event
+    事件数据 Topic 名称。
+
+============================================================
+[ReplayForward] 历史回放-转发总设置
+============================================================
+Mode=2
+    转发方式（单选）：
+    0 = 关闭转发
+    1 = DDS
+    2 = UDP
+    3 = TCP
+Format=1
+    转发数据格式：
+    0 = JSON 文本
+    1 = 二进制（CustomizeInfoC 结构体，265 字节）
+ByteOrder=1
+    二进制数据的字节序（Format=1 时有效）：
+    1 = 大端（Big-Endian）
+    0 = 小端（Little-Endian）
+    第三方软件按 C struct 解析时必须与此设置一致。
+    注意：此项由回放界面"字节序"单选框保存，请勿在 ini 里手改后期望立即生效
+    （界面打开时会读取，关闭界面时会按单选框值覆盖）。
+
+============================================================
+[ReplayForward.Dds] 转发方式=DDS 时的配置
+============================================================
+domain=0          DDS Domain ID
+bindAddress=127.0.0.1   绑定 IP
+platformTopic=cpss/platform   平台数据 Topic
+eventTopic=cpss/event   事件数据 Topic
+说明：复用 PgDds 适配器发布，含义与 [PgDds] 相同。
+
+============================================================
+[ReplayForward.Udp] 转发方式=UDP 时的配置
+============================================================
+subMode=Unicast
+    UDP 子模式：
+    Unicast   = 单播（点对点）
+    Multicast = 组播（一对多）
+targetIp=127.0.0.1
+    单播目标 IP（subMode=Unicast 时有效）
+multicastAddr=239.255.0.1
+    组播地址（subMode=Multicast 时有效）
+    范围 224.0.0.0 ~ 239.255.255.255
+port=12345
+    目标端口（单播/组播共用）
+ttl=2
+    组播 TTL（subMode=Multicast 时有效）
+    1    = 仅本子网
+    2~16 = 有限跨网段（每经过一个路由器 +1）
+localInterface=
+    组播发送网卡名（subMode=Multicast 时有效）
+    留空 = 系统自动选择网卡
+loopback=true
+    组播回环（subMode=Multicast 时有效）
+    true  = 本机也能收到自己发出的数据（便于调试）
+    false = 本机收不到自己发的数据
+
+============================================================
+[ReplayForward.Tcp] 转发方式=TCP 时的配置
+============================================================
+targetIp=127.0.0.1
+    目标服务器 IP
+port=12346
+    目标服务器端口
+reconnectMs=3000
+    断线重连间隔（毫秒）
+
+============================================================
+回放数据说明（转发出去的数据）
+============================================================
+1. 录制文件（.cpssrec）中存储的是 AFSIM 原始数据：
+   HTProto::Customize_Info 的 protobuf 序列化字节，
+   每条记录前有 14 字节头（数据类型1字节+来源1字节+时间8字节+长度4字节）。
+
+2. 回放转发（UDP/TCP）发出的数据：
+   二进制模式（Format=1）= CustomizeInfoC 结构体（265字节），
+   由 protobuf 解析后按 ByteOrder 指定字节序序列化。
+   第三方按如下 C 结构体解析（1字节对齐，无 padding）：
+
+   #pragma pack(push, 1)
+   struct CustomizeInfoC {
+       int32_t  id;                  // 平台ID
+       uint32_t entityId;            // 实体ID
+       uint32_t entityCamp;          // 阵营：1=蓝方, 2=红方
+       uint32_t domain;              // 空间域
+       uint32_t category;            // 类别
+       int32_t  batchNumber;         // 批次号
+       int32_t  height;              // 高度（米）
+       int32_t  longitude;           // 经度 x1e6
+       int32_t  latitude;            // 纬度 x1e6
+       int32_t  absoluteHeading;     // 绝对航向 x1e6
+       int32_t  relativeHeading;     // 相对航向 x1e6
+       int32_t  threatLevel;         // 威胁等级
+       int32_t  distance;            // 距离
+       int32_t  azimuth;             // 方位角
+       int32_t  targetSpeed;         // 速度
+       int32_t  targetType1;         // 目标类型
+       int32_t  enemyFriendship;     // 敌我关系
+       int32_t  civilianFriendship;  // 民用关系
+       char     name[128];           // 名称（UTF-8）
+       uint8_t  isAlive;             // 是否存活
+       char     elevation[64];       // 海拔（字符串）
+   };
+   #pragma pack(pop)
+
+   注意：long 类型在 Windows 是 4 字节、Linux 64位是 8 字节，
+   跨平台请使用 int32_t/uint32_t 等固定宽度类型。

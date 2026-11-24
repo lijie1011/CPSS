@@ -4,12 +4,27 @@
  * @date 2026-11-22
  */
 
-#ifdef CPSS_ENABLE_REDIS   // Debug 下为空目标文件，避免 SDK 头依赖
+#include "redis_fieldmap.h"
+
+#ifndef CPSS_ENABLE_REDIS
+// Debug 桩：无 protobuf 依赖
+bool RedisFieldMap::parseCustomizeInfo(const QByteArray &raw, PlatformData &out)
+{
+    Q_UNUSED(raw); Q_UNUSED(out);
+    return false;
+}
+bool RedisFieldMap::parseCustomizeInfoC(const QByteArray &raw, CustomizeInfoC &out)
+{
+    Q_UNUSED(raw); Q_UNUSED(out);
+    return false;
+}
+#else
 
 #include "redis_fieldmap.h"
 #include "redis_protocl.h" // 必须先定义 HTPROTO_API 导出宏
 #include "protocol.pb.h"   // HTProto::Customize_Info
 #include <cmath>
+#include <cstring>
 
 PlatformData RedisFieldMap::toPlatformData(const HTProto::Customize_Info *info)
 {
@@ -65,6 +80,57 @@ PlatformData RedisFieldMap::toPlatformData(const HTProto::Customize_Info *info)
     p.sourceProtocol = Protocol_Redis;
 
     return p;
+}
+
+bool RedisFieldMap::parseCustomizeInfo(const QByteArray &raw, PlatformData &out)
+{
+    if (raw.isEmpty()) return false;
+    HTProto::Customize_Info info;
+    if (!info.ParseFromArray(raw.constData(), raw.size())) return false;
+    out = toPlatformData(&info);
+    return true;
+}
+
+bool RedisFieldMap::parseCustomizeInfoC(const QByteArray &raw, CustomizeInfoC &out)
+{
+    if (raw.isEmpty()) return false;
+    HTProto::Customize_Info info;
+    if (!info.ParseFromArray(raw.constData(), raw.size())) return false;
+
+    memset(&out, 0, sizeof(out));   // 1字节对齐结构，整块清零
+
+    out.id                = info.id();
+    out.entityId          = info.entityid();
+    out.entityCamp        = info.entitycamp();
+    out.domain            = info.domain();
+    out.category          = info.category();
+    out.batchNumber       = info.batchnumber();
+    out.height            = info.height();
+    out.longitude         = info.longitude();
+    out.latitude          = info.latitude();
+    out.absoluteHeading   = info.absoluteheading();
+    out.relativeHeading   = info.relativeheading();
+    out.threatLevel       = info.threatlevel();
+    out.distance          = info.distance();
+    out.azimuth           = info.azimuth();
+    out.targetSpeed       = info.targetspeed();
+    out.targetType1       = info.targettype1();
+    out.enemyFriendship   = info.enemyfriendship();
+    out.civilianFriendship= info.civilianfriendship();
+    out.isAlive           = info.isalive() ? 1 : 0;
+
+    // string → 定长 char[]（UTF-8，截断+补0）
+    const std::string name = info.name();
+    const size_t nName = qMin(name.size(), sizeof(out.name) - 1);
+    memcpy(out.name, name.data(), nName);
+    out.name[nName] = '\0';
+
+    const std::string elev = info.elevation();
+    const size_t nElev = qMin(elev.size(), sizeof(out.elevation) - 1);
+    memcpy(out.elevation, elev.data(), nElev);
+    out.elevation[nElev] = '\0';
+
+    return true;
 }
 
 QString RedisFieldMap::mapPlatformType(int targetType1, unsigned int domain)

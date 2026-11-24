@@ -36,6 +36,9 @@ public:
     /** @brief 获取指定类型的适配器（可能为 nullptr） */
     IProtocolAdapter* adapter(ProtocolType type) const;
 
+    /** @brief 获取所有适配器（供录制原始未融合数据等场景） */
+    QList<IProtocolAdapter*> adapters() const { return m_adapters; }
+
     /**
      * @brief 通过 DDS 发布平台数据（供外部模块调用）
      */
