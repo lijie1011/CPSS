@@ -204,7 +204,7 @@ install(TARGETS cpss cpss_common cpss_data
 )
 
 # ---- 外部插件 DLL：安装到 bin/plugins，供运行期 PluginManager 扫描加载 ----
-install(TARGETS sampleplugin helloplugin dataflowplugin chartplugin outputplugin hosierydataplugin
+install(TARGETS sampleplugin helloplugin dataflowplugin chartplugin outputplugin hosierydataplugin htmapplugin
     RUNTIME DESTINATION ${CPSS_INSTALL_PLUGINS}
     LIBRARY DESTINATION ${CPSS_INSTALL_PLUGINS}
 )

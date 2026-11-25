@@ -14,6 +14,9 @@ set(DATALIB_SOURCES
     comm/forward/ddsforwarder.cpp
     comm/forward/udpforwarder.cpp
     comm/forward/tcpforwarder.cpp
+    situationlayer/platformitem.cpp
+    situationlayer/propertyboxitem.cpp
+    situationlayer/SituationLayer.cpp
 )
 
 set(DATALIB_HEADERS
@@ -36,6 +39,12 @@ set(DATALIB_HEADERS
     comm/forward/ddsforwarder.h
     comm/forward/udpforwarder.h
     comm/forward/tcpforwarder.h
+    platformdisplaystate.h
+    situationlayer/IMapCanvas.h
+    situationlayer/IMapView.h
+    situationlayer/platformitem.h
+    situationlayer/propertyboxitem.h
+    situationlayer/SituationLayer.h
 )
 
 add_library(cpss_data SHARED
@@ -66,6 +75,7 @@ target_include_directories(cpss_data PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/comm/rtidds
     ${CMAKE_CURRENT_SOURCE_DIR}/comm/pgdds
     ${CMAKE_CURRENT_SOURCE_DIR}/comm/forward
+    ${CMAKE_CURRENT_SOURCE_DIR}/situationlayer
     ${PROJECT_SOURCE_DIR}/common
 )
 
@@ -74,6 +84,7 @@ target_link_libraries(cpss_data PRIVATE
     Qt5::Core
     Qt5::Gui
     Qt5::Network
+    Qt5::Widgets
 )
 
 # ============================================================

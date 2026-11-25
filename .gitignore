@@ -21,3 +21,18 @@ __pycache__/
 src/3dParty/qt/
 src/3dParty/Enclib/
 src/3dParty/redis_sdk/
+# 地图服务数据：体积巨大（GeoServer 18GB + 分卷压缩包 6GB），不进 git
+# 需单独分发（网盘/内部服务器），运行时通过配置指定路径
+src/3dParty/geoserver/
+src/3dParty/mapdata/
+src/3dParty/地图服务.zip
+src/3dParty/地图服务.tar
+*.z01
+*.z02
+*.z03
+*.z04
+*.z05
+*.z06
+*.z07
+*.z08
+*.z09

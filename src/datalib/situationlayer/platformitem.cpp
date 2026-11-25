@@ -12,8 +12,8 @@
 #include <QPolygonF>
 #include <cmath>
 
-#include "common/IconManager.h"
-#include "common/logger.h"
+#include "IconManager.h"
+#include "logger.h"
 
 /**
  * @brief 构造函数

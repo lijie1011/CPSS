@@ -69,15 +69,20 @@ if exist "%QT_BIN%\windeployqt.exe" (
     echo         [WARN] windeployqt not found at %QT_BIN%
 )
 
-rem 兜底：强制用随附 Qt 的 DLL 覆盖，保证编译/运行 Qt 环境一致
+rem 兜底：只覆盖项目实际使用的 Qt 模块，保证编译/运行 Qt 环境一致
 rem （windeployqt 可能部署了外部 Qt 的 DLL，混用会导致 0xC0000142 DllMain 失败）
+rem 项目只用 Core/Gui/Widgets/Network/Xml 五个模块，其余 100+ DLL 全部不需要
+set QT_MODULES=Core Gui Widgets Network Xml
 if "%CONFIG%"=="Debug" (
-    echo         overwriting Qt5 debug DLLs from bundled Qt...
-    copy /Y "%QT_BIN%\Qt5*d.dll" "src\build\bin\%CONFIG%\" >> "%LOG_FILE%" 2>&1
+    echo         overwriting required Qt5 debug DLLs from bundled Qt...
+    for %%M in (%QT_MODULES%) do (
+        if exist "%QT_BIN%\Qt5%%Md.dll" copy /Y "%QT_BIN%\Qt5%%Md.dll" "src\build\bin\%CONFIG%\" >> "%LOG_FILE%" 2>&1
+    )
 ) else (
-    echo         overwriting Qt5 release DLLs from bundled Qt...
-    copy /Y "%QT_BIN%\Qt5*.dll" "src\build\bin\%CONFIG%\" >> "%LOG_FILE%" 2>&1
-    rem 注意：不用 del Qt5*d.dll —— 会误删 Qt5Gamepad.dll / Qt5VirtualKeyboard.dll 等正常 release DLL
+    echo         overwriting required Qt5 release DLLs from bundled Qt...
+    for %%M in (%QT_MODULES%) do (
+        if exist "%QT_BIN%\Qt5%%M.dll" copy /Y "%QT_BIN%\Qt5%%M.dll" "src\build\bin\%CONFIG%\" >> "%LOG_FILE%" 2>&1
+    )
 )
 
 echo [STEP 6] installing to src\build\install\%CONFIG%...

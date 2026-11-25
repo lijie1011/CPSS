@@ -14,14 +14,14 @@
 #include <QColor>
 
 #include "dynamicdata.h"
-#include "displaystate.h"
+#include "platformdisplaystate.h"
 
 /**
  * @class PlatformItem
  * @brief 平台图元类
  * @details 继承自QGraphicsItem，用于在态势图中显示单个平台
  */
-class PlatformItem : public QGraphicsItem
+class CPSS_DATA_API PlatformItem : public QGraphicsItem
 {
 public:
     /**
@@ -65,6 +65,8 @@ public:
      * @return 平台ID
      */
     QString id() const { return m_platform.id; }
+    /** @brief 获取当前平台数据 */
+    const PlatformData &platformData() const { return m_platform; }
 
     /**
      * @brief 检查平台是否已过期

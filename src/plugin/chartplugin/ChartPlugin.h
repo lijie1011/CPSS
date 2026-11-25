@@ -12,6 +12,7 @@
 
 #include <QObject>
 #include "IChartPlugin.h"
+#include "IMapView.h"
 #include "graphicsviewwidget.h"
 
 /**
@@ -21,11 +22,11 @@
  *          通过 zoomIn/zoomOut/resetView/setChartCenter 暴露海图操作，
  *          通过 chartWidget() 暴露内部 GraphicsViewWidget 供外部连接信号。
  */
-class ChartPlugin : public QObject, public IChartPlugin
+class ChartPlugin : public QObject, public IChartPlugin, public IMapView
 {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID PLUGIN_INTERFACE_IID)
-    Q_INTERFACES(IPlugin IChartPlugin)
+    Q_INTERFACES(IPlugin IChartPlugin IMapView)
 
 public:
     ChartPlugin();
@@ -106,6 +107,10 @@ public:
      * @brief 获取海图视图显示状态映射
      */
     DisplayStateMap getDisplayStates() const override;
+
+    // ---- IMapView 通用地图接口 ----
+    QWidget* mapWidget() override { return m_viewWidget; }
+    void setDisplayStates(const DisplayStateMap &states) override { updateDisplayState(states); }
 
 signals:
     /**

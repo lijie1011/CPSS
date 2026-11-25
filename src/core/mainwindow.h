@@ -17,6 +17,7 @@
 #include "plugin/IPlugin.h"
 #include "plugin/IPluginHost.h"
 #include "plugin/PluginManager.h"
+#include "situationlayer/IMapView.h"
 
 namespace Ui {
 class MainWindow;
@@ -166,6 +167,9 @@ private:
      * @return IChartPlugin 指针，未加载返回 nullptr
      */
     IChartPlugin* chartPlugin() const;
+
+    /** @brief 获取所有实现 IMapView 的地图插件（用于统一广播显示状态） */
+    QList<IMapView*> mapViews() const;
 
     /**
      * @brief 首次显示事件处理

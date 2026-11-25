@@ -14,6 +14,7 @@
 #define PROPERTYBOXITEM_H
 
 #include <QGraphicsObject>
+#include "dynamicdata.h"   // CPSS_DATA_API
 #include <QColor>
 #include <QFont>
 #include <QPointF>
@@ -25,7 +26,7 @@
  * @details 继承自 QGraphicsObject（QObject + QGraphicsItem），支持信号槽。
  *          绘制为一个带背景色与边框的多行文本框，局部原点 (0,0) 为左上角。
  */
-class PropertyBoxItem : public QGraphicsObject
+class CPSS_DATA_API PropertyBoxItem : public QGraphicsObject
 {
     Q_OBJECT
 

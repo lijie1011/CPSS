@@ -268,6 +268,17 @@ IChartPlugin* MainWindow::chartPlugin() const
     return qobject_cast<IChartPlugin*>(p->object());
 }
 
+QList<IMapView*> MainWindow::mapViews() const
+{
+    QList<IMapView*> views;
+    for (IPlugin *p : m_pluginManager->getLoadedPlugins()) {
+        if (!p || !p->object()) continue;
+        IMapView *v = qobject_cast<IMapView*>(p->object());
+        if (v) views.append(v);
+    }
+    return views;
+}
+
 /**
  * @brief 加载外部 DLL 插件
  * @details 扫描可执行文件同级 plugins/ 目录，通过 PluginManager::loadPlugins()
@@ -918,9 +929,18 @@ void MainWindow::showPlatformControl()
 
     PlatformControlPanel *panel = new PlatformControlPanel(this);
     panel->setAttribute(Qt::WA_DeleteOnClose);
-    if (cp) {
+    const QList<IMapView*> views = mapViews();
+    if (!views.isEmpty()) {
+        // 用第一个地图的数据初始化面板（通常是 chart）
+        panel->initWithData(views.first()->getDynamicData(), views.first()->getDisplayStates());
+        // 广播显示状态变更给所有地图插件（chart + htmapplugin 行为一致）
+        connect(panel, &PlatformControlPanel::displayStateChanged,
+                this, [this](const DisplayStateMap &stateMap) {
+            for (IMapView *v : mapViews()) v->setDisplayStates(stateMap);
+        });
+    } else if (cp) {
+        // 兼容：没有 IMapView 插件时仍用 IChartPlugin
         panel->initWithData(cp->getDynamicData(), cp->getDisplayStates());
-        // 通过接口转发显示状态变更，避免跨 DLL 直接调用具体类型
         connect(panel, &PlatformControlPanel::displayStateChanged,
                 this, [cp](const DisplayStateMap &stateMap) { if (cp) cp->updateDisplayState(stateMap); });
     }

@@ -18,16 +18,12 @@ set(DATALIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../datalib)
 set(SOURCES
     ChartPlugin.cpp
     graphicsviewwidget.cpp
-    platformitem.cpp
-    propertyboxitem.cpp
 )
 
 set(HEADERS
     ChartPlugin.h
     IChartPlugin.h
     graphicsviewwidget.h
-    platformitem.h
-    propertyboxitem.h
 )
 
 add_library(chartplugin SHARED ${SOURCES} ${HEADERS})
@@ -42,6 +38,7 @@ target_include_directories(chartplugin PRIVATE
     ${CORE_DIR}
     ${SRC_ROOT_DIR}/common
     ${DATALIB_DIR}
+    ${DATALIB_DIR}/situationlayer
     ${ENCLIB_INCLUDE_DIR}
 )
 
