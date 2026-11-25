@@ -110,40 +110,47 @@ void TileProvider::buildLocalIndex()
         return;
     }
 
-    // 遍历所有 EPSG_4326_{z:02d} 目录
-    const QStringList grids = root.entryList(QStringList() << "EPSG_4326_*", QDir::Dirs | QDir::NoDotAndDotDot);
+    // 新标准 XYZ 结构：EPSG_4326/{z}/{x}/{y}.png
+    // x=col, y=row（WMTS 顺序，row 从上往下=北到南）
+    QDir gridRoot(root.filePath(QStringLiteral("EPSG_4326")));
+    if (!gridRoot.exists()) {
+        Logger::error("[TileProvider] XYZ grid dir not exist: %s",
+                      gridRoot.path().toUtf8().constData());
+        return;
+    }
+
     int count = 0;
-    for (const QString &grid : grids) {
-        // 解析层级：EPSG_4326_09 -> 9
-        const QString zStr = grid.mid(QStringLiteral("EPSG_4326_").length());
-        bool ok = false;
-        int z = zStr.toInt(&ok);
-        if (!ok || z < 0) continue;
+    const QStringList zDirs = gridRoot.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString &zDir : zDirs) {
+        bool zOk = false;
+        const int z = zDir.toInt(&zOk);
+        if (!zOk || z < 0) continue;
 
-        const QString gridPath = root.filePath(grid);
-        // 只要该层级目录下有 PNG 就标记为有效层级
-        QDirIterator chk(gridPath, QStringList() << "*.png", QDir::Files, QDirIterator::Subdirectories);
-        if (chk.hasNext()) m_availableZooms.insert(z);
-        // 遍历所有 PNG：目录 x_y / 文件 CCCC_RRRR.png
-        QDirIterator it(gridPath, QStringList() << "*.png", QDir::Files, QDirIterator::Subdirectories);
-        while (it.hasNext()) {
-            const QString path = it.next();
-            const QFileInfo fi(path);
-            const QString fileName = fi.completeBaseName();   // "0660_0332"
-            const int sep = fileName.indexOf('_');
-            if (sep <= 0) continue;
-            bool cOk = false, rOk = false;
-            const int col = fileName.left(sep).toInt(&cOk);
-            const int row = fileName.mid(sep + 1).toInt(&rOk);
-            if (!cOk || !rOk) continue;
+        const QString zPath = gridRoot.filePath(zDir);
+        const QStringList xDirs = QDir(zPath).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QString &xDir : xDirs) {
+            bool xOk = false;
+            const int col = xDir.toInt(&xOk);
+            if (!xOk || col < 0) continue;
 
-            TileKey key;
-            key.z = z; key.col = col; key.row = row;
-            m_index.insert(key.hash(), path);
-            ++count;
+            const QString xPath = QDir(zPath).filePath(xDir);
+            const QStringList pngs = QDir(xPath).entryList(QStringList() << "*.png", QDir::Files);
+            if (pngs.isEmpty()) continue;
+            m_availableZooms.insert(z);
+
+            for (const QString &png : pngs) {
+                bool yOk = false;
+                const int row = QFileInfo(png).completeBaseName().toInt(&yOk);
+                if (!yOk || row < 0) continue;
+
+                TileKey key; key.z = z; key.col = col; key.row = row;
+                m_index.insert(key.hash(), QDir(xPath).filePath(png));
+                ++count;
+            }
         }
     }
-    Logger::info("[TileProvider] local index built: %d tiles", count);
+    Logger::info("[TileProvider] local XYZ index built: %d tiles, zooms=%d",
+                 count, m_availableZooms.size());
 }
 
 bool TileProvider::hasZoom(int z) const
@@ -199,7 +206,8 @@ QPointF TileProvider::dataCenter(int z) const
     const int row = rows[rows.size() / 2];
     const double n = (double)(1 << z);
     const double lon = col / (2.0 * n) * 360.0 - 180.0;
-    const double lat = row / n * 180.0 - 90.0;   // TMS
+    // WMTS/XYZ 顺序：row=0 是北纬90°，row=n-1 是南纬90°（北在上）
+    const double lat = 90.0 - row / n * 180.0;
     return QPointF(lon, lat);
 }
 

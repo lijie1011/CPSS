@@ -82,6 +82,15 @@ MapWidget::MapWidget(QWidget *parent)
     m_zoom = qBound(0, m_zoom, m_tiles.maxZoom());
     if (m_fixedZoom >= 0) m_zoom = m_fixedZoom;
 
+    // 本地模式：自动定位到有瓦片的数据区域（ini 的固定中心可能不在数据区）
+    if (m_tiles.mode() == TileSourceMode::Local && m_tiles.hasZoom(m_zoom)) {
+        const QPointF dataCenter = m_tiles.dataCenter(m_zoom);
+        if (dataCenter.x() != 0.0 || dataCenter.y() != 0.0) {
+            m_centerLon = dataCenter.x();
+            m_centerLat = dataCenter.y();
+        }
+    }
+
     m_scene = new QGraphicsScene(this);
     setScene(m_scene);
     setRenderHint(QPainter::Antialiasing, false);
