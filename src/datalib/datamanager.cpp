@@ -380,24 +380,25 @@ void DataManager::updatePlatform(const QJsonObject &obj, ProtocolType source)
     platform.validUntil = platform.updateTime + 
         (obj.contains("validDuration") ? obj["validDuration"].toInt() : m_defaultValidDuration);
     platform.sourceProtocol = source;
+    updatePlatformDirect(platform, source);
+}
 
-    DataCache::instance()->updatePlatform(platform);
+void DataManager::updatePlatformDirect(const PlatformData &platform, ProtocolType source)
+{
+    if (platform.id.isEmpty()) return;
+
+    // 统一写 DataCache（它内部继承航迹并发出 platformUpdated，
+    // 由信号-信号转发到 DataManager::platformUpdated —— 唯一信号源）
+    PlatformData data = platform;
+    data.sourceProtocol = source;
+    DataCache::instance()->updatePlatform(data);
 
     {
         std::lock_guard<std::mutex> lock(m_callbackMutex);
-        if (m_platformUpdateCallback) {
-            m_platformUpdateCallback(platform);
-        }
-        if (m_dataUpdateCallback) {
-            m_dataUpdateCallback(getAllData());
-        }
+        if (m_platformUpdateCallback) m_platformUpdateCallback(data);
+        if (m_dataUpdateCallback) m_dataUpdateCallback(getAllData());
     }
-
-    emit platformUpdated(platform);
-    // 临时关闭：只保留回放转发 UDP 的日志（控制台插件）
-    // ut::log::info() << "platform updated: " << platform.id << " " << platform.name << " " << platform.lon << " " << platform.lat;
-    //emit platformsUpdated(getAllPlatforms());
-    //emit dynamicDataChanged(getAllData());
+    // 注意：不再手动 emit platformUpdated —— DataCache 已发出（带航迹）
 }
 
 /**

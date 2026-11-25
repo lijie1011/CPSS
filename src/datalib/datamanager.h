@@ -184,6 +184,13 @@ public:
     void notifyPlatformSelected(const QString &id);
 
     /**
+     * @brief 强类型平台数据入口（跳过 JSON 中转，供 Redis/回放等已解析数据使用）
+     * @param platform 平台数据
+     * @param source 来源协议
+     */
+    void updatePlatformDirect(const PlatformData &platform, ProtocolType source);
+
+    /**
      * @brief 注册平台更新回调
      * @param callback 回调函数
      */

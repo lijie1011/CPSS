@@ -146,19 +146,15 @@ void SituationLayer::onPlatformUpdated(const PlatformData &platform)
 {
     if (!m_scene || !m_canvas || platform.id.isEmpty()) return;
 
-    // 关键：DataManager 的原始信号不带航迹（航迹由 DataCache 累积生成）
-    // 从 DataCache 取融合后的数据，保证航迹/状态与 chart 一致
-    PlatformData data = platform;
-    PlatformData cached = DataCache::instance()->getPlatform(platform.id);
-    if (!cached.id.isEmpty()) data = cached;
-
+    // 数据优化后：platformUpdated 由 DataCache 发出，已携带累积航迹
+    // 无需再回查 DataCache（省一次查表+值拷贝）
     PlatformItem *item = m_platformItems.value(platform.id, nullptr);
     if (!item) {
-        item = new PlatformItem(data);
+        item = new PlatformItem(platform);
         m_platformItems.insert(platform.id, item);
         m_scene->addItem(item);
     } else {
-        item->updateData(data);
+        item->updateData(platform);
     }
     item->setPos(m_canvas->lonLatToScene(platform.lon, platform.lat));
     applyDisplayState(platform.id);

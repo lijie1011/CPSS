@@ -118,8 +118,7 @@ void PgDdsAdapter::handleJson(const QString &topic, const QJsonObject &json)
     Q_UNUSED(topic);
 
     if (type == QStringLiteral("platform")) {
-        PlatformData p = DdsConverter::jsonToPlatform(json);
-        emit platformReceived(p);
+        // 直接把 JSON 发给 DataManager 解析（原 jsonToPlatform 结果无消费者，属无效转换）
         emit dataReceived(json, Protocol_PgDds);
     } else if (type == QStringLiteral("event")) {
         SpecialEvent e = DdsConverter::jsonToEvent(json);

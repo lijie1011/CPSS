@@ -269,7 +269,7 @@ void ReplayPlayer::inject(const RecEntry &entry)
         PlatformData p;
         if (RedisFieldMap::parseCustomizeInfo(entry.payload, p)) {
             const QJsonObject json = DdsConverter::platformToJson(p);
-            DataManager::instance()->onDataReceived(json, Protocol_Unknown);
+            DataManager::instance()->updatePlatformDirect(p, Protocol_Unknown);  // 强类型，跳过 JSON 解析
             fp.json = QJsonDocument(json).toJson(QJsonDocument::Compact);
         }
         // 【临时方案】转发用 C struct 字节，字节序由界面设置决定
@@ -284,7 +284,7 @@ void ReplayPlayer::inject(const RecEntry &entry)
         PlatformData p;
         if (deserializePlatform(entry.payload, p)) {
             const QJsonObject json = DdsConverter::platformToJson(p);
-            DataManager::instance()->onDataReceived(json, Protocol_Unknown);
+            DataManager::instance()->updatePlatformDirect(p, Protocol_Unknown);  // 强类型
             fp.json = QJsonDocument(json).toJson(QJsonDocument::Compact);
             emit forwardData(fp);
         }

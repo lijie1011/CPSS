@@ -49,6 +49,7 @@ struct timeval { long tv_sec; long tv_usec; };
 #endif
 #include "redis_protocl.h"      // 必须先定义 HTPROTO_API 导出宏
 #include "protocol.pb.h"        // HTProto::Envelope / Customize_Info
+#include "datamanager.h"        // 强类型入口 updatePlatformDirect
 
 #include <QtGlobal>
 #include <QByteArray>
@@ -213,9 +214,8 @@ void RedisAdapter::subscriptionLoop()
 
 void RedisAdapter::onPlatformReceived(const PlatformData &platform)
 {
-    // 主线程：转成 DataManager 可识别的 JSON 消息并发出（本地海图显示）
-    QJsonObject json = DdsConverter::platformToJson(platform);
-    emit dataReceived(json, Protocol_Redis);
+    // 主线程：强类型入口直接写入 DataManager（跳过 JSON 往返转换）
+    DataManager::instance()->updatePlatformDirect(platform, Protocol_Redis);
 
     // 转发给态势显示系统（RTI DDS，未装 SDK 时为空操作）
     SituationForwarder::instance()->forwardPlatform(platform);
