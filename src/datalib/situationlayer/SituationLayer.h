@@ -21,6 +21,7 @@ class QGraphicsPathItem;
 class QGraphicsEllipseItem;
 class PlatformItem;
 class PropertyBoxItem;
+class BoundingBoxItem;
 
 /**
  * @struct PropertyBoxEntry
@@ -81,6 +82,7 @@ private:
     IMapCanvas *m_canvas = nullptr;
     QHash<QString, PlatformItem*> m_platformItems;
     QHash<QString, PropertyBoxEntry> m_propertyBoxes;
+    BoundingBoxItem *m_selectedBox = nullptr;   ///< 选中平台的 3D 包围盒
     QHash<QString, QGraphicsPathItem*> m_trackItems;              ///< 航迹
     QHash<QString, QList<QGraphicsEllipseItem*>> m_rangeItems;    ///< 传感器/武器范围圆
     QList<SpecialEvent> m_events;

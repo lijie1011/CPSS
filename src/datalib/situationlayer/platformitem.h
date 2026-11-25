@@ -85,6 +85,10 @@ public:
      * @return 纬度值
      */
     double lat() const { return m_platform.lat; }
+    /** @brief 当前模拟横滚角（3D 包围盒用） */
+    double currentRoll() const { return m_currentRoll; }
+    /** @brief 是否使用 3D 图集模式 */
+    bool usePoseAtlas() const { return m_usePoseAtlas; }
 
 private:
     /**
@@ -106,6 +110,13 @@ private:
     QRectF m_boundingRect; ///< 边界矩形
     QColor m_campColor;    ///< 阵营颜色
     bool m_isMissile;      ///< 是否为导弹
+
+    // 3D 姿态图集模式
+    QImage m_poseImage;          ///< 当前姿态图（已着色）
+    double m_lastHeading = 0.0;  ///< 上帧航向（用于模拟横滚）
+    qint64 m_lastUpdateMs = 0;   ///< 上帧时间
+    bool m_usePoseAtlas = false; ///< 是否使用姿态图集
+    double m_currentRoll = 0.0;  ///< 当前模拟横滚
 };
 
 #endif

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>飞机姿态显示效果演示（预渲染贴图 / Billboard 方案）</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #1e1e1e; color: #d4d4d4; font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    display: flex; height: 100vh; overflow: hidden;
+  }
+  #stage { flex: 1; position: relative; background: #252526; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #panel {
+    width: 340px; background: #252526; border-left: 1px solid #3c3c3c;
+    padding: 20px; overflow-y: auto; flex-shrink: 0;
+  }
+  h1 { font-size: 16px; color: #4ec9b0; margin-bottom: 4px; }
+  .sub { font-size: 12px; color: #858585; margin-bottom: 20px; line-height: 1.6; }
+  .ctrl { margin-bottom: 18px; }
+  .ctrl label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+  .ctrl label b { color: #4ec9b0; font-weight: 500; }
+  input[type=range] { width: 100%; accent-color: #4ec9b0; }
+  .btn {
+    width: 100%; padding: 9px; margin-bottom: 10px; background: #0e639c; color: #fff;
+    border: none; border-radius: 3px; cursor: pointer; font-size: 13px;
+  }
+  .btn:hover { background: #1177bb; }
+  .btn.sec { background: #3c3c3c; }
+  .btn.sec:hover { background: #4a4a4a; }
+  .divider { height: 1px; background: #3c3c3c; margin: 20px 0; }
+  .note { font-size: 12px; color: #858585; line-height: 1.7; }
+  .note strong { color: #ce9178; }
+  .legend { display: flex; gap: 8px; margin-top: 8px; font-size: 12px; align-items: center; }
+  .sw { width: 14px; height: 14px; border-radius: 2px; display: inline-block; }
+  .tag { display:inline-block; padding:2px 6px; background:#094771; color:#9cdcfe; border-radius:3px; font-size:11px; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="cv"></canvas></div>
+<div id="panel">
+  <h1>3D 目标姿态显示效果</h1>
+  <div class="sub">模拟"俯视相机 + 3D 目标姿态"。切换模型或拖动滑块观察效果。<br><span class="tag">Billboard 预渲染贴图方案</span></div>
+
+  <div class="ctrl">
+    <label>目标模型</label>
+    <select id="modelSel" style="width:100%;padding:6px;background:#3c3c3c;color:#d4d4d4;border:1px solid #555;border-radius:3px">
+      <option value="fighter">三角翼战斗机</option>
+      <option value="destroyer">驱逐舰</option>
+      <option value="carrier">航母</option>
+      <option value="drone">无人机</option>
+      <option value="recon">侦察机</option>
+      <option value="missile">导弹</option>
+    </select>
+  </div>
+
+  <div class="ctrl">
+    <label>颜色</label>
+    <select id="colorSel" style="width:100%;padding:6px;background:#3c3c3c;color:#d4d4d4;border:1px solid #555;border-radius:3px">
+      <option value="gray">灰白（原始）</option>
+      <option value="red">红方</option>
+      <option value="blue">蓝方</option>
+    </select>
+  </div>
+
+  <div class="ctrl">
+    <label>航向 Heading <b id="vh">0°</b></label>
+    <input type="range" id="heading" min="0" max="360" value="45">
+  </div>
+  <div class="ctrl">
+    <label>俯仰 Pitch <b id="vp">0°</b></label>
+    <input type="range" id="pitch" min="-30" max="30" value="0">
+  </div>
+  <div class="ctrl">
+    <label>横滚 Roll <b id="vr">0°</b></label>
+    <input type="range" id="roll" min="-45" max="45" value="0">
+  </div>
+
+  <div class="divider"></div>
+  <div class="ctrl">
+    <label>相机倾角（离垂直方向） <b id="vt">20°</b></label>
+    <input type="range" id="tilt" min="0" max="45" value="20">
+  </div>
+  <div class="note">0° = 完全垂直俯视（纯2D）<br>20° = 略倾斜（有立体感，仍像地图）<br>对比两者看姿态效果差异</div>
+
+  <div class="divider"></div>
+  <div class="ctrl">
+    <label>飞机大小 <b id="vs">22</b></label>
+    <input type="range" id="airSize" min="8" max="60" value="22">
+  </div>
+  <div class="note">数值越小飞机越大（当前 scale = 画面短边 / 该值）<br>程序里对应 cpss.ini 的 ModelIconSize</div>
+
+  <div class="divider"></div>
+  <div class="ctrl">
+    <label><input type="checkbox" id="boxChk" checked style="margin-right:6px">显示 3D 包围盒</label>
+  </div>
+  <div class="ctrl">
+    <label>包围盒网格密度 <b id="vgrid">3</b></label>
+    <input type="range" id="boxGrid" min="1" max="6" value="3">
+  </div>
+  <div class="note">盒子按模型实际尺寸生成，透明线框，随模型姿态变化</div>
+
+  <div class="divider"></div>
+  <button class="btn" id="matrixBtn">▦ 生成姿态矩阵</button>
+  <button class="btn" id="anim">▶ 自动演示姿态变化</button>
+  <button class="btn sec" id="reset">重置</button>
+  <div class="note" id="matrixNote" style="display:none">
+    矩阵模式：列=航向(0~330°每30°)，行=横滚(-45~45°)。<br>
+    格子尺寸按模型最大投影尺寸自动计算。<br>
+    <strong>点击格子</strong>选中该姿态返回单模型视图。
+  </div>
+
+  <div class="divider"></div>
+  <div class="note">
+    <strong>这是"预渲染贴图"能达到的效果：</strong><br>
+    开发时用 Blender 把 3D 模型按各角度渲染成图集，运行时根据姿态选图显示。<br><br>
+    <strong>性能：极低</strong>——只是一次贴图绘制，无 OpenGL、无 3D 计算。<br><br>
+    当前演示是实时计算 3D 投影（为了让你调参数），实际产品用离散图集，效果一致。
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const headingEl = document.getElementById('heading');
+const pitchEl = document.getElementById('pitch');
+const rollEl = document.getElementById('roll');
+const tiltEl = document.getElementById('tilt');
+const airSizeEl = document.getElementById('airSize');
+
+function resize() {
+  cv.width = cv.clientWidth * devicePixelRatio;
+  cv.height = cv.clientHeight * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// 简化几何模型：本地坐标 +Y=前进方向, +X=右, +Z=上
+// 每个面: {v:[顶点索引], c:颜色}
+// 用 builder 简化构造：addBox / addPoly
+function buildModel(fn) {
+  const V=[], F=[];
+  const addV=(x,y,z)=>{V.push([x,y,z]);return V.length-1;};
+  const addF=(v,c)=>F.push({v,c});
+  const box=(x0,x1,y0,y1,z0,z1,c)=>{
+    const a=addV(x0,y0,z0),b=addV(x1,y0,z0),d=addV(x1,y1,z0),e=addV(x0,y1,z0);
+    const f=addV(x0,y0,z1),g=addV(x1,y0,z1),h=addV(x1,y1,z1),i=addV(x0,y1,z1);
+    addF([a,b,d,e],c); addF([f,g,h,i],c); addF([a,b,g,f],c);
+    addF([e,d,h,i],c); addF([a,e,i,f],c); addF([b,d,h,g],c);
+  };
+  fn({V,F,addV,addF,box});
+  return {verts:V, faces:F};
+}
+
+const MODELS = {};
+
+// 1. 三角翼战斗机
+MODELS.fighter = buildModel(({addV,addF})=>{
+  const v=[[0,6,0],[-.45,2.2,.25],[.45,2.2,.25],[-.45,2.2,-.25],[.45,2.2,-.25],
+    [-.55,-4,.3],[.55,-4,.3],[-.55,-4,-.3],[.55,-4,-.3],[-4.2,-1.4,0],[-4.2,-2.3,0],
+    [4.2,-1.4,0],[4.2,-2.3,0],[-2,-3.2,0],[-2,-3.9,0],[2,-3.2,0],[2,-3.9,0],
+    [0,-2.4,.3],[0,-4,.3],[0,-3.7,2.2]].map(p=>addV(...p));
+  [[0,1,2],[0,3,4],[1,5,6,2],[3,4,8,7],[1,3,7,5],[2,6,8,4],[1,9,10,5],[2,6,12,11],[5,13,14],[6,16,15],[17,19,18]]
+    .forEach((f,i)=>addF(f.map(k=>v[k]), ['#e8e8e8','#b8b8b8','#f0f0f0','#a0a0a0','#c8c8c8','#c0c0c0','#dcdcdc','#d0d0d0','#c8c8c8','#c4c4c4','#909090'][i]));
+});
+
+// 2. 驱逐舰（细长舰体 + 上层建筑）
+MODELS.destroyer = buildModel(({addV,addF,box})=>{
+  const bow=addV(0,7,0), bl=addV(-.9,5,.5), br=addV(.9,5,.5), bl2=addV(-.9,5,-.5), br2=addV(.9,5,-.5);
+  const sl=addV(-.9,-6,.5), sr=addV(.9,-6,.5), sl2=addV(-.9,-6,-.5), sr2=addV(.9,-6,-.5);
+  addF([bow,bl,br],'#d8d8d8'); addF([bow,bl2,br2],'#909090');
+  addF([bl,br,sr,sl],'#c8c8c8'); addF([bl2,br2,sr2,sl2],'#888888');
+  addF([bl,bl2,sl2,sl],'#b0b0b0'); addF([br,br2,sr2,sr],'#b0b0b0');
+  addF([sl,sr,sr2,sl2],'#787878');
+  box(-.5,.5,2,4,.5,1.8,'#e0e0e0');       // 舰桥
+  box(-.3,.3,-2,0,.5,1.2,'#c0c0c0');      // 后建筑
+  box(-.15,.15,3.2,3.6,1.8,3.2,'#a0a0a0');// 桅杆
+});
+
+// 3. 航母（大甲板 + 舰岛）
+MODELS.carrier = buildModel(({addV,addF,box})=>{
+  const bow=addV(0,8,0), bl=addV(-2.2,6,.8), br=addV(2.2,6,.8), sl=addV(-2.2,-8,.8), sr=addV(2.2,-8,.8);
+  addF([bow,bl,br],'#8a8a8a');
+  addF([bl,br,sr,sl],'#9a9a9a');  // 甲板
+  box(-2.2,2.2,-8,6,-.3,.8,'#606060');   // 舰体
+  box(.8,2.0,2,4,.8,2.6,'#b0b0b0');      // 舰岛
+  box(1.1,1.7,2.4,2.8,2.6,4.0,'#909090');// 桅杆
+});
+
+// 4. 无人机（小机身 + 大展弦比直翼）
+MODELS.drone = buildModel(({addV,addF,box})=>{
+  const nose=addV(0,3.5,0), tl=addV(-.3,2,.2), tr=addV(.3,2,.2), bl=addV(-.3,-2,.2), br=addV(.3,-2,.2);
+  const wl=addV(-3.5,0.6,.05), wr=addV(3.5,0.6,.05), wl2=addV(-3.5,-0.6,.05), wr2=addV(3.5,-0.6,.05);
+  addF([nose,tl,tr],'#e0e0e0');
+  addF([tl,tr,br,bl],'#d0d0d0');
+  addF([tl,wl,wl2,bl],'#e8e8e8'); addF([tr,br,wr2,wr],'#e8e8e8'); // 长直翼
+  addF([wl2,wr2],'#c0c0c0');
+  const t1=addV(-1.2,-1.8,.05),t2=addV(1.2,-1.8,.05);
+  addF([bl,br,t2,t1],'#b8b8b8');  // 尾翼
+});
+
+// 5. 侦察机（对称直翼 + 细长机身 + 单垂尾，简洁对称）
+MODELS.recon = buildModel(({addV,addF})=>{
+  const v=[[0,6,0],[-.4,3,.25],[.4,3,.25],[-.4,-4,.25],[.4,-4,.25],
+    [-.4,3,-.25],[.4,3,-.25],[-.4,-4,-.25],[.4,-4,-.25],
+    [-5,1.2,0],[5,1.2,0],[-5,-0.8,0],[5,-0.8,0],
+    [-1.6,-3,.25],[1.6,-3,.25],[-1.6,-4,.25],[1.6,-4,.25],
+    [0,-2.5,.25],[0,-4,.25],[0,-3.4,1.6]].map(p=>addV(...p));
+  // 机身上下左右
+  [[0,1,2],[0,6,5],[1,3,4,2],[6,7,8,5],[1,5,7,3],[2,4,8,6],
+   // 对称主翼（左右各一片，不跨接）
+   [1,9,10,5],[5,12,11,2],
+   // 对称尾翼
+   [3,13,14,4],[13,15,16,14],
+   // 垂尾
+   [17,19,18]].forEach((f,i)=>{
+    const cols=['#e8e8e8','#b8b8b8','#f0f0f0','#a0a0a0','#c8c8c8','#c0c0c0',
+                '#dcdcdc','#c4c4c4','#c8c8c8','#bcbcbc','#909090'];
+    addF(f.map(k=>v[k]), cols[i]||'#c0c0c0');
+  });
+});
+
+// 6. 导弹（圆锥弹头 + 圆柱弹体，无翼）
+MODELS.missile = buildModel(({addV,addF})=>{
+  // 弹头（圆锥）
+  const nose=addV(0,6.5,0);
+  // 弹体前圈（8边形模拟圆）
+  const rb=[];
+  for(let i=0;i<8;i++){const a=i*Math.PI/4; rb.push(addV(.35*Math.cos(a),4.5,.35*Math.sin(a)));}
+  // 弹体后圈
+  const re=[];
+  for(let i=0;i<8;i++){const a=i*Math.PI/4; re.push(addV(.35*Math.cos(a),-5,.35*Math.sin(a)));}
+  // 圆锥面
+  for(let i=0;i<8;i++) addF([nose,rb[i],rb[(i+1)%8]], i%2?'#e8e8e8':'#d8d8d8');
+  // 圆柱侧面
+  for(let i=0;i<8;i++) addF([rb[i],rb[(i+1)%8],re[(i+1)%8],re[i]], i%2?'#c8c8c8':'#b8b8b8');
+  // 尾盖
+  addF(re, '#909090');
+});
+
+let verts = MODELS.fighter.verts;
+let faces = MODELS.fighter.faces;
+
+const rad = d => d * Math.PI / 180;
+function rotX(p, a){ const c=Math.cos(a),s=Math.sin(a); return [p[0], p[1]*c-p[2]*s, p[1]*s+p[2]*c]; }
+function rotY(p, a){ const c=Math.cos(a),s=Math.sin(a); return [p[0]*c+p[2]*s, p[1], -p[0]*s+p[2]*c]; }
+function rotZ(p, a){ const c=Math.cos(a),s=Math.sin(a); return [p[0]*c-p[1]*s, p[0]*s+p[1]*c, p[2]]; }
+
+let animT = 0, animOn = false;
+let matrixMode = false;
+let matrixCells = [];   // {x,y,w,h,hd,rl}
+
+// 计算模型在给定姿态下投影后的最大尺寸（用于矩阵格子自动布局）
+function modelExtent(hd, pt, rl, tilt) {
+  let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+  for (const p of verts) {
+    let q = rotY(p, rad(rl));
+    q = rotX(q, rad(-pt));
+    q = rotZ(q, rad(-hd));
+    q = rotX(q, rad(tilt));
+    minX=Math.min(minX,q[0]); maxX=Math.max(maxX,q[0]);
+    minY=Math.min(minY,q[1]); maxY=Math.max(maxY,q[1]);
+  }
+  return {w: maxX-minX, h: maxY-minY};
+}
+
+// 在指定中心/缩放下绘制一个姿态
+function drawPose(cx, cy, scale, hd, pt, rl, tilt, borderColor, lineW, showLabel) {
+  function project(p) {
+    let q = rotY(p, rad(rl));
+    q = rotX(q, rad(-pt));
+    q = rotZ(q, rad(-hd));
+    q = rotX(q, rad(tilt));
+    return [cx + q[0]*scale, cy - q[1]*scale];
+  }
+
+  // ===== 3D 包围盒（根据模型实际尺寸生成，透明网格）=====
+  const showBox = document.getElementById('boxChk').checked;
+  if (showBox) {
+    const gridN = +document.getElementById('boxGrid').value;
+    // 模型包围盒
+    let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9,mnz=1e9,mxz=-1e9;
+    for (const p of verts) {
+      mnx=Math.min(mnx,p[0]); mxx=Math.max(mxx,p[0]);
+      mny=Math.min(mny,p[1]); mxy=Math.max(mxy,p[1]);
+      mnz=Math.min(mnz,p[2]); mxz=Math.max(mxz,p[2]);
+    }
+    // 稍微外扩一点
+    const ex=(mxx-mnx)*0.05, ey=(mxy-mny)*0.05, ez=(mxz-mnz)*0.05;
+    mnx-=ex;mxx+=ex;mny-=ey;mxy+=ey;mnz-=ez;mxz+=ez;
+
+    const dx=(mxx-mnx)/gridN, dy=(mxy-mny)/gridN, dz=(mxz-mnz)/gridN;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(78,201,176,0.55)';
+    ctx.lineWidth = 1;
+    // 画所有网格线（三个方向）
+    for (let i=0;i<=gridN;i++) {
+      const x=mnx+i*dx, y=mny+i*dy, z=mnz+i*dz;
+      // XY 平面网格（底和顶）
+      for (const zz of [mnz,mxz]) {
+        ctx.beginPath();
+        let a=project([mnx,y,zz]), b=project([mxx,y,zz]); ctx.moveTo(...a);ctx.lineTo(...b);
+        a=project([x,mny,zz]); b=project([x,mxy,zz]); ctx.moveTo(...a);ctx.lineTo(...b);
+        ctx.stroke();
+      }
+      // XZ 平面网格
+      for (const yy of [mny,mxy]) {
+        ctx.beginPath();
+        let a=project([mnx,yy,z]), b=project([mxx,yy,z]); ctx.moveTo(...a);ctx.lineTo(...b);
+        a=project([x,yy,mnz]); b=project([x,yy,mxz]); ctx.moveTo(...a);ctx.lineTo(...b);
+        ctx.stroke();
+      }
+      // YZ 平面网格
+      for (const xx of [mnx,mxx]) {
+        ctx.beginPath();
+        let a=project([xx,mny,z]), b=project([xx,mxy,z]); ctx.moveTo(...a);ctx.lineTo(...b);
+        a=project([xx,y,mnz]); b=project([xx,y,mxz]); ctx.moveTo(...a);ctx.lineTo(...b);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // ===== 模型 =====
+  const sorted = faces.map(f => {
+    let z=0; f.v.forEach(i=>z+=verts[i][2]); z/=f.v.length;
+    return {f,z};
+  }).sort((a,b)=>a.z-b.z);
+  ctx.lineWidth = lineW;
+  ctx.strokeStyle = borderColor;
+  for (const {f} of sorted) {
+    ctx.beginPath();
+    f.v.forEach((vi,k)=>{ const p=project(verts[vi]); k===0?ctx.moveTo(p[0],p[1]):ctx.lineTo(p[0],p[1]); });
+    ctx.closePath();
+    ctx.fillStyle=f.c; ctx.fill(); ctx.stroke();
+  }
+  if (showLabel) {
+    ctx.fillStyle='#4ec9b0'; ctx.beginPath(); ctx.arc(cx,cy,3,0,7); ctx.fill();
+  }
+}
+
+function draw() {
+  const W = cv.clientWidth, H = cv.clientHeight;
+  ctx.clearRect(0,0,W,H);
+  const colorMode = document.getElementById('colorSel').value;
+  const borderColor = colorMode === 'red' ? '#ff4444' : colorMode === 'blue' ? '#4488ff' : '#404040';
+
+  if (matrixMode) {
+    // ===== 矩阵模式 =====
+    const hs = [0,30,60,90,120,150,180,210,240,270,300,330];  // 12 列航向
+    const rs = [-45,-30,-15,0,15,30,45];                        // 7 行横滚
+    const cols = hs.length, rows = rs.length;
+    // 按模型最大投影尺寸计算格子大小
+    let maxW=0, maxH=0;
+    for (const hd of hs) for (const rl of rs) {
+      const e = modelExtent(hd, 0, rl, 20);
+      maxW=Math.max(maxW,e.w); maxH=Math.max(maxH,e.h);
+    }
+    const pad = 6;
+    const cellW = Math.floor((W-pad*(cols+1))/cols);
+    const cellH = Math.floor((H-pad*(rows+1))/rows);
+    // scale 让最大模型恰好放进格子
+    const scale = Math.min((cellW-pad)/Math.max(maxW,0.01), (cellH-pad)/Math.max(maxH,0.01));
+    matrixCells = [];
+    for (let r=0; r<rows; r++) {
+      for (let c=0; c<cols; c++) {
+        const x=pad+c*(cellW+pad), y=pad+r*(cellH+pad);
+        ctx.strokeStyle='#3c3c3c'; ctx.lineWidth=1; ctx.strokeRect(x,y,cellW,cellH);
+        const cx=x+cellW/2, cy=y+cellH/2;
+        drawPose(cx,cy,scale,hs[c],0,rs[r],20,borderColor,colorMode==='gray'?1:2,false);
+        matrixCells.push({x,y,w:cellW,h:cellH,hd:hs[c],rl:rs[r]});
+        ctx.fillStyle='#858585'; ctx.font='10px sans-serif';
+        ctx.fillText(hs[c]+'°', x+3, y+12);
+      }
+      ctx.fillStyle='#858585'; ctx.font='10px sans-serif';
+      ctx.fillText('R'+rs[r]+'°', 3, pad+r*(cellH+pad)+cellH-3);
+    }
+    requestAnimationFrame(draw);
+    return;
+  }
+
+  // ===== 单模型模式 =====
+  ctx.strokeStyle='#2f2f30'; ctx.lineWidth=1;
+  const cx=W/2, cy=H/2, grid=60;
+  for (let x=cx%grid; x<W; x+=grid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for (let y=cy%grid; y<H; y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  let hd=+headingEl.value, pt=+pitchEl.value, rl=+rollEl.value, tilt=+tiltEl.value;
+  if (animOn) {
+    animT+=0.02;
+    hd=(animT*60)%360; pt=Math.sin(animT)*25; rl=Math.sin(animT*0.7)*40;
+    headingEl.value=hd.toFixed(0); pitchEl.value=pt.toFixed(0); rollEl.value=rl.toFixed(0);
+    document.getElementById('vh').textContent=hd.toFixed(0)+'°';
+    document.getElementById('vp').textContent=pt.toFixed(0)+'°';
+    document.getElementById('vr').textContent=rl.toFixed(0)+'°';
+  }
+  const scale = Math.min(W,H)/(+airSizeEl.value);
+  drawPose(cx,cy,scale,hd,pt,rl,tilt,borderColor,colorMode==='gray'?1.5:2.5,true);
+  ctx.fillStyle='#858585'; ctx.font='12px sans-serif';
+  ctx.fillText('俯视相机',12,22); ctx.fillText('倾角 '+tilt+'°',12,40);
+  requestAnimationFrame(draw);
+}
+
+['heading','pitch','roll','tilt'].forEach((id,i) => {
+  document.getElementById(id).addEventListener('input', e => {
+    document.getElementById(['vh','vp','vr','vt'][i]).textContent = e.target.value + '°';
+  });
+});
+airSizeEl.addEventListener('input', e => { document.getElementById('vs').textContent = e.target.value; });
+document.getElementById('boxGrid').addEventListener('input', e => { document.getElementById('vgrid').textContent = e.target.value; });
+document.getElementById('modelSel').addEventListener('change', e => {
+  const m = MODELS[e.target.value];
+  if (m) { verts = m.verts; faces = m.faces; }
+});
+document.getElementById('matrixBtn').addEventListener('click', e => {
+  matrixMode = !matrixMode;
+  document.getElementById('matrixNote').style.display = matrixMode ? 'block' : 'none';
+  e.target.textContent = matrixMode ? '◀ 返回单模型' : '▦ 生成姿态矩阵';
+});
+cv.addEventListener('click', e => {
+  if (!matrixMode) return;
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  for (const cell of matrixCells) {
+    if (mx>=cell.x && mx<=cell.x+cell.w && my>=cell.y && my<=cell.y+cell.h) {
+      headingEl.value = cell.hd; rollEl.value = cell.rl;
+      document.getElementById('vh').textContent = cell.hd+'°';
+      document.getElementById('vr').textContent = cell.rl+'°';
+      matrixMode = false;
+      document.getElementById('matrixNote').style.display='none';
+      document.getElementById('matrixBtn').textContent='▦ 生成姿态矩阵';
+      break;
+    }
+  }
+});
+document.getElementById('anim').addEventListener('click', e => {
+  animOn = !animOn;
+  e.target.textContent = animOn ? '⏸ 停止演示' : '▶ 自动演示姿态变化';
+});
+document.getElementById('reset').addEventListener('click', () => {
+  headingEl.value=45; pitchEl.value=0; rollEl.value=0; tiltEl.value=20;
+  ['vh','vp','vr','vt'].forEach((id,i)=>document.getElementById(id).textContent = [45,0,0,20][i]+'°');
+  animOn=false; document.getElementById('anim').textContent='▶ 自动演示姿态变化';
+});
+draw();
+</script>
+</body>
+</html>

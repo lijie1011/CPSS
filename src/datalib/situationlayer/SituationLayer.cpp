@@ -9,6 +9,9 @@
 #include "propertyboxitem.h"
 #include "datamanager.h"
 #include "datacache.h"
+#include "PoseAtlasManager.h"
+#include "BoundingBoxItem.h"
+#include "logger.h"
 
 #include <QGraphicsScene>
 #include <QGraphicsLineItem>
@@ -21,6 +24,7 @@
 SituationLayer::SituationLayer(QGraphicsScene *scene, IMapCanvas *canvas, QObject *parent)
     : QObject(parent), m_scene(scene), m_canvas(canvas)
 {
+    PoseAtlasManager::instance()->initialize();
     DataManager *dm = DataManager::instance();
     connect(dm, &DataManager::platformUpdated, this, &SituationLayer::onPlatformUpdated);
     connect(dm, &DataManager::platformRemoved, this, &SituationLayer::onPlatformRemoved);
@@ -37,6 +41,7 @@ SituationLayer::~SituationLayer()
     m_propertyBoxes.clear();
     for (PlatformItem *item : m_platformItems) delete item;
     m_platformItems.clear();
+    if (m_selectedBox) { delete m_selectedBox; m_selectedBox = nullptr; }
     for (QGraphicsPathItem *t : m_trackItems) delete t;
     m_trackItems.clear();
     for (auto it = m_rangeItems.begin(); it != m_rangeItems.end(); ++it)
@@ -217,6 +222,11 @@ void SituationLayer::refreshPositions()
         updateTrack(id);
         updateRanges(id);
     }
+    // 选中包围盒跟随平台
+    if (m_selectedBox) {
+        m_selectedBox->setPos(m_selectedBox->platform()->pos());
+        m_selectedBox->refresh();
+    }
     for (const QString &id : m_propertyBoxes.keys()) {
         PropertyBoxEntry &e = m_propertyBoxes[id];
         if (e.box->isAttached()) {
@@ -240,7 +250,18 @@ bool SituationLayer::handleSceneClick(const QPointF &scenePos)
         const double dist = qSqrt(d.x()*d.x() + d.y()*d.y());
         if (dist < best) { best = dist; hitId = it.key(); }
     }
-    if (hitId.isEmpty()) { hideAllPropertyBoxes(); return false; }
+    if (hitId.isEmpty()) {
+        hideAllPropertyBoxes();
+        // 点击空白：隐藏 3D 包围盒
+        if (m_selectedBox) { delete m_selectedBox; m_selectedBox = nullptr; }
+        return false;
+    }
+
+    // 显示/切换 3D 包围盒（作为平台子图元，自动跟随）
+    if (m_selectedBox) { delete m_selectedBox; m_selectedBox = nullptr; }
+    PlatformItem *selItem = m_platformItems.value(hitId);
+    m_selectedBox = new BoundingBoxItem(selItem, 3, selItem);
+
     if (m_propertyBoxes.contains(hitId)) destroyPropertyBox(hitId);
     else createPropertyBox(hitId);
     return true;

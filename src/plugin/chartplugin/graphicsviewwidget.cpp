@@ -1052,6 +1052,13 @@ void GraphicsViewWidget::mouseReleaseEvent(QMouseEvent *event)
                 int shipX, shipY;
                 if (geoToScreen(platform.lon, platform.lat, shipX, shipY)) {
                     if (isPointInShip(clickedX, clickedY, shipX, shipY)) {
+                        // 3D 包围盒（选中平台时显示）
+                        if (m_selectedBox) { delete m_selectedBox; m_selectedBox = nullptr; }
+                        PlatformItem *selItem = m_platformItems.value(platform.id, nullptr);
+                        if (selItem && selItem->usePoseAtlas()) {
+                            m_selectedBox = new BoundingBoxItem(selItem, 3, selItem);
+                        }
+
                         PropertyBox *existingBox = findPropertyBoxById(platform.id, platform.id == "SHIP_001");
                         if (existingBox) {
                             destroyPropertyBox(existingBox);
@@ -1079,6 +1086,8 @@ void GraphicsViewWidget::mouseReleaseEvent(QMouseEvent *event)
                     box.item->setVisible(false);
                 }
             }
+            // 点击空白：隐藏 3D 包围盒
+            if (m_selectedBox) { delete m_selectedBox; m_selectedBox = nullptr; }
             update();
         }
 

@@ -15,6 +15,7 @@
 #include "mainwindow.h"
 #include "common/logger.h"
 #include "common/thememanager.h"
+#include "situationlayer/PoseAtlasManager.h"
 #include "comm/commmanager.h"
 
 /**
@@ -49,6 +50,9 @@ int main(int argc, char *argv[])
 
         // 应用主题（白天/黑夜）：必须在 MainWindow 创建前，QSS 才能作用于全部控件
         ThemeManager::instance()->initialize();
+
+        // 初始化 3D 姿态图集（chart/htmap 公共 PlatformItem 使用）
+        PoseAtlasManager::instance()->initialize();
 
         // 初始化通信适配器（HTTP / DDS），接入 DataManager 数据管线
         CommManager::instance()->startAll();

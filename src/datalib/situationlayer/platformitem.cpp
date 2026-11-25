@@ -13,7 +13,9 @@
 #include <cmath>
 
 #include "IconManager.h"
+#include "PoseAtlasManager.h"
 #include "logger.h"
+#include <QDateTime>
 
 /**
  * @brief 构造函数
@@ -25,17 +27,20 @@ PlatformItem::PlatformItem(const PlatformData &platform, QGraphicsItem *parent)
     : QGraphicsItem(parent),
       m_platform(platform)
 {
+    // 先确定模式（3D 模式不回退）
+    m_usePoseAtlas = PoseAtlasManager::instance()->enabled();
+    m_campColor = campColor(platform.camp);
+    m_lastHeading = platform.heading;
+    m_lastUpdateMs = QDateTime::currentMSecsSinceEpoch();
+
+    // 再加载图标（3D 直接取姿态图，不会先显示 2D）
     updateIcon();
     updateBoundingRect();
 
-    // 图标默认船头朝上（北，0°）；AFSIM 航向也是 0°=北顺时针，
-    // 故直接旋转 heading 即可，无需再减 90
-    if (platform.heading >= 0) {
+    // 平面模式才旋转图元
+    if (!m_usePoseAtlas && platform.heading >= 0) {
         setRotation(platform.heading);
     }
-
-    // 阵营颜色统一由公共映射 campColor() 提供（我红敌蓝）
-    m_campColor = campColor(platform.camp);
 }
 
 /**
@@ -49,6 +54,24 @@ void PlatformItem::updateIcon()
 {
     // 保留导弹标记（供边界矩形等使用），但不再据此跳过取图
     m_isMissile = (m_platform.type == "missile");
+
+    // ===== 3D 姿态图集模式（不回退：失败则留空，日志警告）=====
+    if (m_usePoseAtlas) {
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        const double roll = PoseAtlasManager::simulateRoll(m_platform.heading, m_lastHeading, now - m_lastUpdateMs);
+        m_currentRoll = roll;
+        m_poseImage = PoseAtlasManager::instance()->poseImage(
+            m_platform.type, m_platform.heading, roll, m_campColor);
+        m_lastHeading = m_platform.heading;
+        m_lastUpdateMs = now;
+        if (!m_poseImage.isNull()) {
+            const int sz = PoseAtlasManager::instance()->iconSize();
+            m_scaledIcon = m_poseImage.scaled(sz, sz, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        } else {
+            m_scaledIcon = QImage();
+        }
+        return;   // 3D 模式绝不回退到 2D
+    }
 
     // 按平台类型解析图标文件名，并用阵营颜色着色
     const QString iconFile = iconFileForType(m_platform.type);
@@ -81,6 +104,8 @@ void PlatformItem::updateBoundingRect()
                                             : qMax(m_scaledIcon.width(), m_scaledIcon.height()) / 2.0;
     qreal labelReach = 45.0;   // 标签宽40、位于图标下方，反向旋转后最大半径约45
     qreal r = qMax(iconReach + 6.0, labelReach) + 4.0;
+    // 3D 模式下为选中时的包围盒预留空间（包围盒半径约 iconSize*0.7）
+    if (m_usePoseAtlas) r = qMax(r, PoseAtlasManager::instance()->iconSize() * 1.3);
     m_boundingRect = QRectF(-r, -r, 2 * r, 2 * r);
 }
 
@@ -90,32 +115,39 @@ void PlatformItem::updateBoundingRect()
  */
 void PlatformItem::updateData(const PlatformData &platform)
 {
-    bool needUpdate = false;
+    const bool headingChanged = (m_platform.heading != platform.heading && platform.heading >= 0);
+    const bool typeChanged = (m_platform.type != platform.type || m_platform.camp != platform.camp);
+    if (!headingChanged && !typeChanged &&
+        m_platform.lon == platform.lon && m_platform.lat == platform.lat) return;
 
-    if (m_platform.lon != platform.lon || m_platform.lat != platform.lat) {
-        prepareGeometryChange();
-        needUpdate = true;
-    }
-
-    if (m_platform.heading != platform.heading && platform.heading >= 0) {
-        setRotation(platform.heading);
-        needUpdate = true;
-    }
-
-    if (m_platform.type != platform.type || m_platform.camp != platform.camp) {
-        prepareGeometryChange();
-        m_platform = platform;
-        updateIcon();
-        updateBoundingRect();
-        m_campColor = campColor(platform.camp);  // 阵营变化时同步更新绘制颜色
-        needUpdate = true;
-    }
-
+    prepareGeometryChange();
     m_platform = platform;
+    m_campColor = campColor(platform.camp);
 
-    if (needUpdate) {
-        update();
+    if (m_usePoseAtlas) {
+        // 3D：重新取姿态图（图集已含航向）
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        const double roll = PoseAtlasManager::simulateRoll(platform.heading, m_lastHeading, now - m_lastUpdateMs);
+        m_currentRoll = roll;
+        m_poseImage = PoseAtlasManager::instance()->poseImage(
+            platform.type, platform.heading, roll, m_campColor);
+        m_lastHeading = platform.heading;
+        m_lastUpdateMs = now;
+        if (!m_poseImage.isNull()) {
+            m_scaledIcon = m_poseImage.scaled(PoseAtlasManager::instance()->iconSize(),
+                                              PoseAtlasManager::instance()->iconSize(),
+                                              Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        } else {
+            m_scaledIcon = QImage();   // 3D 模式不回退
+        }
+        setRotation(0);   // 图集已含航向，不旋转图元
+    } else {
+        // 平面：旋转图元 + 军标图标
+        if (headingChanged) setRotation(platform.heading);
+        if (typeChanged) updateIcon();
     }
+    updateBoundingRect();
+    update();
 }
 
 /**
@@ -165,37 +197,26 @@ void PlatformItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     }
 
     if (m_displayState.showName) {
-        // 标签要求在“图标正下方、文字水平、且跟随图元移动”。
-        // 图元本身已 setRotation(heading)，paint 坐标系是旋转后的：
-        //   1) 先算出图标下方中心点在“当前旋转坐标系”里的位置 labelPos，
-        //      使它抵消图元旋转后仍位于屏幕正下方；
-        //   2) translate 到 labelPos，再 rotate(-heading) 让文字水平；
-        //   3) 以原点为中心绘制文字。
-        // 这样不会因 rotate 绕原点导致标签绕圈/滞留。
         painter->save();
-
-        // 屏幕坐标下期望的标签位置（相对图元原点，屏幕正下方）
-        const qreal screenLabelY = m_scaledIcon.isNull()
-                                   ? 12.0
-                                   : (m_scaledIcon.height() / 2.0 + 6.0);
-        QPointF screenLabelPos(0.0, screenLabelY);
-
-        // 转换到当前 paint（已旋转 heading）坐标系：反向旋转
-        const qreal h = m_platform.heading >= 0 ? m_platform.heading : 0.0;
-        const qreal pi = 3.14159265358979323846;
-        const qreal rad = -h * pi / 180.0;
-        QPointF labelPos(screenLabelPos.x() * std::cos(rad) - screenLabelPos.y() * std::sin(rad),
-                         screenLabelPos.x() * std::sin(rad) + screenLabelPos.y() * std::cos(rad));
-
-        painter->translate(labelPos);      // 先移动到标签位置
-        painter->rotate(-h);               // 再抵消图元旋转，使文字水平
-
         QFont font("Arial", 8);
         painter->setFont(font);
         painter->setPen(Qt::white);
-        QRectF textRect(-20, 0, 40, 15);   // 以 labelPos 为中心
-        painter->drawText(textRect, Qt::AlignCenter, m_platform.id);
 
+        if (m_usePoseAtlas && !m_poseImage.isNull()) {
+            // 3D 模式：图元不旋转，标签直接水平画在图标下方
+            const qreal y = m_scaledIcon.height()/2.0 + 4.0;
+            painter->drawText(QRectF(-24, y, 48, 15), Qt::AlignCenter, m_platform.id);
+        } else {
+            // 平面模式：图元已旋转 heading，抵消旋转让文字水平
+            const qreal screenLabelY = m_scaledIcon.isNull()
+                                       ? 12.0 : (m_scaledIcon.height() / 2.0 + 6.0);
+            const qreal h = m_platform.heading >= 0 ? m_platform.heading : 0.0;
+            const qreal rad = -h * 3.14159265358979323846 / 180.0;
+            QPointF labelPos(-screenLabelY * std::sin(rad), screenLabelY * std::cos(rad));
+            painter->translate(labelPos);
+            painter->rotate(-h);
+            painter->drawText(QRectF(-20, 0, 40, 15), Qt::AlignCenter, m_platform.id);
+        }
         painter->restore();
     }
 }

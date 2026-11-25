@@ -17,6 +17,8 @@ set(DATALIB_SOURCES
     situationlayer/platformitem.cpp
     situationlayer/propertyboxitem.cpp
     situationlayer/SituationLayer.cpp
+    situationlayer/PoseAtlasManager.cpp
+    situationlayer/BoundingBoxItem.cpp
 )
 
 set(DATALIB_HEADERS
@@ -45,6 +47,8 @@ set(DATALIB_HEADERS
     situationlayer/platformitem.h
     situationlayer/propertyboxitem.h
     situationlayer/SituationLayer.h
+    situationlayer/PoseAtlasManager.h
+    situationlayer/BoundingBoxItem.h
 )
 
 add_library(cpss_data SHARED

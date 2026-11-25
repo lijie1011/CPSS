@@ -22,6 +22,7 @@
 #include "displaystate.h"
 #include "platformitem.h"
 #include "propertyboxitem.h"
+#include "boundingboxitem.h"
 
 /**
  * @struct PropertyBox
@@ -416,6 +417,7 @@ private:
     DisplayStateMap m_displayStates;            ///< 显示状态映射
 
     QGraphicsScene *m_scene;                    ///< 图形场景
+    BoundingBoxItem *m_selectedBox = nullptr;               ///< 选中平台的3D包围盒
     QMap<QString, PlatformItem*> m_platformItems;           ///< 平台图元映射
     QMap<QString, QList<QGraphicsItem*>> m_sensorRangeItems; ///< 传感器作用范围图元映射
     QMap<QString, QList<QGraphicsItem*>> m_weaponRangeItems; ///< 武器作用范围图元映射
