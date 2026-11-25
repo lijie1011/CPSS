@@ -12,11 +12,105 @@ cpss.ini 位于程序运行目录（如 src/build/bin/Release/cpss.ini），
 ============================================================
 [Display] 显示设置
 ============================================================
-ColorScheme=DAY
+ColorScheme=NIGHT
     界面主题。
     DAY   = 白天（浅色主题）
     NIGHT = 黑夜（深色主题）
     切换会同时改变 Qt 界面与 Enclib 海图配色。
+
+Use3DModel=true
+    平台目标显示模式：
+    true  = 3D 姿态图集（预渲染的飞机/舰船/导弹等姿态图，带俯仰/横滚）
+    false = 2D 平面军标图标（原有 JB_Souce 图标）
+    此开关对 chart 海图和 htmapplugin 同时生效（公共 PlatformItem）。
+
+--- 3D 姿态图集相关（Use3DModel=true 时有效）---
+AtlasDir=3dParty/models/atlases
+    姿态图集目录（相对程序运行目录，找不到时自动上溯到 src 目录）。
+    图集文件名格式：{模型名}_{gray|red|blue}.png
+    每个图集包含 36航向 × (5俯仰×7横滚) 个姿态格子。
+
+AtlasHeadingSteps=36
+    图集的航向档数（360° / 36 = 每档10°）。
+    必须与生成图集时的参数一致，否则取图错位。
+AtlasRollSteps=7
+    图集的横滚档数（-45°~45°，共7档，每档15°）。
+AtlasPitchSteps=5
+    图集的俯仰档数（-30°~30°，共5档，每档15°）。
+AtlasTileSize=128
+    图集中每个姿态格子的像素尺寸（生成时的 size 参数）。
+
+ModelIconSize=64
+    地图上平台图标的显示尺寸（像素）。
+    图集格子原始 AtlasTileSize(128) → 缩放到此尺寸显示。
+    越大越清晰，但占用更多屏幕空间；建议 48~96。
+
+ModelBorderColor=auto
+    3D 飞机模型的边框颜色（图集按边框色分 gray/red/blue 三套）：
+    auto  = 按平台阵营自动选（红方→red，蓝方→blue，其他→gray）
+    gray  = 全部强制灰边框
+    red   = 全部强制红边框
+    blue  = 全部强制蓝边框
+    注意：仅边框着色，飞机主体保持图集原始灰白明暗立体感。
+
+BoundingBoxColor=#4EC9B0
+    点击平台时显示的 3D 透明包围盒线框颜色（#RRGGBB 格式）。
+    无效值回退到默认青绿色 #4EC9B0。
+
+--- 类型到模型映射 ---
+    数据源的 type（aircraft/surface/...）映射到 6 种程序化模型名。
+    可用模型：fighter(三角翼战斗机) / destroyer(驱逐舰) / carrier(航母)
+              drone(无人机) / recon(侦察机) / missile(导弹)
+ModelAircraft=fighter
+    空中目标使用的模型。
+ModelSurface=destroyer
+    水面舰艇使用的模型。
+ModelSubmarine=carrier
+    水下目标使用的模型。
+ModelLand=missile
+    陆地目标使用的模型。
+ModelSpace=recon
+    太空目标使用的模型。
+ModelMissile=missile
+    导弹使用的模型（AFSIM category 6~10 或 name 含 _weapon_ 识别为导弹）。
+
+说明：
+    图集由 tools/gen_models.py 生成（6种程序化模型 × 3种边框色）。
+    修改模型映射只需重启程序，无需重新编译；若换成自定义图集需重新生成。
+
+============================================================
+[HtMap] HT 地图插件（WMTS 瓦片地图）
+============================================================
+Mode=GeoServer
+    地图数据源模式：
+    Local     = 本地离线瓦片（目录由 LocalRoot 指定）
+    GeoServer = GeoServer GWC WMTS 服务（推荐）
+
+LocalRoot=3dParty/mapdata
+    本地瓦片根目录（Mode=Local 时有效），相对路径自动上溯到 src。
+
+GeoServerUrl=http://localhost:8082/geoserver/gwc/service/wmts
+    WMTS 服务地址（Mode=GeoServer 时有效）。
+
+WmtsLayer=world_dom
+    WMTS 图层名。
+GridSet=EPSG:4326
+    WMTS 瓦片矩阵集（经纬度网格）。
+MaxZoom=21
+    支持的最大缩放层级。
+CacheSize=512
+    瓦片内存缓存条目数（LRU 淘汰）。
+FixedZoom=-1
+    固定层级：-1 = 允许自由缩放；>=0 = 锁定该层级。
+DefaultZoom=9
+    程序启动时的默认缩放层级。
+CenterLon=105.0
+CenterLat=30.0
+    地图初始中心点（经度/纬度，度）。
+
+说明：
+    GeoServer 服务可用 start_geoserver_docker.ps1 启动（Docker 容器，端口 8082）。
+    瓦片为 256×256 PNG，EPSG:4326 网格（col=2^(z+1) 列, row=2^z 行）。
 
 ============================================================
 [Redis] Redis 数据源（AFSIM 态势数据接入）
@@ -49,7 +143,7 @@ EventTopic=cpss/event
 ============================================================
 [ReplayForward] 历史回放-转发总设置
 ============================================================
-Mode=2
+Mode=0
     转发方式（单选）：
     0 = 关闭转发
     1 = DDS
