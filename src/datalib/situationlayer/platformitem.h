@@ -85,8 +85,10 @@ public:
      * @return 纬度值
      */
     double lat() const { return m_platform.lat; }
-    /** @brief 当前模拟横滚角（3D 包围盒用） */
+    /** @brief 当前横滚角（3D 包围盒用） */
     double currentRoll() const { return m_currentRoll; }
+    /** @brief 当前俯仰角（3D 包围盒用） */
+    double currentPitch() const { return m_currentPitch; }
     /** @brief 是否使用 3D 图集模式 */
     bool usePoseAtlas() const { return m_usePoseAtlas; }
 
@@ -116,7 +118,8 @@ private:
     double m_lastHeading = 0.0;  ///< 上帧航向（用于模拟横滚）
     qint64 m_lastUpdateMs = 0;   ///< 上帧时间
     bool m_usePoseAtlas = false; ///< 是否使用姿态图集
-    double m_currentRoll = 0.0;  ///< 当前模拟横滚
+    double m_currentRoll = 0.0;  ///< 当前横滚
+    double m_currentPitch = 0.0; ///< 当前俯仰
 };
 
 #endif

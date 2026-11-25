@@ -317,6 +317,8 @@ struct PlatformData {
     double altitude;     ///< 高度
     double speed;        ///< 速度（节）
     double heading;      ///< 航向（度，0度为正北）
+    double pitch = 0.0;  ///< 俯仰（度，来自 AFSIM Customize_Info.pitch）
+    double roll = 0.0;   ///< 横滚（度，来自 AFSIM Customize_Info.roll）
     QString type;        ///< 平台类型（舰船/飞机/导弹等）
     QString category;    ///< 平台类别
     CampType camp;       ///< 阵营

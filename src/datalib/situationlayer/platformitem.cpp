@@ -58,10 +58,13 @@ void PlatformItem::updateIcon()
     // ===== 3D 姿态图集模式（不回退：失败则留空，日志警告）=====
     if (m_usePoseAtlas) {
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
-        const double roll = PoseAtlasManager::simulateRoll(m_platform.heading, m_lastHeading, now - m_lastUpdateMs);
+        // 真实姿态优先；若数据源没给 roll(全0)，才用航向变化率模拟
+        const double simulated = PoseAtlasManager::simulateRoll(m_platform.heading, m_lastHeading, now - m_lastUpdateMs);
+        const double roll = (m_platform.roll != 0.0) ? m_platform.roll : simulated;
         m_currentRoll = roll;
+        m_currentPitch = m_platform.pitch;
         m_poseImage = PoseAtlasManager::instance()->poseImage(
-            m_platform.type, m_platform.heading, roll, m_campColor);
+            m_platform.type, m_platform.heading, m_platform.pitch, roll, m_campColor);
         m_lastHeading = m_platform.heading;
         m_lastUpdateMs = now;
         if (!m_poseImage.isNull()) {
@@ -127,10 +130,12 @@ void PlatformItem::updateData(const PlatformData &platform)
     if (m_usePoseAtlas) {
         // 3D：重新取姿态图（图集已含航向）
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
-        const double roll = PoseAtlasManager::simulateRoll(platform.heading, m_lastHeading, now - m_lastUpdateMs);
+        const double simulated = PoseAtlasManager::simulateRoll(platform.heading, m_lastHeading, now - m_lastUpdateMs);
+        const double roll = (platform.roll != 0.0) ? platform.roll : simulated;
         m_currentRoll = roll;
+        m_currentPitch = platform.pitch;
         m_poseImage = PoseAtlasManager::instance()->poseImage(
-            platform.type, platform.heading, roll, m_campColor);
+            platform.type, platform.heading, platform.pitch, roll, m_campColor);
         m_lastHeading = platform.heading;
         m_lastUpdateMs = now;
         if (!m_poseImage.isNull()) {

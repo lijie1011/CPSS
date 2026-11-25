@@ -37,11 +37,12 @@ void BoundingBoxItem::modelBounds(QVector3D &mn, QVector3D &mx) const
     mx = bmx;
 }
 
-QPointF BoundingBoxItem::project(const QVector3D &p, double heading, double roll) const
+QPointF BoundingBoxItem::project(const QVector3D &p, double heading, double pitch, double roll) const
 {
-    // 与 gen_models.py render_pose 完全一致：rotY(roll) → rotZ(-heading) → rotX(tilt=20°)
+    // 与 gen_models.py render_pose 完全一致：rotY(roll) → rotX(-pitch) → rotZ(-heading) → rotX(tilt)
     const double PI = 3.14159265358979323846;
     const double rl = roll * PI / 180.0;
+    const double pt = -pitch * PI / 180.0;
     const double hd = -heading * PI / 180.0;
     const double tl = 20.0 * PI / 180.0;
 
@@ -49,10 +50,13 @@ QPointF BoundingBoxItem::project(const QVector3D &p, double heading, double roll
     double x = p.x()*std::cos(rl) + p.z()*std::sin(rl);
     double y = p.y();
     double z = -p.x()*std::sin(rl) + p.z()*std::cos(rl);
+    // rotX(-pitch)
+    double y1 = y*std::cos(pt) - z*std::sin(pt);
+    double z1 = y*std::sin(pt) + z*std::cos(pt);
     // rotZ
-    double x2 = x*std::cos(hd) - y*std::sin(hd);
-    double y2 = x*std::sin(hd) + y*std::cos(hd);
-    double z2 = z;
+    double x2 = x*std::cos(hd) - y1*std::sin(hd);
+    double y2 = x*std::sin(hd) + y1*std::cos(hd);
+    double z2 = z1;
     // rotX(tilt)
     double y3 = y2*std::cos(tl) - z2*std::sin(tl);
 
@@ -79,11 +83,14 @@ void BoundingBoxItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *,
     mn -= ex; mx += ex;
 
     const double hd = m_platform->platformData().heading;
+    const double pt = m_platform->currentPitch();
     const double rl = m_platform->currentRoll();
 
     painter->save();
     // 青绿色细线（与演示页密度1一致）
-    painter->setPen(QPen(QColor(78, 201, 176, 220), 2, Qt::SolidLine));
+    QColor boxColor = PoseAtlasManager::instance()->boundingBoxColor();
+    boxColor.setAlpha(220);
+    painter->setPen(QPen(boxColor, 2, Qt::SolidLine));
 
     // 立方体 8 个角点
     const QVector3D c[8] = {
@@ -99,8 +106,8 @@ void BoundingBoxItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *,
         {0,4},{1,5},{2,6},{3,7}   // 竖直
     };
     for (const auto &e : edges) {
-        const QPointF pa = project(c[e[0]], hd, rl);
-        const QPointF pb = project(c[e[1]], hd, rl);
+        const QPointF pa = project(c[e[0]], hd, pt, rl);
+        const QPointF pb = project(c[e[1]], hd, pt, rl);
         painter->drawLine(pa, pb);
     }
     painter->restore();

@@ -217,6 +217,13 @@ private slots:
     /** @brief 显示平台控制面板 */
     void showPlatformControl();
 
+    /** @brief 打开/关闭姿态面板 */
+    void toggleAttitudeViewer();
+    /** @brief 姿态面板关闭后释放指针 */
+    void onAttitudeViewerClosed();
+    /** @brief 海图平台被点击 → 填入姿态面板 */
+    void onPlatformSelected(const QString &id);
+
 private:
     Ui::MainWindow *ui;                    ///< Qt Designer 生成的 UI 对象
     PluginManager* m_pluginManager;        ///< 插件管理器
@@ -224,6 +231,7 @@ private:
     QMap<QString, QWidget*> m_pluginWidgets;  ///< 已创建的插件界面映射
     QMap<QString, QDockWidget*> m_pluginDocks;   ///< 插件 Dock 映射（key=pluginId）
     IPlugin* m_currentPlugin;             ///< 当前活跃的插件
+    class AttitudeViewer *m_attitudeViewer = nullptr;  ///< 姿态面板（关闭即销毁）
 };
 
 #endif

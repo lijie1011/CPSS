@@ -25,6 +25,7 @@
 #include "encl.h"
 #include "common/logger.h"
 #include "common/IconManager.h"
+#include "datamanager.h"
 
 /**
  * @brief 构造函数
@@ -154,13 +155,15 @@ void GraphicsViewWidget::updateDynamicData(const DynamicObjects &data)
             }
 
             box->item->setText(
-                QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n航向: %6\n速度: %7 节%8")
+                QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n航向: %6°\n俯仰: %7°\n横滚: %8°\n速度: %9 节%10")
                     .arg(platform.name)
                     .arg(platform.id)
                     .arg(campStr)
                     .arg(platform.lon, 0, 'f', 6)
                     .arg(platform.lat, 0, 'f', 6)
-                    .arg(platform.heading > 0 ? platform.heading : 0)
+                    .arg(platform.heading, 0, 'f', 8)
+                    .arg(platform.pitch, 0, 'f', 8)
+                    .arg(platform.roll, 0, 'f', 8)
                     .arg(platform.speed)
                     .arg(eventsStr)
             );
@@ -268,13 +271,15 @@ void GraphicsViewWidget::updateSinglePlatform(const PlatformData &platform)
             }
 
             box->item->setText(
-                QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n航向: %6\n速度: %7 节%8")
+                QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n航向: %6°\n俯仰: %7°\n横滚: %8°\n速度: %9 节%10")
                     .arg(platform.name)
                     .arg(platform.id)
                     .arg(campStr)
                     .arg(platform.lon, 0, 'f', 6)
                     .arg(platform.lat, 0, 'f', 6)
-                    .arg(platform.heading > 0 ? platform.heading : 0)
+                    .arg(platform.heading, 0, 'f', 8)
+                    .arg(platform.pitch, 0, 'f', 8)
+                    .arg(platform.roll, 0, 'f', 8)
                     .arg(platform.speed)
                     .arg(eventsStr)
             );
@@ -1052,6 +1057,8 @@ void GraphicsViewWidget::mouseReleaseEvent(QMouseEvent *event)
                 int shipX, shipY;
                 if (geoToScreen(platform.lon, platform.lat, shipX, shipY)) {
                     if (isPointInShip(clickedX, clickedY, shipX, shipY)) {
+                        // 通知姿态面板（优先填空）
+                        DataManager::instance()->notifyPlatformSelected(platform.id);
                         // 3D 包围盒（选中平台时显示）
                         if (m_selectedBox) { delete m_selectedBox; m_selectedBox = nullptr; }
                         PlatformItem *selItem = m_platformItems.value(platform.id, nullptr);
@@ -1639,13 +1646,15 @@ void GraphicsViewWidget::createPropertyBox(const PlatformData &platform)
     }
 
     item->setText(
-        QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n航向: %6°\n速度: %7 节%8")
+        QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n航向: %6°\n俯仰: %7°\n横滚: %8°\n速度: %9 节%10")
             .arg(platform.name)
             .arg(platform.id)
             .arg(campStr)
             .arg(platform.lon, 0, 'f', 6)
             .arg(platform.lat, 0, 'f', 6)
-            .arg(platform.heading > 0 ? platform.heading : 0)
+            .arg(platform.heading, 0, 'f', 8)
+            .arg(platform.pitch, 0, 'f', 8)
+            .arg(platform.roll, 0, 'f', 8)
             .arg(platform.speed)
             .arg(eventsStr)
     );

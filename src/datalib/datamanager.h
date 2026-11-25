@@ -180,6 +180,9 @@ public:
      */
     void stopTestDataTimer();
 
+    /** @brief 通知平台被选中（海图点击时调用） */
+    void notifyPlatformSelected(const QString &id);
+
     /**
      * @brief 注册平台更新回调
      * @param callback 回调函数
@@ -243,7 +246,12 @@ signals:
      * @details 由 DataCache::platformRemoved 转发而来，供海图增量删除目标
      */
     void platformRemoved(const QString &id);
-    
+
+    /**
+     * @brief 海图平台被点击选中（供姿态面板等显示）
+     */
+    void platformSelected(const QString &id);
+
     /**
      * @brief 平台列表更新信号
      * @param platforms 平台数据列表

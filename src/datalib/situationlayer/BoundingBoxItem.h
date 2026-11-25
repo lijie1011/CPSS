@@ -32,7 +32,7 @@ private:
     /** @brief 取模型归一化包围盒 min/max（与 gen_models.py 一致） */
     void modelBounds(QVector3D &mn, QVector3D &mx) const;
     /** @brief 3D 点投影到 item 局部坐标（与图集生成变换一致） */
-    QPointF project(const QVector3D &p, double heading, double roll) const;
+    QPointF project(const QVector3D &p, double heading, double pitch, double roll) const;
 
     PlatformItem *m_platform = nullptr;
     int m_gridN = 3;

@@ -42,6 +42,7 @@
 #include "waterdepthsetting.h"
 #include "platformcontrolpanel.h"
 #include "eventhistorydialog.h"
+#include "attitudeviewer.h"
 #include "plugin/chartplugin/IChartPlugin.h"
 
 #include <QApplication>
@@ -122,6 +123,12 @@ MainWindow::MainWindow(QWidget *parent)
 
     themeBtn->setMenu(themeMenu);
     ui->toolBar->insertWidget(ui->actionHelp, themeBtn);
+
+    // 工具栏"姿态"按钮（放在"帮助"左侧、视图按钮旁）：打开/关闭姿态面板
+    QAction *attitudeAction = new QAction(QStringLiteral("姿态"), ui->toolBar);
+    attitudeAction->setToolTip(QStringLiteral("查看平台实时姿态（1~4个）"));
+    ui->toolBar->insertAction(ui->actionHelp, attitudeAction);
+    connect(attitudeAction, &QAction::triggered, this, &MainWindow::toggleAttitudeViewer);
 
     // 插件管理器：创建后扫描 plugins/ 目录加载所有 DLL 插件（含海图插件）
     m_pluginManager = new PluginManager(this);
@@ -945,4 +952,47 @@ void MainWindow::showPlatformControl()
                 this, [cp](const DisplayStateMap &stateMap) { if (cp) cp->updateDisplayState(stateMap); });
     }
     panel->show();
+}
+
+void MainWindow::toggleAttitudeViewer()
+{
+    if (m_attitudeViewer) {
+        // 已打开 → 关闭并销毁（生命周期：关闭即释放）
+        m_attitudeViewer->close();
+        return;
+    }
+
+    m_attitudeViewer = new AttitudeViewer(this);
+    addDockWidget(Qt::RightDockWidgetArea, m_attitudeViewer);
+    m_attitudeViewer->setFloating(true);
+    m_attitudeViewer->resize(720, 520);
+    m_attitudeViewer->show();
+
+    connect(m_attitudeViewer, &AttitudeViewer::closed, this, &MainWindow::onAttitudeViewerClosed);
+
+    // 接入数据：平台更新/删除
+    DataManager *dm = DataManager::instance();
+    if (dm) {
+        connect(dm, &DataManager::platformUpdated,
+                m_attitudeViewer, &AttitudeViewer::onPlatformUpdated);
+        connect(dm, &DataManager::platformRemoved,
+                m_attitudeViewer, &AttitudeViewer::onPlatformRemoved);
+        connect(dm, &DataManager::platformSelected,
+                this, &MainWindow::onPlatformSelected, Qt::UniqueConnection);
+    }
+}
+
+void MainWindow::onAttitudeViewerClosed()
+{
+    // 面板关闭 → 释放指针（deleteLater 保证安全）
+    if (m_attitudeViewer) {
+        m_attitudeViewer->deleteLater();
+        m_attitudeViewer = nullptr;
+    }
+}
+
+void MainWindow::onPlatformSelected(const QString &id)
+{
+    // 海图点击平台 → 优先填空（满了忽略）
+    if (m_attitudeViewer) m_attitudeViewer->selectPlatform(id);
 }

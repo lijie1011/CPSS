@@ -21,6 +21,8 @@ QJsonObject platformToJson(const PlatformData &p)
     obj["altitude"] = p.altitude;
     obj["speed"] = p.speed;
     obj["heading"] = p.heading;
+    obj["pitch"] = p.pitch;
+    obj["roll"] = p.roll;
     obj["platformType"] = p.type;
     obj["category"] = p.category;
 
@@ -79,6 +81,8 @@ PlatformData jsonToPlatform(const QJsonObject &obj)
     p.altitude = obj["altitude"].toDouble(0.0);
     p.speed = obj["speed"].toDouble(0.0);
     p.heading = obj["heading"].toDouble(0.0);
+    p.pitch = obj["pitch"].toDouble(0.0);
+    p.roll = obj["roll"].toDouble(0.0);
     p.type = obj["platformType"].toString();
     if (p.type.isEmpty()) p.type = obj["type"].toString();
     p.category = obj["category"].toString();

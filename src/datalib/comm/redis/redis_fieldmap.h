@@ -56,7 +56,7 @@ PlatformData toPlatformData(const HTProto::Customize_Info *info);
  * @param domain AFSIM domain（原始空间域）
  * @return 用于图标匹配的类型字符串
  */
-QString mapPlatformType(int targetType1, unsigned int domain);
+QString mapPlatformType(int targetType1, unsigned int domain, int category = -1);
 
 } // namespace RedisFieldMap
 

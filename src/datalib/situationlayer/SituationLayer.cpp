@@ -257,6 +257,9 @@ bool SituationLayer::handleSceneClick(const QPointF &scenePos)
         return false;
     }
 
+    // 通知姿态面板（优先填空）
+    DataManager::instance()->notifyPlatformSelected(hitId);
+
     // 显示/切换 3D 包围盒（作为平台子图元，自动跟随）
     if (m_selectedBox) { delete m_selectedBox; m_selectedBox = nullptr; }
     PlatformItem *selItem = m_platformItems.value(hitId);
@@ -334,10 +337,11 @@ void SituationLayer::updatePropertyBoxText(const QString &id)
     if (ev) eventsStr = QStringLiteral("\n事件: %1").arg(ev->eventName);
 
     e->box->setText(
-        QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n航向: %6°\n速度: %7 节%8")
+        QStringLiteral("属性\n名称: %1\n编号: %2\n阵营: %3\n经度: %4\n纬度: %5\n航向: %6°\n俯仰: %7°\n横滚: %8°\n速度: %9 节%10")
         .arg(p.name).arg(p.id).arg(campName(p.camp))
         .arg(p.lon, 0, 'f', 6).arg(p.lat, 0, 'f', 6)
-        .arg(p.heading > 0 ? p.heading : 0)
+        .arg(p.heading, 0, 'f', 8)
+        .arg(p.pitch, 0, 'f', 8).arg(p.roll, 0, 'f', 8)
         .arg(p.speed).arg(eventsStr));
 
     const qreal boxH = e->box->boundingRect().height();

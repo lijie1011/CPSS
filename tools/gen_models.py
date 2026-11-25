@@ -11,6 +11,8 @@ from PIL import Image, ImageDraw
 
 HEADING_STEPS = 36
 ROLL_STEPS = 7
+PITCH_STEPS = 5
+PITCH_VALUES = [-30, -15, 0, 15, 30]
 
 def hexrgb(h):
     h = h.lstrip('#')
@@ -121,13 +123,17 @@ def normalize(V):
     if span>0: v=v/span
     return v
 
-def render_pose(verts, faces, hd_deg, rl_deg, border, size, tilt=20, scale_k=0.42):
+def render_pose(verts, faces, hd_deg, rl_deg, border, size, pt_deg=0, tilt=20, scale_k=0.42):
     img=Image.new('RGBA',(size,size),(0,0,0,0))
     draw=ImageDraw.Draw(img)
-    hd=math.radians(hd_deg); rl=math.radians(rl_deg); tl=math.radians(tilt)
+    hd=math.radians(hd_deg); rl=math.radians(rl_deg)
+    pt=math.radians(pt_deg); tl=math.radians(tilt)
     scale=size*scale_k; cx=cy=size/2
     def proj(p):
-        q=rot_y(p,rl); q=rot_z(q,-hd); q=rot_x(q,tl)   # 航向0=机头朝上(北)
+        q=rot_y(p,rl)          # 横滚
+        q=rot_x(q,-pt)         # 俯仰
+        q=rot_z(q,-hd)         # 航向0=机头朝上(北)
+        q=rot_x(q,tl)          # 相机倾斜
         return (cx+q[0]*scale, cy-q[1]*scale)
     pts=[proj(v) for v in verts]
     def depth(f): return np.mean([verts[i][2] for i in f[0]])
@@ -139,13 +145,16 @@ def render_pose(verts, faces, hd_deg, rl_deg, border, size, tilt=20, scale_k=0.4
 
 def gen_atlas(model_name, builder, border, out_dir, size):
     verts=normalize(builder.V)
-    atlas=Image.new('RGBA',(HEADING_STEPS*size,ROLL_STEPS*size),(0,0,0,0))
+    rows=ROLL_STEPS*PITCH_STEPS
+    atlas=Image.new('RGBA',(HEADING_STEPS*size,rows*size),(0,0,0,0))
     rolls=np.linspace(-45,45,ROLL_STEPS)
     for h in range(HEADING_STEPS):
         hd=h*360//HEADING_STEPS
-        for r,roll in enumerate(rolls):
-            img=render_pose(verts,builder.F,hd,roll,border,size)
-            atlas.paste(img,(h*size,r*size))
+        for pi,pt in enumerate(PITCH_VALUES):
+            for r,roll in enumerate(rolls):
+                img=render_pose(verts,builder.F,hd,roll,border,size,pt_deg=pt)
+                row=pi*ROLL_STEPS+r
+                atlas.paste(img,(h*size,row*size))
     name=f"{model_name}_{'gray' if border==(64,64,64) else ('red' if border[0]>border[2] else 'blue')}"
     out=os.path.join(out_dir,name+'.png')
     atlas.save(out)

@@ -30,8 +30,10 @@ public:
     int iconSize() const { return m_iconSize; }
     /** @brief 类型对应的模型名（包围盒用） */
     QString modelName(const QString &type) const { return modelForType(type); }
-    /** @brief 取指定类型/航向/横滚的姿态图（懒加载） */
-    QImage poseImage(const QString &type, double heading, double roll, const QColor &campColor);
+    /** @brief 包围盒线框颜色（配置 Display/BoundingBoxColor） */
+    QColor boundingBoxColor() const { return m_boxColor; }
+    /** @brief 取指定类型/航向/俯仰/横滚的姿态图（懒加载） */
+    QImage poseImage(const QString &type, double heading, double pitch, double roll, const QColor &campColor);
 
     /** @brief 根据航向变化率模拟横滚（转弯倾斜） */
     static double simulateRoll(double curHeading, double prevHeading, double dtMs);
@@ -48,8 +50,11 @@ private:
     QString m_atlasDir;
     int m_headingSteps = 36;
     int m_rollSteps = 7;
+    int m_pitchSteps = 5;
     int m_tileSize = 128;
     int m_iconSize = 64;    ///< 显示的图标尺寸
+    QString m_borderMode = "auto";  ///< 模型边框: auto/gray/red/blue
+    QColor m_boxColor = QColor(78, 201, 176);  ///< 包围盒线框颜色
 
     /** type -> 模型文件名（不含扩展名） */
     QHash<QString, QString> m_typeModels;

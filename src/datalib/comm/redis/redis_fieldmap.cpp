@@ -23,6 +23,9 @@ bool RedisFieldMap::parseCustomizeInfoC(const QByteArray &raw, CustomizeInfoC &o
 #include "redis_fieldmap.h"
 #include "redis_protocl.h" // 必须先定义 HTPROTO_API 导出宏
 #include "protocol.pb.h"   // HTProto::Customize_Info
+#include "logger.h"
+#include <QHash>
+#include <QDateTime>
 #include <cmath>
 #include <cstring>
 
@@ -51,6 +54,36 @@ PlatformData RedisFieldMap::toPlatformData(const HTProto::Customize_Info *info)
     p.heading = fmod(fmod(heading, 360.0) + 360.0, 360.0);
     p.speed = static_cast<double>(info->targetspeed());
 
+    // ---- 姿态（新版 Customize_Info 字段 22/23/24，单位：度）----
+    // AFSIM GetOrientationNED 返回弧度，仿真侧已转成度。
+    // 兼容旧数据：新 heading 字段为 0 且 absoluteheading 非 0 时，沿用旧航向。
+    const double newHeading = info->heading();
+    if (newHeading != 0.0 || p.heading == 0.0) {
+        // 新字段也归一化到 [0,360)，AFSIM 的 NED 航向可能是负值
+        p.heading = fmod(fmod(newHeading, 360.0) + 360.0, 360.0);
+    }
+    // pitch 归一化到 [-90,90]，roll 归一化到 [-180,180]
+    const double rawPitch = info->pitch();
+    double normPitch = fmod(rawPitch, 360.0);
+    if (normPitch > 90) normPitch -= 180;
+    if (normPitch < -90) normPitch += 180;
+    p.pitch = normPitch;
+
+    const double rawRoll = info->roll();
+    double normRoll = fmod(rawRoll, 360.0);
+    if (normRoll > 180) normRoll -= 360;
+    if (normRoll < -180) normRoll += 360;
+    p.roll = normRoll;
+    // 诊断：打印含名称的完整姿态（每id每秒最多一条，避免刷屏）
+    static QHash<QString, qint64> lastLog;
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    if (nowMs - lastLog.value(p.id, 0) > 1000) {
+        lastLog[p.id] = nowMs;
+        Logger::info("[RedisFieldMap] id=%s name=%s att: heading=%.2f pitch=%.2f roll=%.2f (rawH=%.2f)",
+                     p.id.toUtf8().constData(), p.name.toUtf8().constData(),
+                     p.heading, p.pitch, p.roll, newHeading);
+    }
+
     // ---- 阵营：按 AFSIM side 显示红蓝颜色 ----
     // AFSIM: entitycamp 1=blue(蓝方), 2=red(红方)
     // CPSS campColor 配色: Camp_Mine=红, Camp_Enemy=蓝, Camp_Friendly=橙
@@ -63,8 +96,28 @@ PlatformData RedisFieldMap::toPlatformData(const HTProto::Customize_Info *info)
     }
 
     // ---- 平台类型（空间域）----
-    p.type = mapPlatformType(info->targettype1(), info->domain());
-    p.category = QStringLiteral("afsimentity");
+    // 类型映射（外部 AFSIM 数据 → 内部 CPSS 模板）：
+    // 规则1: category 6~10 = 导弹（协议约定）
+    // 规则2: 名称含 "_weapon_" = 武器实体（当前仿真实际发送方式，category=0）
+    // 规则3: 其余按空间域 targettype1/domain 映射
+    const QString afsimName = QString::fromStdString(info->name());
+    const bool isWeapon = afsimName.contains(QStringLiteral("_weapon_"), Qt::CaseInsensitive)
+                          || afsimName.contains(QStringLiteral("missile"), Qt::CaseInsensitive);
+    if (isWeapon) p.type = QStringLiteral("missile");
+    else p.type = mapPlatformType(info->targettype1(), info->domain(), info->category());
+    // category 保留 AFSIM 原始分类（内部数据模板：字符串化原始值）
+    p.category = QStringLiteral("afsimentity_%1").arg(info->category());
+
+    // 诊断：确认类别映射
+    static QHash<QString, qint64> lastCatLog;
+    const qint64 catNow = QDateTime::currentMSecsSinceEpoch();
+    if (catNow - lastCatLog.value(p.id, 0) > 2000) {
+        lastCatLog[p.id] = catNow;
+        Logger::info("[RedisFieldMap] id=%s name=%s cat=%d tt1=%d domain=%u -> type=%s",
+                     p.id.toUtf8().constData(), p.name.toUtf8().constData(),
+                     info->category(), info->targettype1(), info->domain(),
+                     p.type.toUtf8().constData());
+    }
 
     // ---- 目标ID（若 AFSIM 填了 entityid 且不同于自身）----
     if (info->entityid() != 0 && info->entityid() != static_cast<unsigned int>(info->id())) {
@@ -133,8 +186,12 @@ bool RedisFieldMap::parseCustomizeInfoC(const QByteArray &raw, CustomizeInfoC &o
     return true;
 }
 
-QString RedisFieldMap::mapPlatformType(int targetType1, unsigned int domain)
+QString RedisFieldMap::mapPlatformType(int targetType1, unsigned int domain, int category)
 {
+    // AFSIM category 6~10 为导弹，优先判定（导弹的 targettype1 可能是空中=0，
+    // 若按空间域映射会错误显示为飞机）
+    if (category >= 6 && category <= 10) return QStringLiteral("missile");
+
     // AFSIM sendCustomize_Info 中 targettype1 的空间域映射：
     //   1(陆)->3  2(空)->0  3(水面)->1  4(水下)->2  5(太空)->4  其他->5
     // 这里映射为 CPSS 图标可识别的类型字符串（见 dynamicdata.h iconFileForType）
