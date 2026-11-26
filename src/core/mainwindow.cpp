@@ -260,19 +260,9 @@ void MainWindow::createChartDock()
     connect(chartWidget, SIGNAL(updateGeoPosition(QPoint)),
             this, SLOT(updateGeoPosition(QPoint)));
 
-    // 工具栏按钮 checked 状态与 Dock 可见性双向同步
+    // 海图常驻：按钮高亮表示实例存在（与可见性无关）
     QAction *action = m_pluginActions.value("chart.plugin", nullptr);
-    if (action) {
-        action->setChecked(true);
-        connect(dock, &QDockWidget::visibilityChanged, this,
-                [action](bool visible) {
-                    if (action && action->isChecked() != visible) {
-                        action->blockSignals(true);
-                        action->setChecked(visible);
-                        action->blockSignals(false);
-                    }
-                });
-    }
+    if (action) action->setChecked(true);
 
     logInfo("[Chart] dock created and shown");
 }
@@ -442,30 +432,32 @@ void MainWindow::onPluginActionTriggered()
     int closeMode = XmlConfig::instance().pluginCloseMode(pluginId);
     QDockWidget *dock = m_pluginDocks.value(pluginId, nullptr);
 
-    if (closeMode == 2) {
-        // 删除模式：按需创建 Dock，关闭时由 Qt::WA_DeleteOnClose 自动删除
-        if (!dock) {
-            dock = createPluginDock(plugin);
-            if (!dock) { action->setChecked(false); return; }
-        }
+    // 按钮语义：高亮 = 实例存在（与当前是否可见无关）
+    if (!dock) {
+        // 实例不存在 → 创建并显示，按钮高亮
+        dock = createPluginDock(plugin);
+        if (!dock) { action->setChecked(false); return; }
         dockPluginTabbed(dock, dockArea);
         action->setChecked(true);
         m_currentPlugin = plugin;
+        return;
+    }
+
+    // 实例已存在
+    if (closeMode == 2) {
+        // 删除模式：再次点击 → 关闭并销毁实例，按钮取消高亮
+        dock->close();   // WA_DeleteOnClose 触发析构，destroyed 信号会取消高亮并清理映射
+        if (m_currentPlugin == plugin) m_currentPlugin = nullptr;
+        action->setChecked(false);
     } else {
-        // 隐藏模式：切换可见性
-        if (!dock) {
-            dock = createPluginDock(plugin);
-            if (!dock) { action->setChecked(false); return; }
-        }
+        // 隐藏模式（海图）：再次点击 → 切换可见性，但实例仍在，按钮保持高亮
         if (dock->isVisible()) {
             dock->hide();
-            action->setChecked(false);
-            if (m_currentPlugin == plugin) m_currentPlugin = nullptr;
         } else {
             dockPluginTabbed(dock, dockArea);
-            action->setChecked(true);
             m_currentPlugin = plugin;
         }
+        action->setChecked(true);   // 实例存在就高亮
     }
 }
 
@@ -519,28 +511,9 @@ QDockWidget* MainWindow::createPluginDock(IPlugin *plugin)
                         m_currentPlugin = nullptr;
                     }
                 });
-        // Tab 切换时同步按钮高亮（删除模式之前漏了，导致切到该 tab 按钮不亮）
-        connect(dock, &QDockWidget::visibilityChanged, this,
-                [action](bool visible) {
-                    if (action && action->isChecked() != visible) {
-                        action->blockSignals(true);
-                        action->setChecked(visible);
-                        action->blockSignals(false);
-                    }
-                });
     } else {
-        // 隐藏模式：Dock 关闭时仅隐藏，visibilityChanged 同步按钮状态
-        connect(dock, &QDockWidget::visibilityChanged, this,
-                [this, pluginId, action](bool visible) {
-                    if (action && action->isChecked() != visible) {
-                        action->blockSignals(true);
-                        action->setChecked(visible);
-                        action->blockSignals(false);
-                    }
-                    if (!visible && m_currentPlugin && m_currentPlugin->pluginId() == pluginId) {
-                        m_currentPlugin = nullptr;
-                    }
-                });
+        // 隐藏模式：按钮高亮 = 实例存在（与可见性无关，Tab 切换不影响高亮）
+        // 用户点 X 关闭时 dock 仅隐藏，实例保留，按钮仍高亮
     }
 
     return dock;
