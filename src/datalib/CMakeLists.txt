@@ -118,6 +118,8 @@ endif()
 # ============================================================
 #  Redis SDK（AFSIM 态势数据接入）
 #  位置：src/3dParty/redis_sdk
+#  注意：编译期必须用源码树的最新协议头（protocol.pb.h 含 Customize_Info 的 pitch/roll 字段）
+#        cpss_redis_sdk.7z 内的头是旧版，不可用于编译；运行期 DLL 仍从 build 目录加载
 #  依赖顺序：必须先找 protobuf / hiredis / ZLIB，再找 RedisSDK
 # ============================================================
 set(REDIS_SDK_ROOT "${PROJECT_SOURCE_DIR}/3dParty/redis_sdk")

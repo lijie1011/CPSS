@@ -19,6 +19,13 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
+# 资源解压：configure 时把 src/3dParty 下所有 cpss_* 压缩包解压到 build/bin/Release/3dParty/
+# （Enclib / mapdata / models / qt 等），已存在则覆盖
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/unpack_resources.cmake)
+
+# 统一第三方资源根目录（编译期和运行期都指向 build 解压目录，源码树只留压缩包）
+set(THIRDPARTY_DIR "${CMAKE_BINARY_DIR}/bin/Release/3dParty")
+
 if(WIN32)
     set(PLATFORM_NAME "windows")
 elseif(UNIX AND NOT APPLE)
@@ -30,14 +37,11 @@ endif()
 message(STATUS "Building CPSS for platform: ${PLATFORM_NAME}")
 
 if(WIN32)
-    # 使用工程内随附的本地 Qt 环境（src/3dParty/qt），路径相对源码树，
-    # 迁移到其他电脑无需单独安装 Qt 即可配置/编译。
-    # 必须用 CACHE FORCE 覆盖：否则 find_package 首次找到的外部 Qt 路径会缓存在
-    # CMakeCache.txt 中，后续 configure 时 set() 无法覆盖，导致"编译用外部 Qt、
-    # windeployqt 用随附 Qt"的不一致，Release 运行报缺 DLL / 初始化失败。
-    # 必须用 CACHE ... FORCE 覆盖：find_package 首次找到的 Qt 路径会缓存在
+    # 使用随附 Qt：由 unpack_resources.cmake 在 configure 初期从 cpss_qt5.12.11.zip
+    # 解压到 build/bin/Release/3dParty/qt，编译期直接指向该目录。
+    # 必须用 CACHE ... FORCE 覆盖：find_package 首次找到的外部 Qt 路径会缓存在
     # CMakeCache.txt 中，普通 set() 无法覆盖，导致编译/部署 Qt 环境不一致。
-    set(Qt5_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3dParty/qt/lib/cmake/Qt5" CACHE PATH "Qt5 dir" FORCE)
+    set(Qt5_DIR "${THIRDPARTY_DIR}/qt/lib/cmake/Qt5" CACHE PATH "Qt5 dir" FORCE)
     message(STATUS "Using bundled MSVC Qt5: ${Qt5_DIR}")
 endif()
 
@@ -49,13 +53,13 @@ find_package(Qt5 5.12 REQUIRED COMPONENTS
     Xml
 )
 
-set(ENCLIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3dParty/Enclib)
+set(ENCLIB_DIR ${THIRDPARTY_DIR}/Enclib)
 set(ENCLIB_INCLUDE_DIR ${ENCLIB_DIR}/include)
 set(ENCLIB_BIN_DIR ${ENCLIB_DIR}/bin)
 
 if(NOT EXISTS "${ENCLIB_INCLUDE_DIR}/encl.h")
     message(FATAL_ERROR "Enclib headers not found at ${ENCLIB_INCLUDE_DIR}\n"
-                        "Please copy Enclib SDK from ChartDemo to src/3dParty/Enclib")
+                        "Please check cpss_enclib.zip.* in src/3dParty (unpack_resources.cmake)")
 endif()
 
 add_subdirectory(common)
@@ -147,6 +151,7 @@ if(WIN32)
         # IconManager::resourcePath() = <exe目录>/../resource，即 build/bin/resource
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resource $<TARGET_FILE_DIR:cpss>/../resource
         # 拷贝 Redis SDK 运行期 DLL（redis_middleware / redis_protocol / protobuf / hiredis / zlib）
+        # 注意：源码树是新版（含姿态字段协议），cpss_redis_sdk.7z 是旧版，故从源码树复制
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/3dParty/redis_sdk/bin $<TARGET_FILE_DIR:cpss>
     )
     
