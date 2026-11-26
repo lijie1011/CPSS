@@ -398,6 +398,32 @@ void MainWindow::unregisterPluginButton(const QString &pluginId)
  *          - closeMode=2（删除模式）：Dock 不存在则创建，关闭时自动删除
  *          chart.plugin 停靠在左侧，其他插件停靠在右侧。
  */
+void MainWindow::dockPluginTabbed(QDockWidget *dock, Qt::DockWidgetArea area)
+{
+    if (!dock) return;
+
+    // 已浮动的 Dock 保持浮动（用户手动拖出来的），只激活，不拉回 Tab 组
+    if (!dock->isFloating()) {
+        // 找同区域已显示的另一个插件 Dock 作为 tab 锚点
+        QDockWidget *anchor = nullptr;
+        for (auto it = m_pluginDocks.constBegin(); it != m_pluginDocks.constEnd(); ++it) {
+            QDockWidget *other = it.value();
+            if (!other || other == dock || !other->isVisible()) continue;
+            if (dockWidgetArea(other) == area) { anchor = other; break; }
+        }
+
+        addDockWidget(area, dock);
+        if (anchor) tabifyDockWidget(anchor, dock);
+        logInfo(QStringLiteral("[Dock] tabbed %1 anchor=%2 area=%3")
+                .arg(dock->windowTitle(), anchor ? anchor->windowTitle() : QStringLiteral("(null)"))
+                .arg((int)area));
+    }
+
+    dock->show();
+    dock->raise();
+    dock->setFocus();
+}
+
 void MainWindow::onPluginActionTriggered()
 {
     QAction *action = qobject_cast<QAction*>(sender());
@@ -410,10 +436,8 @@ void MainWindow::onPluginActionTriggered()
         return;
     }
 
-    // chart.plugin 停靠左侧，其他插件停靠右侧
-    Qt::DockWidgetArea dockArea = (pluginId == "chart.plugin")
-                                   ? Qt::LeftDockWidgetArea
-                                   : Qt::RightDockWidgetArea;
+    // 所有插件统一停靠到左侧区域，与初始海图叠成 Tab 组
+    Qt::DockWidgetArea dockArea = Qt::LeftDockWidgetArea;
 
     int closeMode = XmlConfig::instance().pluginCloseMode(pluginId);
     QDockWidget *dock = m_pluginDocks.value(pluginId, nullptr);
@@ -424,9 +448,7 @@ void MainWindow::onPluginActionTriggered()
             dock = createPluginDock(plugin);
             if (!dock) { action->setChecked(false); return; }
         }
-        if (dock->isFloating()) dock->setFloating(false);
-        addDockWidget(dockArea, dock);
-        dock->show(); dock->raise(); dock->setFocus();
+        dockPluginTabbed(dock, dockArea);
         action->setChecked(true);
         m_currentPlugin = plugin;
     } else {
@@ -440,9 +462,7 @@ void MainWindow::onPluginActionTriggered()
             action->setChecked(false);
             if (m_currentPlugin == plugin) m_currentPlugin = nullptr;
         } else {
-            if (dock->isFloating()) dock->setFloating(false);
-            addDockWidget(dockArea, dock);
-            dock->show(); dock->raise(); dock->setFocus();
+            dockPluginTabbed(dock, dockArea);
             action->setChecked(true);
             m_currentPlugin = plugin;
         }
@@ -499,6 +519,15 @@ QDockWidget* MainWindow::createPluginDock(IPlugin *plugin)
                         m_currentPlugin = nullptr;
                     }
                 });
+        // Tab 切换时同步按钮高亮（删除模式之前漏了，导致切到该 tab 按钮不亮）
+        connect(dock, &QDockWidget::visibilityChanged, this,
+                [action](bool visible) {
+                    if (action && action->isChecked() != visible) {
+                        action->blockSignals(true);
+                        action->setChecked(visible);
+                        action->blockSignals(false);
+                    }
+                });
     } else {
         // 隐藏模式：Dock 关闭时仅隐藏，visibilityChanged 同步按钮状态
         connect(dock, &QDockWidget::visibilityChanged, this,
@@ -530,9 +559,7 @@ void MainWindow::showPluginWidget(IPlugin *plugin)
         dock = createPluginDock(plugin);
         if (!dock) return;
     }
-    if (dock->isFloating()) dock->setFloating(false);
-    addDockWidget(Qt::RightDockWidgetArea, dock);
-    dock->show(); dock->raise(); dock->setFocus();
+    dockPluginTabbed(dock, Qt::LeftDockWidgetArea);
     m_currentPlugin = plugin;
 }
 

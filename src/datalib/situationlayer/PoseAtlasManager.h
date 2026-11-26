@@ -54,7 +54,7 @@ private:
     int m_tileSize = 128;
     int m_iconSize = 64;    ///< 显示的图标尺寸
     QString m_borderMode = "auto";  ///< 模型边框: auto/gray/red/blue
-    QColor m_boxColor = QColor(78, 201, 176);  ///< 包围盒线框颜色
+    QColor m_boxColor = QColor(0, 168, 255);   ///< 包围盒线框颜色（亮蓝高亮细线）
 
     /** type -> 模型文件名（不含扩展名） */
     QHash<QString, QString> m_typeModels;

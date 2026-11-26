@@ -51,8 +51,8 @@ void PoseAtlasManager::initialize()
     m_tileSize = settings.value("Display/AtlasTileSize", 128).toInt();
     m_iconSize = settings.value("Display/ModelIconSize", 64).toInt();
     m_borderMode = settings.value("Display/ModelBorderColor", "auto").toString().toLower();
-    m_boxColor = QColor(settings.value("Display/BoundingBoxColor", "#4EC9B0").toString());
-    if (!m_boxColor.isValid()) m_boxColor = QColor(78, 201, 176);
+    m_boxColor = QColor(settings.value("Display/BoundingBoxColor", "#00A8FF").toString());
+    if (!m_boxColor.isValid()) m_boxColor = QColor(0, 168, 255);
 
     // 类型 -> 模型（6种程序化模型）
     m_typeModels["aircraft"]  = settings.value("Display/ModelAircraft",  "fighter").toString();

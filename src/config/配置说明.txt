@@ -53,9 +53,9 @@ ModelBorderColor=auto
     blue  = 全部强制蓝边框
     注意：仅边框着色，飞机主体保持图集原始灰白明暗立体感。
 
-BoundingBoxColor=#4EC9B0
-    点击平台时显示的 3D 透明包围盒线框颜色（#RRGGBB 格式）。
-    无效值回退到默认青绿色 #4EC9B0。
+BoundingBoxColor=#00A8FF
+    点击平台时显示的 3D 透明包围盒线框颜色（#RRGGBB 格式），默认亮蓝色高亮细线。
+    无效值回退到默认亮蓝色 #00A8FF。
 
 --- 类型到模型映射 ---
     数据源的 type（aircraft/surface/...）映射到 6 种程序化模型名。

@@ -89,8 +89,8 @@ void BoundingBoxItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *,
     painter->save();
     // 青绿色细线（与演示页密度1一致）
     QColor boxColor = PoseAtlasManager::instance()->boundingBoxColor();
-    boxColor.setAlpha(220);
-    painter->setPen(QPen(boxColor, 2, Qt::SolidLine));
+    boxColor.setAlpha(230);
+    painter->setPen(QPen(boxColor, 1, Qt::SolidLine));
 
     // 立方体 8 个角点
     const QVector3D c[8] = {

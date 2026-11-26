@@ -206,6 +206,13 @@ private slots:
     /** @brief 插件工具栏按钮点击处理 */
     void onPluginActionTriggered();
 
+    /**
+     * @brief 将插件 Dock 停靠到指定区域，并与同区域已有插件 Dock 叠成 Tab 页
+     * @param dock 插件 Dock
+     * @param area 目标停靠区域
+     */
+    void dockPluginTabbed(QDockWidget *dock, Qt::DockWidgetArea area);
+
     /** @brief 显示海图显示设置对话框 */
     void showDisplaySetting();
 
