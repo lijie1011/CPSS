@@ -10,7 +10,7 @@ set(CMAKE_AUTOUIC ON)
 set(PLUGIN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
 set(DATALIB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../datalib)
 set(FASTDDS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../datalib/comm/fastdds)
-set(REDIS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../3dParty/redis_sdk/include)
+set(REDIS_INCLUDE_DIR ${THIRDPARTY_DIR}/redis_sdk/include)
 
 set(SOURCES
     HosieryDataPlugin.cpp

@@ -142,7 +142,7 @@ MainWindow::MainWindow(QWidget *parent)
     // 延迟到事件循环启动后执行，让主窗口先 show() 出来，避免界面卡死等待。
     QTimer::singleShot(0, this, [this]() {
         logInfo("[Startup] deferred plugin loading begin");
-        statusBar()->showMessage(QStringLiteral("正在加载海图和插件，请稍候..."));
+        statusBar()->showMessage(QStringLiteral("正在加载ZCHH海图和插件，请稍候..."));
         QApplication::processEvents();   // 让状态栏提示立即绘制出来
 
         loadPlugins();
@@ -153,16 +153,21 @@ MainWindow::MainWindow(QWidget *parent)
         logInfo("[Startup] deferred plugin loading done");
     });
 
-    addToolBar(Qt::TopToolBarArea, ui->toolBar);       // 主工具栏→最上
-    addToolBar(Qt::LeftToolBarArea, ui->pluginToolBar);  // 插件栏→最左
+    // 两行顶部工具栏：第1行海图控制，第2行应用控制
+    addToolBar(Qt::TopToolBarArea, ui->chartToolBar);
+    addToolBarBreak(Qt::TopToolBarArea);
+    addToolBar(Qt::TopToolBarArea, ui->toolBar);
+    addToolBar(Qt::LeftToolBarArea, ui->pluginToolBar);  // 插件栏→最左（保持现状）
 
     // 工具栏按钮当前无图标，默认 IconOnly 样式会显示为空白按钮；
     // 改为“文字在图标旁”样式，使按钮文字（放大/缩小/插件名等）正常显示。
+    ui->chartToolBar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     ui->toolBar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     ui->pluginToolBar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     // 为工具栏设置窗口标题：QMainWindow 右键上下文菜单用 windowTitle 作为
     // 各工具栏/停靠栏的显隐勾选项名称；未设置时该菜单项显示为空白（只有勾选框）。
-    ui->toolBar->setWindowTitle(QStringLiteral("工具栏"));
+    ui->chartToolBar->setWindowTitle(QStringLiteral("海图控制"));
+    ui->toolBar->setWindowTitle(QStringLiteral("应用控制"));
     ui->pluginToolBar->setWindowTitle(QStringLiteral("插件栏"));
     createStatusBar();
 
@@ -228,7 +233,7 @@ void MainWindow::createChartDock()
         return;
     }
 
-    QDockWidget *dock = new QDockWidget(QStringLiteral("海图"), this);
+    QDockWidget *dock = new QDockWidget(QStringLiteral("ZCHH海图"), this);
     dock->setObjectName("Dock_chart.plugin");
     dock->setWidget(chartWidget);
     dock->setFeatures(QDockWidget::DockWidgetMovable |
@@ -659,7 +664,7 @@ void MainWindow::updateGeoPosition(QPoint pos)
 {
     IChartPlugin *cp = chartPlugin();
     if (!cp || !cp->isEnclibReady()) {
-        statusBar()->showMessage(QStringLiteral("海图未初始化"));
+        statusBar()->showMessage(QStringLiteral("ZCHH海图未初始化"));
         return;
     }
     double lon, lat;
@@ -865,7 +870,7 @@ void MainWindow::showDisplaySetting()
     QDialog* dialog = new QDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setModal(true);
-    dialog->setWindowTitle(QStringLiteral("海图显示控制"));
+    dialog->setWindowTitle(QStringLiteral("ZCHH海图显示控制"));
 
     QGridLayout* gridLayout = new QGridLayout(dialog);
     gridLayout->setContentsMargins(0, 0, 0, 0);

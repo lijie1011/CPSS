@@ -376,7 +376,7 @@ void GraphicsViewWidget::updateMapBackground()
         img.fill(Qt::darkGray);
         QPainter painter(&img);
         painter.setPen(Qt::white);
-        painter.drawText(img.rect(), Qt::AlignCenter, QStringLiteral("海图未初始化"));
+        painter.drawText(img.rect(), Qt::AlignCenter, QStringLiteral("ZCHH海图未初始化"));
         m_storedViewImg = img;
         m_scene->setBackgroundBrush(QBrush(m_storedViewImg));
         return;
@@ -1858,7 +1858,7 @@ void GraphicsViewWidget::drawOverviewMapContent()
     if (!m_enclibReady) {
         QPainter painter(&m_overviewImage);
         painter.setPen(Qt::gray);
-        painter.drawText(m_overviewImage.rect(), Qt::AlignCenter, QStringLiteral("海图未就绪"));
+        painter.drawText(m_overviewImage.rect(), Qt::AlignCenter, QStringLiteral("ZCHH海图未就绪"));
         return;
     }
 

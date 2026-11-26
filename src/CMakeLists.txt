@@ -151,8 +151,7 @@ if(WIN32)
         # IconManager::resourcePath() = <exe目录>/../resource，即 build/bin/resource
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resource $<TARGET_FILE_DIR:cpss>/../resource
         # 拷贝 Redis SDK 运行期 DLL（redis_middleware / redis_protocol / protobuf / hiredis / zlib）
-        # 注意：源码树是新版（含姿态字段协议），cpss_redis_sdk.7z 是旧版，故从源码树复制
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/3dParty/redis_sdk/bin $<TARGET_FILE_DIR:cpss>
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${THIRDPARTY_DIR}/redis_sdk/bin $<TARGET_FILE_DIR:cpss>
     )
     
 

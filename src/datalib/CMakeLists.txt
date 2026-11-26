@@ -117,12 +117,10 @@ endif()
 
 # ============================================================
 #  Redis SDK（AFSIM 态势数据接入）
-#  位置：src/3dParty/redis_sdk
-#  注意：编译期必须用源码树的最新协议头（protocol.pb.h 含 Customize_Info 的 pitch/roll 字段）
-#        cpss_redis_sdk.7z 内的头是旧版，不可用于编译；运行期 DLL 仍从 build 目录加载
+#  位置：build/bin/Release/3dParty/redis_sdk（由 cpss_redis_sdk.zip.* 解压，含新版协议头）
 #  依赖顺序：必须先找 protobuf / hiredis / ZLIB，再找 RedisSDK
 # ============================================================
-set(REDIS_SDK_ROOT "${PROJECT_SOURCE_DIR}/3dParty/redis_sdk")
+set(REDIS_SDK_ROOT "${THIRDPARTY_DIR}/redis_sdk")
 if(EXISTS "${REDIS_SDK_ROOT}/lib/cmake/RedisSDK/RedisSDKConfig.cmake")
     find_package(protobuf CONFIG REQUIRED PATHS "${REDIS_SDK_ROOT}/cmake" NO_DEFAULT_PATH)
     find_package(hiredis CONFIG REQUIRED PATHS "${REDIS_SDK_ROOT}/share/hiredis" NO_DEFAULT_PATH)
@@ -161,7 +159,7 @@ endif()
 #  位置：src/3dParty/pgdds（从 DDS-SDK C v1.0.7 win64 复制）
 #  未找到时适配器仍编译（头文件在工程内），但链接会失败，故用条件排除
 # ============================================================
-set(PGDD_SDK_ROOT "${PROJECT_SOURCE_DIR}/3dParty/pgdds")
+set(PGDD_SDK_ROOT "${THIRDPARTY_DIR}/pgdds")
 if(EXISTS "${PGDD_SDK_ROOT}/lib/dds_nonfixed.lib")
     message(STATUS "PGDDS SDK found -> enabling PGDDS adapter")
     target_compile_definitions(cpss_data PRIVATE CPSS_ENABLE_PGDDS)
