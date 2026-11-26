@@ -43,6 +43,7 @@
 #include "platformcontrolpanel.h"
 #include "eventhistorydialog.h"
 #include "attitudeviewer.h"
+#include "titlebar.h"
 #include "plugin/chartplugin/IChartPlugin.h"
 
 #include <QApplication>
@@ -69,6 +70,13 @@ MainWindow::MainWindow(QWidget *parent)
       m_currentPlugin(nullptr)
 {
     ui->setupUi(this);
+
+    // 自绘标题栏：去掉系统原生标题栏，使用跟随主题的 QSS 标题栏
+    setWindowFlags(Qt::FramelessWindowHint | Qt::WindowSystemMenuHint |
+                   Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
+    m_titleBar = new TitleBar(this);
+    m_titleBar->setTitle(windowTitle());
+    setMenuWidget(m_titleBar);   // 置于整个窗口最顶部（工具栏之上）
 
     setDockNestingEnabled(true);
 

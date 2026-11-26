@@ -13,6 +13,7 @@
 #include <stdexcept>
 
 #include "mainwindow.h"
+#include "common/crashhandler.h"
 #include "common/logger.h"
 #include "common/thememanager.h"
 #include "situationlayer/PoseAtlasManager.h"
@@ -26,6 +27,17 @@
  */
 int main(int argc, char *argv[])
 {
+    // 安装崩溃转储处理器（必须最先，捕获后续所有初始化阶段的崩溃）
+    installCrashHandler();
+
+    // 测试开关：cpss.exe --crash-test 故意触发访问违规，用于验证 dump 功能
+    for (int i = 1; i < argc; ++i) {
+        if (QString(argv[i]) == QStringLiteral("--crash-test")) {
+            volatile int *p = nullptr;
+            *p = 1;   // 故意触发 EXCEPTION_ACCESS_VIOLATION
+        }
+    }
+
     try {
         // 检查是否为无头模式
         bool headlessMode = false;

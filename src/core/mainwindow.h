@@ -24,6 +24,7 @@ class MainWindow;
 }
 
 class IChartPlugin;
+class TitleBar;
 
 /**
  * @class MainWindow
@@ -232,6 +233,7 @@ private:
     QMap<QString, QDockWidget*> m_pluginDocks;   ///< 插件 Dock 映射（key=pluginId）
     IPlugin* m_currentPlugin;             ///< 当前活跃的插件
     class AttitudeViewer *m_attitudeViewer = nullptr;  ///< 姿态面板（关闭即销毁）
+    TitleBar *m_titleBar = nullptr;                    ///< 自绘标题栏
 };
 
 #endif

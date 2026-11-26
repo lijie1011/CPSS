@@ -153,3 +153,36 @@ QStatusBar { background-color: #2D2D30; color: #D4D4D4; }
     background-color: #1E1E1E;
     color: #D4D4D4;
 }
+
+/* Custom title bar */
+#TitleBar {
+    background-color: #2D2D30;
+    border-bottom: 1px solid #094771;
+}
+#TitleLogo {
+    color: #4EC9B0;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+#TitleText {
+    color: #D4D4D4;
+    font-size: 12px;
+}
+#TitleBar QToolButton {
+    background: transparent;
+    border: none;
+    color: #9A9A9A;
+    font-size: 14px;
+    width: 30px;
+    height: 28px;
+    border-radius: 3px;
+}
+#TitleBar QToolButton:hover {
+    background-color: #094771;
+    color: #D4D4D4;
+}
+#TitleClose:hover {
+    background-color: #C50F1F !important;
+    color: #FFFFFF !important;
+}

@@ -6,6 +6,7 @@ set(COMMON_SOURCES
     outputsink.cpp
     thememanager.cpp
     theme_colors.cpp
+    crashhandler.cpp
 )
 
 set(COMMON_HEADERS
@@ -16,6 +17,7 @@ set(COMMON_HEADERS
     outputsink.h
     thememanager.h
     theme_colors.h
+    crashhandler.h
 )
 
 add_library(cpss_common SHARED

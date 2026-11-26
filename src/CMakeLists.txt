@@ -69,6 +69,7 @@ add_subdirectory(plugin)
 set(SOURCES
     core/main.cpp
     core/mainwindow.cpp
+    core/titlebar.cpp
     core/attitudesingleview.cpp
     core/attitudeviewer.cpp
     core/eventhistorydialog.cpp
@@ -85,6 +86,7 @@ set(SOURCES
 
 set(HEADERS
     core/mainwindow.h
+    core/titlebar.h
     core/attitudesingleview.h
     core/attitudeviewer.h
     core/eventhistorydialog.h

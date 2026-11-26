@@ -36,3 +36,8 @@ src/3dParty/地图服务.tar
 *.z07
 *.z08
 *.z09
+
+# 崩溃转储文件（自动生成，体积小但累积会占空间）
+**/dumps/
+**/cpss_crash.log
+*.dmp
